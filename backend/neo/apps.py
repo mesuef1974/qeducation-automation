@@ -1,0 +1,7 @@
+from django.apps import AppConfig
+
+
+class NeoConfig(AppConfig):
+    default_auto_field = "django.db.models.BigAutoField"
+    name = "neo"
+    verbose_name = "منصة قطر للتعليم - المزامنة"

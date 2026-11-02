@@ -1,0 +1,25 @@
+# أسرار الجلسة: كوكيز منصة قطر للتعليم وملف تعريف المتصفح
+backend/.neo_profile/
+session_cookies.json
+
+# حالة التشغيل المحلية (بيانات المنصة تبقى على الجهاز - PDPPL)
+*.sqlite3
+*.sqlite3-journal
+
+# مخرجات مولّدة من db/build_db.py
+db/*.db
+db/*.xlsx
+
+# بيئة بايثون وأدوات
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.env
+*.log
+
+# ويندوز
+desktop.ini
+Thumbs.db

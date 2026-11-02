@@ -1,0 +1,96 @@
+"""تحليل صفحات NEO LMS (HTML) إلى كيانات نقية."""
+import re
+from datetime import date
+
+from bs4 import BeautifulSoup
+
+from neo.domain.types import ParsedAssessment, ParsedLesson, ParsedSlot
+
+MONTHS = {m: i for i, m in enumerate(
+    ["يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو", "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"], 1)}
+WEEKDAYS = {"الإثنين": 0, "الاثنين": 0, "الثلاثاء": 1, "الأربعاء": 2, "الاربعاء": 2,
+            "الخميس": 3, "الجمعة": 4, "السبت": 5, "الأحد": 6, "الاحد": 6}
+
+_LABEL = re.compile(r"(?P<month>[؀-ۿ]+)\s+(?P<day>\d{1,2})\s*,?\s*(?:الحصة\s*(?:ال)?(?P<period>\d+))?")
+_POSITION = re.compile(r"^\s*(\d+)\.\s*")
+
+
+def year_for_month(month: int, academic_year: str) -> int:
+    """'2026-2027': أغسطس-ديسمبر في السنة الأولى، يناير-يوليو في الثانية."""
+    first, second = (int(y) for y in academic_year.split("-"))
+    return first if month >= 8 else second
+
+
+def parse_date_label(label: str, academic_year: str) -> tuple[date | None, int | None]:
+    m = _LABEL.search(label or "")
+    if not m or m["month"] not in MONTHS:
+        return None, None
+    month = MONTHS[m["month"]]
+    return date(year_for_month(month, academic_year), month, int(m["day"])), (int(m["period"]) if m["period"] else None)
+
+
+def parse_lessons(html: str, academic_year: str) -> list[ParsedLesson]:
+    soup = BeautifulSoup(html, "lxml")
+    out, seen = [], set()
+    for tile in soup.select("#blockView > div.draggable[id]"):
+        lesson_id = int(tile["id"])
+        if lesson_id in seen:
+            continue
+        seen.add(lesson_id)
+        raw_title = tile.select_one("h2.class_name").get_text(" ", strip=True)
+        pos = _POSITION.match(raw_title)
+        label = tile.select_one(".label_box_wrap .label.box")
+        d, period = parse_date_label(label.get_text(" ", strip=True), academic_year) if label else (None, None)
+        desc = tile.select_one("p.lightText")
+        description = desc.get_text("\n", strip=True) if desc else ""
+        out.append(ParsedLesson(
+            lms_lesson_id=lesson_id,
+            position=int(pos.group(1)) if pos else len(out) + 1,
+            title=_POSITION.sub("", raw_title).strip(),
+            description="" if description == "وصف الدرس." else description,
+            date=d,
+            period=period,
+        ))
+    return out
+
+
+def parse_assessments(html: str) -> list[ParsedAssessment]:
+    soup = BeautifulSoup(html, "lxml")
+    out = []
+    for row in soup.select("tr"):
+        box = row.select_one("input[name='select[]']")
+        cell = row.select_one("td.assignment")
+        if not box or not cell:
+            continue
+        title = cell.select_one(":scope > a")
+        lesson = cell.select_one("a[href*='lesson_id=']")
+        out.append(ParsedAssessment(
+            lms_assignment_id=int(box["value"]),
+            title=title.get_text(strip=True) if title else "",
+            lms_lesson_id=int(re.search(r"lesson_id=(\d+)", lesson["href"]).group(1)) if lesson else None,
+            given=row.select_one("i.tick") is not None,
+        ))
+    return out
+
+
+def parse_timetable(html: str) -> list[ParsedSlot]:
+    soup = BeautifulSoup(html, "lxml")
+    slots = []
+    for row in soup.select("tr"):
+        if not row.select_one("input[name=class_time]"):
+            continue
+        cells = [c.get_text(strip=True) for c in row.select("td")]
+        day = next((WEEKDAYS[c] for c in cells if c in WEEKDAYS), None)
+        period = next((int(m.group(1) or m.group(2))
+                       for c in cells if (m := re.search(r"Period\s*(\d+)|الحصة\s*(\d+)", c))), None)
+        if day is not None and period is not None:
+            slots.append(ParsedSlot(day, period))
+    return slots
+
+
+def is_login_url(url: str) -> bool:
+    return any(s in url for s in ("/log_in", "not_logged_in", "log_in_required"))
+
+
+def is_login_page(html: str) -> bool:
+    return 'action="/log_in' in html or "id=\"login_form\"" in html
