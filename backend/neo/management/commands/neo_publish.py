@@ -2,16 +2,13 @@
 python manage.py neo_publish                                  → جلب الدروس + اقتراح الإظهار والنقاط (قراءة فقط)
 python manage.py neo_publish --apply RUN [--approve all] [--limit N]  → الإظهار وإضافة النقاط (كتابة) ثم التحقق
 """
-import json
-
 from django.core.management.base import BaseCommand, CommandError
 from django.utils import timezone
 
 from neo.infrastructure.client import NeoClient, NotLoggedIn, PlatformError
-from neo.management.commands.neo_verify import verify
-from neo.models import PublishProposal, SyncRun
-from neo.services.publish_service import PublishService
-from neo.services.sync_service import NoActiveClasses, SyncService, active_classes
+from neo.management.report import write_runs
+from neo.services import pipeline
+from neo.services.sync_service import NoActiveClasses, active_classes
 
 
 class Command(BaseCommand):
@@ -26,27 +23,12 @@ class Command(BaseCommand):
         parser.add_argument("--show-browser", action="store_true")
 
     def handle(self, *args, apply, approve, limit, show_browser, **opts):
-        svc = PublishService()
         factory = lambda: NeoClient(headless=not show_browser)  # noqa: E731
         try:
             if apply:
-                run = SyncRun.objects.filter(pk=apply, kind=SyncRun.Kind.PUBLISH_PLAN).first()
-                if not run:
-                    raise CommandError(f"لا توجد عملية اقتراح نشر #{apply}")
-                if approve:
-                    self.stdout.write(f"اعتُمد {svc.approve(apply)} اقتراح.")
-                if not run.publish_proposals.filter(status=PublishProposal.Status.APPROVED).exists():
-                    raise CommandError("لا توجد اقتراحات معتمدة")
-                log = svc.apply(run, factory, limit)
-                self.stdout.write(self.style.SUCCESS(f"[نشر #{log.pk}] {json.dumps(log.summary, ensure_ascii=False)}"))
-                verify(self.stdout, self.style, [run.klass], factory, timezone.localdate())
-                return
-            classes = active_classes(opts["klass"])
-            SyncService().fetch(classes, factory)
-            games = svc.fetch(classes, factory)
-            for k in classes:
-                r = svc.plan(k, games[k.pk])
-                self.stdout.write(self.style.SUCCESS(f"[اقتراح نشر #{r.pk}] {k}"))
-                self.stdout.write(json.dumps(r.summary, ensure_ascii=False, indent=1))
-        except (NotLoggedIn, PlatformError, NoActiveClasses) as exc:
+                runs = pipeline.publish_apply(apply, factory, timezone.localdate(), approve, limit)
+            else:
+                runs = pipeline.publish_plan(active_classes(opts["klass"]), factory)
+        except (NotLoggedIn, PlatformError, NoActiveClasses, pipeline.PipelineError) as exc:
             raise CommandError(str(exc)) from exc
+        write_runs(self.stdout, self.style, runs)

@@ -6,6 +6,7 @@ from django.utils.html import format_html
 from neo.models import (
     AssignProposal,
     DateProposal,
+    Job,
     PlatformAssessment,
     PlatformClass,
     PlatformLesson,
@@ -129,3 +130,16 @@ class PublishProposalAdmin(ReviewActionsMixin, admin.ModelAdmin):
     list_filter = ("status", "run__klass", "run", "show", "add_points")
     list_select_related = ("lesson", "run__klass")
     readonly_fields = ("run", "lesson", "show", "add_points", "status", "error", "applied_at")
+
+
+@admin.register(Job)
+class JobAdmin(admin.ModelAdmin):
+    """سجل مهام الواجهة؛ للقراءة فقط، والطلب من الواجهة أو الأوامر."""
+
+    list_display = ("id", "kind", "status", "error_kind", "created_at", "finished_at")
+    list_filter = ("kind", "status", "error_kind")
+    readonly_fields = ("kind", "params", "key", "status", "created_at", "started_at", "finished_at",
+                       "error_kind", "error", "runs")
+
+    def has_add_permission(self, request):
+        return False

@@ -209,3 +209,58 @@ class PublishProposal(models.Model):
     def __str__(self):
         parts = [t for t, on in (("إظهار", self.show), ("نقاط", self.add_points)) if on]
         return f"{self.lesson} → {' + '.join(parts)}"
+
+
+class Job(models.Model):
+    """
+    مهمة تعمل على المنصة، تطلبها الواجهة وينفّذها عامل واحد (neo_worker) بالترتيب.
+    عامل واحد = متصفح واحد بملف الدخول، فلا تتزاحم المهام عليه.
+    """
+
+    class Kind(models.TextChoices):
+        LOGIN = "login", "تسجيل الدخول"
+        SYNC_PLAN = "sync_plan", "جلب واقتراح التواريخ"
+        SYNC_APPLY = "sync_apply", "تطبيق التواريخ"
+        ASSIGN_PLAN = "assign_plan", "جلب واقتراح الإسناد"
+        ASSIGN_APPLY = "assign_apply", "تطبيق الإسناد"
+        PUBLISH_PLAN = "publish_plan", "جلب واقتراح النشر"
+        PUBLISH_APPLY = "publish_apply", "تطبيق النشر ثم التحقق"
+        VERIFY = "verify", "التحقق من منظور الطالب"
+
+    class Status(models.TextChoices):
+        QUEUED = "queued", "في الانتظار"
+        RUNNING = "running", "قيد التشغيل"
+        DONE = "done", "تمت"
+        FAILED = "failed", "فشلت"
+
+    class Error(models.TextChoices):
+        NONE = "", "-"
+        SESSION = "session", "انتهت جلسة الدخول"
+        BUSY = "busy", "المتصفح مشغول"
+        INPUT = "input", "طلب غير صالح"
+        PLATFORM = "platform", "خطأ من المنصة"
+        UNEXPECTED = "unexpected", "خطأ غير متوقع"
+
+    ACTIVE = (Status.QUEUED, Status.RUNNING)
+
+    kind = models.CharField("النوع", max_length=20, choices=Kind.choices)
+    params = models.JSONField("المعطيات", default=dict, blank=True)
+    # النوع + المعطيات؛ يمنع تكرار المهمة نفسها ما دامت نشطة (Idempotent)
+    key = models.CharField("المفتاح", max_length=255, editable=False)
+    status = models.CharField("الحالة", max_length=10, choices=Status.choices, default=Status.QUEUED, db_index=True)
+    created_at = models.DateTimeField("الطلب", auto_now_add=True)
+    started_at = models.DateTimeField("البداية", null=True, blank=True)
+    finished_at = models.DateTimeField("النهاية", null=True, blank=True)
+    error_kind = models.CharField("نوع الخطأ", max_length=12, choices=Error.choices, blank=True)
+    error = models.TextField("الخطأ", blank=True)
+    runs = models.ManyToManyField(SyncRun, blank=True, related_name="jobs", verbose_name="العمليات الناتجة")
+
+    class Meta:
+        verbose_name = "مهمة"
+        verbose_name_plural = "المهام"
+        ordering = ["-created_at"]
+        constraints = [models.UniqueConstraint(fields=["key"], condition=models.Q(status__in=["queued", "running"]),
+                                               name="uq_active_job")]
+
+    def __str__(self):
+        return f"#{self.pk} {self.get_kind_display()} - {self.get_status_display()}"
