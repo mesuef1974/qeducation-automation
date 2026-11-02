@@ -1,0 +1,68 @@
+/*
+ * أنماط التطبيق فوق tokens.css وpages.css. خصائص منطقية فقط (inline/block)، فالتخطيط يمينيّ أصلًا.
+ */
+.page { max-inline-size: 1180px; margin-inline: auto; padding-block: 24px 120px; display: grid; gap: 24px; }
+.page-head { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 12px; }
+.page-head h1 { font-size: clamp(24px, 4vw, 32px); }
+.page-head p { color: var(--muted); }
+
+.topbar nav a.router-link-active {
+  background: var(--maroon-soft); color: var(--maroon);
+}
+.topbar .pill { flex: 0 0 auto; }
+@media (max-width: 760px) {
+  .topbar .in { flex-wrap: wrap; }
+  .topbar .mark { flex: 1; }
+  .topbar nav { order: 3; flex-basis: 100%; }
+}
+
+/* الأزرار */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px; font: inherit; font-size: 14px;
+  font-weight: 500; padding: 6px 14px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface);
+  color: var(--fg); cursor: pointer; text-decoration: none; white-space: nowrap;
+}
+.btn:hover:not(:disabled) { border-color: var(--maroon); color: var(--maroon); }
+.btn:focus-visible { outline: 2px solid var(--maroon); outline-offset: 2px; }
+.btn:disabled { opacity: .5; cursor: not-allowed; }
+.btn.primary { background: var(--brand); border-color: var(--brand); color: var(--on-brand); }
+.btn.primary:hover:not(:disabled) { background: var(--brand-deep); color: var(--on-brand); }
+.btn.danger { background: var(--bad); border-color: var(--bad); color: var(--surface); }
+.btn.danger:hover:not(:disabled) { color: var(--surface); filter: brightness(.92); }
+.btn.ghost { border-color: transparent; background: transparent; }
+.btn.sm { font-size: 13px; padding: 3px 10px; }
+
+/* مجموعة أزرار متلاصقة (تبويبات/فلاتر) */
+.seg { display: inline-flex; flex-wrap: wrap; gap: 2px; padding: 3px; border-radius: 10px; background: var(--code-bg); }
+.seg button, .seg a {
+  font: inherit; font-size: 14px; padding: 4px 12px; border: 0; border-radius: 8px; background: transparent;
+  color: var(--muted); cursor: pointer; text-decoration: none;
+}
+.seg .on, .seg .router-link-active { background: var(--surface); color: var(--fg); box-shadow: 0 1px 2px rgba(0, 0, 0, .08); }
+
+.controls { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+select, input[type="search"], input[type="number"] {
+  font: inherit; font-size: 14px; padding: 5px 10px; border-radius: 8px; border: 1px solid var(--line);
+  background: var(--surface); color: var(--fg);
+}
+input[type="checkbox"] { inline-size: 16px; block-size: 16px; accent-color: var(--brand); }
+
+.cards { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 460px), 1fr)); }
+.kv { display: grid; grid-template-columns: max-content 1fr; gap: 4px 14px; font-size: 14px; }
+.kv dt { color: var(--muted); }
+.kv dd { margin: 0; }
+
+.empty { color: var(--muted); padding: 28px; text-align: center; border: 1px dashed var(--line); border-radius: var(--radius); }
+.error-box { border-inline-start: 4px solid var(--bad); background: var(--bad-soft); color: var(--fg); border-radius: 10px; padding: 10px 14px; }
+
+.spinner {
+  display: inline-block; inline-size: 14px; block-size: 14px; border-radius: 50%;
+  border: 2px solid currentColor; border-inline-end-color: transparent; animation: spin .8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .spinner { animation-duration: 3s; } }
+
+.table-wrap td.tight, .table-wrap th.tight { inline-size: 1%; white-space: nowrap; }
+tr.sel td { background: var(--maroon-soft); }
+tr.today td { background: var(--warn-soft); }
+pre.json { margin: 0; padding: 12px; background: var(--code-bg); border-radius: 8px; overflow-x: auto; font: 12.5px/1.6 var(--f-mono); direction: ltr; text-align: start; }

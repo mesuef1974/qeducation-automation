@@ -151,3 +151,18 @@ def test_jobs_api(client, classes):
     assert client.get("/api/neo/jobs/").json()["count"] == 1
     assert client.get("/api/neo/session/").json() == {"expired": False, "checked_at": None,
                                                       "worker_busy": False, "queued": 0}
+
+
+# ------------------------------------------------------------- خدمة الواجهة المبنية على /app/
+
+def test_spa(db, client, settings, tmp_path):
+    settings.FRONTEND_DIST = tmp_path
+    assert client.get("/app/").status_code == 503  # لم تُبنَ بعد
+    (tmp_path / "index.html").write_text("<div id=app>", encoding="utf-8")
+    (tmp_path / "assets").mkdir()
+    (tmp_path / "assets" / "a.js").write_text("1", encoding="utf-8")
+    assert client.get("/app/review/publish").content == b"<div id=app>"  # مسارات Vue تعيد الصفحة
+    static = client.get("/app/assets/a.js")
+    assert b"".join(static.streaming_content) == b"1"
+    static.close()
+    assert client.get("/app/..%2F..%2Fmanage.py").status_code == 404  # لا خروج من المجلد

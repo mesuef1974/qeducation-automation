@@ -101,6 +101,10 @@ STATIC_URL = "static/"
 # هوية المشروع (الألوان والخطوط والثيم) مصدرها الوحيد docs/assets، وتُخدَم للوحة الإدارة من جذر static/.
 # بلا بادئة: FileSystemFinder يقارن البادئة بـ os.sep فلا يجد "brand/x.css" على Windows
 STATICFILES_DIRS = [PROJECT_ROOT / "docs" / "assets"]
+# الواجهة الأمامية المبنية، تُخدم على /app/ (core.views.spa)
+FRONTEND_DIST = PROJECT_ROOT / "frontend" / "dist"
+# خادم Vite أثناء التطوير (npm run dev) يمرّر الطلبات إلى هنا؛ Origin فيها منفذه
+CSRF_TRUSTED_ORIGINS = ["http://127.0.0.1:5173", "http://localhost:5173"]
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 SESSION_COOKIE_HTTPONLY = True
