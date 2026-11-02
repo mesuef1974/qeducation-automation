@@ -14,7 +14,7 @@ from django.conf import settings
 from django.db.models import QuerySet
 
 from neo.models import AssignProposal, DateProposal, Job, PlatformClass, PublishProposal, SyncRun
-from neo.services import pipeline
+from neo.services import pipeline, scorecard_service
 
 APPLY_KINDS = (SyncRun.Kind.APPLY, SyncRun.Kind.ASSIGN_APPLY, SyncRun.Kind.PUBLISH_APPLY)
 Report = dict  # {"classes": {اسم الصف: {المرحلة: {...}}}, "verify": {...}}
@@ -132,6 +132,8 @@ def run(classes: list[PlatformClass], factory: pipeline.Factory, today: date, re
     report["attention"] = sum(
         bool(s.get("held") or s.get("anomaly") or s.get("failed") or s.get("ok") is False)
         for stages in by_class.values() for s in stages.values())
+    scorecard_service.snapshot(today)  # يظهر أثر الدورة على خط الأساس في بطاقة الأداء وتقرير SWOT
+    report["snapshot"] = today.isoformat()
     return runs
 
 

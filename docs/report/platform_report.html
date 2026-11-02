@@ -44,6 +44,11 @@ section > header p { color: var(--muted); max-width: 70ch; }
 .ev img { max-height: 420px; object-fit: cover; object-position: top; cursor: zoom-in; background: #f3f3f3; }
 .ev figcaption .pill { margin-inline-end: 6px; }
 
+.crit { display: inline-block; margin-inline-start: 4px; padding: 0 8px; border-radius: 999px; font-size: 12px; font-weight: 500; background: var(--code-bg); color: var(--muted); white-space: nowrap; vertical-align: 1px; }
+.stat small { display: block; font-size: 12.5px; color: var(--muted); margin-block-start: 2px; }
+.share-note { display: none; }
+html.share .topbar, html.share [data-private], html.share #lb { display: none !important; }
+html.share .share-note { display: block; }
 .prio { font: 700 12.5px var(--f-mono); color: var(--on-brand); background: var(--brand); border-radius: 6px; padding: 1px 8px; }
 .prio.p2 { background: var(--slate); color: var(--surface); }
 .prio.p3 { background: var(--muted); color: var(--surface); }
@@ -57,7 +62,7 @@ section > header p { color: var(--muted); max-width: 70ch; }
   .swot, .tows { grid-template-columns: 1fr; }
   .axis { display: none; }
 }
-@media print { .ev img { max-height: none; } section { break-inside: avoid-page; } }
+@media print { .ev img { max-height: 320px; } .wrap { gap: 28px; } .card, .q, .stat, figure, tr, .hero { break-inside: avoid; } section > header { break-after: avoid; } }
 </style>
 </head>
 <body>
@@ -78,21 +83,24 @@ section > header p { color: var(--muted); max-width: 70ch; }
   <span class="eyebrow" style="color:var(--brand-tint)">تقرير SWOT · منصة قطر للتعليم · CYPHER NEO LMS</span>
   <h1>تحليل SWOT لمنصة قطر للتعليم</h1>
   <p>تقييم استخدام المنصة في صفّي الرياضيات 10/3 و12/2: نقاط القوة والضعف في الداخل، والفرص والتهديدات من الخارج، ثم استراتيجيات تربط بينها لرفع تحصيل الطالب وتطوير الأتمتة.</p>
-  <div class="meta"><span>العام 2026-2027 · الفصل الأول</span><span>الجولة: 2 نوفمبر 2026</span><span>بصفة معلم مشارك</span><span>اللقطات بلا أسماء طلاب</span></div>
+  <div class="meta"><span>العام 2026-2027 · الفصل الأول</span><span>الجولة: 2 نوفمبر 2026</span><span>حساب المالك: معلم المادة</span><span class="live-note" hidden></span><span>اللقطات بلا أسماء طلاب</span></div>
 </div>
 
 <!-- ============================================================ الملخص -->
 <section id="summary">
   <header><h2>الملخص التنفيذي</h2></header>
   <div class="stats">
-    <div class="stat"><b>47</b><span>درسًا في 10/3، فيها 194 قسمًا</span></div>
-    <div class="stat"><b>11 / 30</b><span>تقييمًا مُسندًا من المتاح</span></div>
-    <div class="stat"><b>0%</b><span>الإتقان والدرجات المسجّلة</span></div>
-    <div class="stat"><b>≈ 3</b><span>طلاب فتحوا الدروس 1–14، بدقيقة أو أقل</span></div>
-    <div class="stat"><b>4 / 4</b><span>مراحل أتمتة تعمل بلا إخفاق</span></div>
+    <div class="stat" data-live="coverage"><b>21.4%</b><span>تغطية الأتمتة: 3 من 14 مهمة متكررة</span></div>
+    <div class="stat" data-live="time"><b>53 د/أسبوع</b><span>وقت المعلم المستعاد من 530 (تقدير)</span></div>
+    <div class="stat" data-live="platform"><b>42.9%</b><span>قدرات المنصة المستعملة: 6 من 14</span></div>
+    <div class="stat" data-live="engagement"><b>≈ 3</b><span>طلاب فتحوا الدروس 1–14 (لا يُقاس آليًا بعد)</span></div>
+    <div class="stat" data-live="mastery"><b>45.2%</b><span>التقييمات المسندة 33 من 73؛ الإتقان 0%</span></div>
+    <div class="stat" data-live="content"><b>64%</b><span>دروس لها وصف: 73 من 114</span></div>
+    <div class="stat" data-live="reliability"><b>73.3%</b><span>عمليات التطبيق السليمة: 11 من 15</span></div>
+    <div class="stat" data-live="compliance"><b>100%</b><span>شروط الامتثال: 5 من 5</span></div>
   </div>
   <div class="card">
-    <p><b>الخلاصة:</b> المنصة قوية الأدوات، والأتمتة أنهت تجهيز الصفين: التواريخ والإسناد والنشر والنقاط والتحقق. الضعف الحاسم في <b>التفاعل والقياس</b>: الطلاب لا يدخلون، والإتقان لا يُحسب لأن التقييمات غير مربوطة بالنتاجات، ونصف البطاقات بلا هوية. أكبر الفرص في أدوات موجودة لم تُستثمر بعد: الشارات، وتنبيهات أولياء الأمور، وصورة البطاقة بالذكاء الاصطناعي، والتشغيل الآلي المدمج. أبرز التهديدات أن الصف مملوك لمعلم آخر، وأن تغيّر واجهة المنصة قد يكسر الأتمتة.</p>
+    <p><b>الخلاصة:</b> المنصة قوية الأدوات، والأتمتة أنهت تجهيز الصفين: التواريخ والإسناد والنشر والنقاط والتحقق. الضعف الحاسم في <b>التفاعل والقياس</b>: الطلاب لا يدخلون، والإتقان لا يُحسب لأن التقييمات غير مربوطة بالنتاجات، ونصف البطاقات بلا هوية. أكبر الفرص في أدوات موجودة لم تُستثمر بعد: الشارات، وتنبيهات أولياء الأمور، وصورة البطاقة بالذكاء الاصطناعي، والتشغيل الآلي المدمج. أبرز التهديدات أن تغيّر واجهة المنصة قد يكسر الأتمتة، وأن الدورة الأسبوعية تكتب تلقائيًا فلا بد أن تحرسها صمّامات.</p>
   </div>
 </section>
 
@@ -104,45 +112,45 @@ section > header p { color: var(--muted); max-width: 70ch; }
     <div class="q s">
       <h3><span class="L">S</span><span>نقاط القوة<br><small>داخلية · إيجابية</small></span></h3>
       <ul>
-        <li><b>أدوات متكاملة:</b> دروس بأقسام تفاعلية، وتقييمات، وخريطة إتقان، وتلعيب، وتحليلات، وتشغيل آلي.</li>
-        <li><b>الدروس 25 فما بعد نموذجية:</b> صورة من المحتوى، ووصف بالأهداف، و5–6 أقسام تنتهي بتقييم.</li>
-        <li><b>الأتمتة مكتملة للتجهيز:</b> 10/3: 23 درسًا أُظهر و26 بنقاط؛ 12/2: 31 و31؛ بلا إخفاق.</li>
-        <li><b>ظهور منضبط بالتاريخ:</b> الدرس الحالي يُعيَّن تلقائيًا وما بعده مخفي حتى موعده.</li>
-        <li><b>تحقق من منظور الطالب:</b> كل نشر يُقارن بما يراه الطالب فعلًا.</li>
-        <li><b>مصادر أساسية جاهزة:</b> كتاب الطالب، والكتاب التفاعلي، والآلة الحاسبة، ودليل STEM.</li>
+        <li><b>أدوات متكاملة:</b> دروس بأقسام تفاعلية، وتقييمات، وخريطة إتقان، وتلعيب، وتحليلات، وتشغيل آلي. <span class="crit" data-c="platform">قدرات المنصة</span></li>
+        <li><b>الدروس 25 فما بعد نموذجية:</b> صورة من المحتوى، ووصف بالأهداف، و5–6 أقسام تنتهي بتقييم. <span class="crit" data-c="content">جودة المحتوى</span></li>
+        <li><b>الأتمتة مكتملة للتجهيز:</b> 10/3: 23 درسًا أُظهر و26 بنقاط؛ 12/2: 31 و31؛ بلا إخفاق. <span class="crit" data-c="coverage">تغطية الأتمتة</span></li>
+        <li><b>ظهور منضبط بالتاريخ:</b> الدرس الحالي يُعيَّن تلقائيًا وما بعده مخفي حتى موعده. <span class="crit" data-c="coverage">تغطية الأتمتة</span></li>
+        <li><b>تحقق من منظور الطالب:</b> كل نشر يُقارن بما يراه الطالب فعلًا. <span class="crit" data-c="reliability">الموثوقية</span></li>
+        <li><b>مصادر أساسية جاهزة:</b> كتاب الطالب، والكتاب التفاعلي، والآلة الحاسبة، ودليل STEM. <span class="crit" data-c="platform">قدرات المنصة</span></li>
       </ul>
     </div>
     <div class="q w">
       <h3><span class="L">W</span><span>نقاط الضعف<br><small>داخلية · سلبية</small></span></h3>
       <ul>
-        <li><b>تفاعل شبه معدوم:</b> نحو 3 طلاب فتحوا الدروس 1–14، أغلبهم 0–1 دقيقة، ولا أحد بعدها.</li>
-        <li><b>إتقان صفري:</b> نتاجات كثيرة بلا تقييمات؛ 10.3.x بلا تقييم، والمصفوفات 10.4.x غير مغطاة.</li>
-        <li><b>بطاقات الدروس 1–24 ضعيفة:</b> صور عامة، ووصف «وصف الدرس.»، وقسم واحد.</li>
-        <li><b>تلعيب خامل:</b> 3 لاعبين، و0 شارات، و235 نقطة فقط.</li>
-        <li><b>إنجاز الصف معطّل:</b> لا تحقق تلقائي ولا شهادة، ولا تسلسل.</li>
-        <li><b>واجهة الصف غير مخصّصة:</b> عناصر ترحيب افتراضية، والصف يظهر «غير منشور».</li>
+        <li><b>تفاعل شبه معدوم:</b> نحو 3 طلاب فتحوا الدروس 1–14، أغلبهم 0–1 دقيقة، ولا أحد بعدها. <span class="crit" data-c="engagement">تفاعل الطالب</span></li>
+        <li><b>إتقان صفري:</b> نتاجات كثيرة بلا تقييمات؛ 10.3.x بلا تقييم، والمصفوفات 10.4.x غير مغطاة. <span class="crit" data-c="mastery">الإتقان</span></li>
+        <li><b>بطاقات الدروس 1–24 ضعيفة:</b> صور عامة، ووصف «وصف الدرس.»، وقسم واحد. <span class="crit" data-c="content">جودة المحتوى</span></li>
+        <li><b>تلعيب خامل:</b> 3 لاعبين، و0 شارات، و235 نقطة فقط. <span class="crit" data-c="engagement">تفاعل الطالب</span></li>
+        <li><b>إنجاز الصف معطّل:</b> لا تحقق تلقائي ولا شهادة، ولا تسلسل. <span class="crit" data-c="platform">قدرات المنصة</span></li>
+        <li><b>واجهة الصف غير مخصّصة:</b> عناصر ترحيب افتراضية، والصف يظهر «غير منشور». <span class="crit" data-c="platform">قدرات المنصة</span></li>
       </ul>
     </div>
     <div class="q o">
       <h3><span class="L">O</span><span>الفرص<br><small>خارجية · إيجابية</small></span></h3>
       <ul>
-        <li><b>صورة البطاقة بالذكاء الاصطناعي</b> في المحرر السريع، ووكيل CYPHER الذكي.</li>
-        <li><b>تبويب أولياء الأمور مفعّل</b> ويمكن أن يحمل تنبيهات التقدم والتأخر.</li>
-        <li><b>قواعد إنجاز أوسع:</b> شارات ومستويات وشهادة عند إنجاز الوحدة أو الصف.</li>
-        <li><b>تشغيل آلي مدمج</b> يدعم رسائل التأخر والدرجة المنخفضة دون تشغيل يومي منا.</li>
-        <li><b>بيانات قابلة للقراءة</b> (تحليلات، إنجاز، إتقان) تكفي لتقرير أسبوعي آلي.</li>
-        <li><b>تعميم الأتمتة</b> على معلمين ومواد أخرى بالبنية نفسها.</li>
+        <li><b>صورة البطاقة بالذكاء الاصطناعي</b> في المحرر السريع، ووكيل CYPHER الذكي. <span class="crit" data-c="content">جودة المحتوى</span></li>
+        <li><b>تبويب أولياء الأمور مفعّل</b> ويمكن أن يحمل تنبيهات التقدم والتأخر. <span class="crit" data-c="engagement">تفاعل الطالب</span></li>
+        <li><b>قواعد إنجاز أوسع:</b> شارات ومستويات وشهادة عند إنجاز الوحدة أو الصف. <span class="crit" data-c="platform">قدرات المنصة</span></li>
+        <li><b>تشغيل آلي مدمج</b> يدعم رسائل التأخر والدرجة المنخفضة دون تشغيل يومي منا. <span class="crit" data-c="time">وقت المعلم</span></li>
+        <li><b>بيانات قابلة للقراءة</b> (تحليلات، إنجاز، إتقان) تكفي لتقرير أسبوعي آلي. <span class="crit" data-c="engagement">تفاعل الطالب</span></li>
+        <li><b>تعميم الأتمتة</b> على معلمين ومواد أخرى بالبنية نفسها. <span class="crit" data-c="time">وقت المعلم</span></li>
       </ul>
     </div>
     <div class="q t">
       <h3><span class="L">T</span><span>التهديدات<br><small>خارجية · سلبية</small></span></h3>
       <ul>
-        <li><b>ملكية الصف لمعلم آخر:</b> الإعدادات والهيكل قراره، وأي تغيير يحتاج تنسيقًا.</li>
-        <li><b>تغيّر واجهة المنصة</b> قد يكسر قراءة الصفحات، فالأتمتة تقرأ HTML لا واجهة برمجية.</li>
-        <li><b>إشارات غير موثوقة:</b> ثبت أن شارة «شخصى» قد تبقى على درس ظاهر (الدرس 31).</li>
-        <li><b>الجلسة والدخول:</b> الدخول يدوي وقد تنتهي الجلسة أثناء التشغيل.</li>
-        <li><b>الخصوصية:</b> بيانات الطلاب تحت PDPPL، وأي تقرير مشترك يجب أن يخلو من الأسماء.</li>
-        <li><b>موثوقية التحليلات:</b> قد تشمل حسابات تجريبية، فلا تُبنى عليها قرارات فردية دون تحقق.</li>
+        <li><b>الكتابة التلقائية:</b> الدورة الأسبوعية تطبّق الروتيني دون اعتماد مسبق، فخطأ المنصة قد يصل قبل المراجعة. <span class="crit" data-c="reliability">الموثوقية</span></li>
+        <li><b>تغيّر واجهة المنصة</b> قد يكسر قراءة الصفحات، فالأتمتة تقرأ HTML لا واجهة برمجية. <span class="crit" data-c="reliability">الموثوقية</span></li>
+        <li><b>إشارات غير موثوقة:</b> ثبت أن شارة «شخصى» قد تبقى على درس ظاهر (الدرس 31). <span class="crit" data-c="reliability">الموثوقية</span></li>
+        <li><b>الجلسة والدخول:</b> الدخول يدوي وقد تنتهي الجلسة أثناء التشغيل. <span class="crit" data-c="reliability">الموثوقية</span></li>
+        <li><b>الخصوصية:</b> بيانات الطلاب تحت PDPPL، وأي تقرير مشترك يجب أن يخلو من الأسماء. <span class="crit" data-c="compliance">الامتثال</span></li>
+        <li><b>موثوقية التحليلات:</b> قد تشمل حسابات تجريبية، فلا تُبنى عليها قرارات فردية دون تحقق. <span class="crit" data-c="engagement">تفاعل الطالب</span></li>
       </ul>
     </div>
   </div>
@@ -167,13 +175,13 @@ section > header p { color: var(--muted); max-width: 70ch; }
     <div class="card"><h3><span class="code">S·T</span> القوة في وجه التهديد</h3>
       <ul>
         <li>مرحلة التحقق تكشف أي تغيّر في المنصة فور حدوثه؛ واختبارات العينات تثبّت المحلّلات.</li>
-        <li>نمط الاقتراح والموافقة يجعل كل تغيير قابلًا للعرض على مالك الصف قبل تنفيذه.</li>
+        <li>صمّامات الدورة الأسبوعية: فحص شكل المنصة، ونافذة 14 يومًا، وحد 20 تغييرًا للمرحلة، وتحقق بعدي.</li>
         <li>الاعتماد على التبويب المرجعي لا على الشارات (كما في الرؤية).</li>
       </ul></div>
     <div class="card"><h3><span class="code">W·T</span> تقليل الضعف وتجنب التهديد</h3>
       <ul>
-        <li>المراحل الجديدة تبدأ قراءة فقط، والكتابة لاحقًا وبموافقة لكل عملية.</li>
-        <li>اقتراح ربط التقييمات بالنتاجات على المالك بقائمة جاهزة بدل التغيير المباشر.</li>
+        <li>المراحل الجديدة تبدأ قراءة فقط. المحتوى إضافة للناقص باعتمادك، ولا يُعدَّل الموجود ولا يُحذف.</li>
+        <li>ربط التقييمات بالنتاجات بقائمة جاهزة تعتمدها، ثم تُطبَّق آليًا.</li>
         <li>بيانات الطلاب محلية فقط، والتقارير المشتركة مجمّعة بلا أسماء.</li>
       </ul></div>
   </div>
@@ -222,14 +230,14 @@ section > header p { color: var(--muted); max-width: 70ch; }
   <div class="table-wrap"><table>
     <thead><tr><th>الأولوية</th><th>الإجراء</th><th>الاستراتيجية</th><th>الأثر على الطالب</th><th>المنفّذ</th></tr></thead>
     <tbody>
-      <tr><td><span class="prio">P1</span></td><td>ربط كل تقييم بنتاج، وتقييمات قصيرة لنتاجات 10.3.x و10.4.x</td><td>W·T</td><td>يرى إتقانه لكل مهارة ويعرف ما يراجع</td><td>المالك؛ الأتمتة تكشف الفجوات</td></tr>
+      <tr><td><span class="prio">P1</span></td><td>ربط كل تقييم بنتاج، وتقييمات قصيرة لنتاجات 10.3.x و10.4.x</td><td>W·T</td><td>يرى إتقانه لكل مهارة ويعرف ما يراجع</td><td>أنت تعتمد؛ الأتمتة تكشف الفجوات وتطبّق</td></tr>
       <tr><td><span class="prio">P1</span></td><td>تقييم قصير (3–5 أسئلة) في نهاية كل درس من 1–24</td><td>W·O</td><td>تغذية راجعة فورية</td><td>المعلم</td></tr>
-      <tr><td><span class="prio">P1</span></td><td>شارات: «أنجز وحدة»، «5 دروس متتالية»، «إتقان 80%»</td><td>S·O</td><td>هدف قريب ودافعية مرئية</td><td>المالك، ثم القواعد آليًا</td></tr>
-      <tr><td><span class="prio p2">P2</span></td><td>إنجاز تلقائي للصف وشهادة</td><td>W·O</td><td>نهاية واضحة ومكافأة</td><td>المالك</td></tr>
-      <tr><td><span class="prio p2">P2</span></td><td>رسائل آلية: تأخر الواجب، تشجيع، دعم عند درجة منخفضة</td><td>W·O</td><td>متابعة شخصية بلا عبء</td><td>الأتمتة بموافقة</td></tr>
-      <tr><td><span class="prio p2">P2</span></td><td>تنبيهات أولياء الأمور بالتأخر والتقدم الأسبوعي</td><td>W·O</td><td>دعم من البيت</td><td>المالك يفعّل</td></tr>
+      <tr><td><span class="prio">P1</span></td><td>شارات للإتقان لا للدخول: «أنجز وحدة»، «إتقان 80%»</td><td>S·O</td><td>هدف قريب ودافعية مرئية</td><td>أنت تقرر، ثم القواعد آليًا</td></tr>
+      <tr><td><span class="prio p2">P2</span></td><td>إنجاز تلقائي للصف وشهادة</td><td>W·O</td><td>نهاية واضحة ومكافأة</td><td>أنت تفعّل</td></tr>
+      <tr><td><span class="prio p2">P2</span></td><td>رسائل آلية: تأخر الواجب، تشجيع، دعم عند درجة منخفضة</td><td>W·O</td><td>متابعة شخصية بلا عبء</td><td>الأتمتة، ولا يُرسل شيء إلا باعتمادك</td></tr>
+      <tr><td><span class="prio p2">P2</span></td><td>تنبيهات أولياء الأمور بالتأخر والتقدم الأسبوعي</td><td>W·O</td><td>دعم من البيت</td><td>أنت تفعّل، والرسائل باعتمادك</td></tr>
       <tr><td><span class="prio p2">P2</span></td><td>بنك تدريب متدرج لكل وحدة: علاجي وإثرائي</td><td>S·O</td><td>تمايز حسب المستوى</td><td>المعلم</td></tr>
-      <tr><td><span class="prio p3">P3</span></td><td>تسلسل الأقسام أو مسار تعلم، بعد تجربة على وحدة</td><td>W·T</td><td>لا قفز إلى التقييم قبل الشرح</td><td>المالك</td></tr>
+      <tr><td><span class="prio p3">P3</span></td><td>تسلسل الأقسام أو مسار تعلم، بعد تجربة على وحدة</td><td>W·T</td><td>لا قفز إلى التقييم قبل الشرح</td><td>أنت تقرر</td></tr>
       <tr><td><span class="prio p3">P3</span></td><td>صفحة رئيسية مخصصة: درس اليوم، الواجب القادم، لوحة النقاط</td><td>W·O</td><td>مدخل واضح كل يوم</td><td>المعلم</td></tr>
     </tbody></table></div>
 </section>
@@ -265,17 +273,18 @@ section > header p { color: var(--muted); max-width: 70ch; }
 
 <!-- ============================================================ الأتمتة -->
 <section id="automation">
-  <header><h2>تطوير الأتمتة للتحكم في المنصة كاملة</h2><p>المبدأ الثابت: قراءة، ثم اقتراح، ثم موافقة، ثم تطبيق يقرأ الحالة قبل الكتابة، ثم تحقق.</p></header>
+  <header><h2>تطوير الأتمتة للتحكم في المنصة كاملة</h2><p>الروتيني المجرَّب تلقائي مع تقرير وصمّامات. المحتوى والإعدادات والرسائل: اقتراح، ثم اعتمادك، ثم تطبيق يقرأ الحالة قبل الكتابة، ثم تحقق.</p></header>
   <div class="table-wrap"><table>
     <thead><tr><th>الأولوية</th><th>المرحلة</th><th>النوع</th><th>تعالج</th><th>المخرَج</th></tr></thead>
     <tbody>
       <tr><td><span class="prio">P1</span></td><td><b>5. تقرير التعلم الأسبوعي</b> <code>neo_insights</code></td><td><span class="pill read">قراءة</span></td><td>W: التفاعل</td><td>«لم يفتح درس اليوم» و«متأخر في الواجب»، محليًا</td></tr>
       <tr><td><span class="prio">P1</span></td><td><b>6. مدقق جودة الدروس</b> <code>neo_audit</code></td><td><span class="pill read">قراءة</span></td><td>W: البطاقات</td><td>صورة عامة، ووصف افتراضي، وقسم واحد، وبلا نتاج</td></tr>
       <tr><td><span class="prio">P1</span></td><td><b>7. تغطية الإتقان</b></td><td><span class="pill read">قراءة</span></td><td>W: الإتقان</td><td>النتاجات غير المغطاة لكل وحدة</td></tr>
-      <tr><td><span class="prio p2">P2</span></td><td><b>8. تجويد البطاقات</b></td><td><span class="pill write">كتابة بموافقة</span></td><td>W·O</td><td>وصف من الخطة، وصورة من قالب الوحدة</td></tr>
+      <tr><td><span class="prio p2">P2</span></td><td><b>8. تجويد البطاقات</b></td><td><span class="pill write">كتابة بموافقة</span></td><td>W·O</td><td>وصف من الخطة وصورة من قالب الوحدة، إضافة للناقص فقط</td></tr>
       <tr><td><span class="prio p2">P2</span></td><td><b>9. قواعد التلعيب</b></td><td><span class="pill write">كتابة بموافقة</span></td><td>S·O</td><td>شارات المستويات وإنجاز الوحدة</td></tr>
       <tr><td><span class="prio p2">P2</span></td><td><b>10. التشغيل الآلي المدمج</b></td><td><span class="pill write">كتابة بموافقة</span></td><td>W·O</td><td>قواعد التأخر والدرجة المنخفضة</td></tr>
-      <tr><td><span class="prio p3">P3</span></td><td><b>11. الجدولة</b></td><td><span class="pill read">قراءة</span></td><td>T: تغيّر المنصة</td><td>تحقق وتقرير كل أحد</td></tr>
+      <tr><td><span class="pill ok">منجزة</span></td><td><b>11. الدورة الأسبوعية</b></td><td><span class="pill write">كتابة تلقائية</span></td><td>T: تغيّر المنصة</td><td>الخميس 14:00: التواريخ والإسناد والنشر والتحقق، مع تقرير وصمّامات</td></tr>
+      <tr><td><span class="pill ok">منجزة</span></td><td><b>بطاقة الأداء</b></td><td><span class="pill read">قراءة</span></td><td>كل المعايير</td><td>ثمانية معايير بخط أساس 2 نوفمبر، ولقطة بعد كل دورة</td></tr>
       <tr><td><span class="prio p3">P3</span></td><td><b>12. التعميم</b></td><td><span class="pill prep">بنية</span></td><td>S·O</td><td>خطة من PDF، ومطابقة مواد أخرى، واكتشاف الصفوف</td></tr>
     </tbody></table></div>
   <p class="muted">المراحل القائمة (التواريخ، والإسناد، والنشر والنقاط، والتحقق) موثّقة في <a href="../automation.html">صفحة الأتمتة</a>.</p>
@@ -285,20 +294,49 @@ section > header p { color: var(--muted); max-width: 70ch; }
 <section id="roadmap">
   <header><h2>خارطة الطريق ومؤشرات النجاح</h2></header>
   <div class="phases">
-    <div class="card"><span class="n">1</span><b>أسبوعان: القياس</b><p class="muted">المراحل 5–7 قراءة فقط، وفحص الدرس 31 بعد 4 نوفمبر.</p></div>
-    <div class="card"><span class="n">2</span><b>الشهر الأول: المحتوى</b><p class="muted">بطاقات 1–24، وتجربة صورة الذكاء الاصطناعي، واقتراح ربط النتاجات على المالك.</p></div>
+    <div class="card"><span class="n">1</span><b>أسبوعان: القياس</b><p class="muted">بطاقة الأداء والدورة الأسبوعية (منجزتان)، ثم المراحل 5–7 قراءة فقط، وفحص الدرس 31 بعد 4 نوفمبر.</p></div>
+    <div class="card"><span class="n">2</span><b>الشهر الأول: المحتوى</b><p class="muted">بطاقات 1–24، وتجربة صورة الذكاء الاصطناعي، وربط النتاجات باعتمادك.</p></div>
     <div class="card"><span class="n">3</span><b>الشهر الثاني: الدافعية</b><p class="muted">الشارات، ورسائل التأخر والتشجيع، وتنبيهات أولياء الأمور.</p></div>
-    <div class="card"><span class="n">4</span><b>الفصل الثاني: التعميم</b><p class="muted">الجدولة، والخطة من PDF، ومعلم أو مادة أخرى.</p></div>
+    <div class="card"><span class="n">4</span><b>الفصل الثاني: التعميم</b><p class="muted">الخطة من PDF، ومعلم أو مادة أخرى.</p></div>
   </div>
-  <div class="callout"><b>المؤشرات الأسبوعية:</b> نسبة من ينجزون درس اليوم، ومتوسط دقائق التعلم لكل درس، وعدد اللاعبين في اللعبة، ونسبة الإتقان لكل وحدة.</div>
-  <div class="callout warn">الصفان مملوكان لمعلم آخر، فكل تغيير في الإعدادات أو الهيكل بالتنسيق معه. أرقام التحليلات قد تشمل حسابات تجريبية. اللقطات مقصوصة وأسماء الطلاب محجوبة (PDPPL). التقرير محلي وغير منشور.</div>
+  <div class="callout"><b>المؤشرات:</b> المعايير الثمانية في بطاقة الأداء، لكل منها قيمة ومستهدف ومستوى نضج من 0 إلى 4، وتُقاس أسبوعيًا على خط الأساس. ويُضاف إليها عند جمعها: نسبة من ينجزون درس اليوم، ودقائق التعلم لكل درس، والإتقان لكل وحدة.</div>
+  <div class="callout warn">الحساب والصفان لك: الروتيني تلقائي مع تقرير، والمحتوى والإعدادات والرسائل باعتمادك، والمحتوى الموجود لا يُعدَّل. أرقام التحليلات قد تشمل حسابات تجريبية. اللقطات مقصوصة وأسماء الطلاب محجوبة (PDPPL). التقرير محلي وغير منشور.</div>
 </section>
 
+<p class="share-note muted">نسخة للمشاركة: لا أسماء طلاب ولا بيانات فردية (PDPPL). أُعدّت من النسخة المحلية.</p>
 <footer class="page-foot">تحليل SWOT لمنصة قطر للتعليم · الرياضيات 10/3 و12/2 · 2 نوفمبر 2026</footer>
 </main>
 
 <div id="lb" role="dialog" aria-label="عرض الصورة"><img alt=""></div>
 <script>
+if (/[?&]share\b/.test(location.search)) document.documentElement.classList.add("share");
+
+// الأرقام الحيّة من بطاقة الأداء حين يُفتح التقرير من الموقع المحلي؛ وإلا تبقى أرقام خط الأساس أعلاه
+if (location.protocol.indexOf("http") === 0) {
+  fetch("/api/neo/scorecard/", { headers: { Accept: "application/json" } })
+    .then(function (r) { return r.ok ? r.json() : null; })
+    .then(function (d) {
+      if (!d) return;
+      var base = {};
+      (d.baseline ? d.baseline.criteria : []).forEach(function (c) { base[c.key] = c.value; });
+      d.current.criteria.forEach(function (c) {
+        var el = document.querySelector('[data-live="' + c.key + '"]');
+        if (!el || c.value === null) return;
+        var unit = c.unit === "%" ? "%" : " " + c.unit;
+        el.querySelector("b").textContent = c.value + unit;
+        el.querySelector("span").textContent = c.title + ": " + c.detail;
+        var note = el.querySelector("small") || el.appendChild(document.createElement("small"));
+        var b = base[c.key];
+        note.textContent = "المستهدف " + c.target + unit +
+          (b !== undefined && b !== null && b !== c.value ? " · خط الأساس " + b + unit : "");
+      });
+      var live = document.querySelector(".live-note");
+      if (live) { live.hidden = false; live.textContent = "الأرقام حيّة · " + d.current.day; }
+      document.documentElement.setAttribute("data-live", "ready");
+    })
+    .catch(function () {});
+}
+
 var lb = document.getElementById("lb"), lbImg = lb.querySelector("img");
 document.querySelectorAll(".ev img").forEach(function (img) {
   img.addEventListener("click", function () { lbImg.src = img.src; lbImg.alt = img.alt; lb.style.display = "flex"; });

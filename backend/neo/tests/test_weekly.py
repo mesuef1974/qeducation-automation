@@ -8,7 +8,7 @@ from django.utils import timezone
 
 from neo.domain.types import ParsedLesson
 from neo.infrastructure.client import PlatformError
-from neo.models import Job, PlatformLesson, PublishProposal, SyncRun
+from neo.models import Job, PlatformLesson, PublishProposal, ScorecardSnapshot, SyncRun
 from neo.services import weekly_service as w
 from neo.services.job_service import JobService
 from neo.services.publish_service import PublishService
@@ -123,3 +123,4 @@ def test_run_report(publish_run, monkeypatch):
     stages = report["classes"][k.name]
     assert stages["publish"]["applied"] == 3 and stages["verify"]["ok"] is True
     assert stages["dates"]["approved"] == 0 and report["attention"] == 0
+    assert ScorecardSnapshot.objects.filter(day=date(2026, 11, 5)).exists()  # لقطة بعد كل دورة

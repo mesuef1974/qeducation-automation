@@ -1,15 +1,17 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, ref, watch } from "vue";
 
+import ScorecardPanel from "@/components/ScorecardPanel.vue";
 import { useTheme } from "@/composables/useTheme";
 
 /**
+ * تبويب واحد: بطاقة الأداء (الأرقام الحيّة) أعلاه، ثم تقرير SWOT الذي تُوسم بنوده بالمعايير نفسها.
  * تقرير SWOT كما هو في docs/report (المصدر الوحيد)، داخل إطار من الأصل نفسه.
  * الإطار بطول محتواه فيتمرر مع الصفحة، ويتبع ثيم الواجهة، وتُكبَّر لقطاته في الصفحة الأم.
  */
 const SRC = "/docs/report/platform_report.html";
 const SECTIONS: [string, string][] = [
-  ["summary", "الملخص"], ["swot", "المصفوفة"], ["tows", "الاستراتيجيات"], ["evidence", "الأدلة"],
+  ["scorecard", "بطاقة الأداء"], ["summary", "الملخص"], ["swot", "المصفوفة"], ["tows", "الاستراتيجيات"], ["evidence", "الأدلة"],
   ["student", "الطالب"], ["cards", "البطاقات"], ["automation", "الأتمتة"], ["roadmap", "الخطة"],
 ];
 // داخل الواجهة: شريطها العلوي يكفي، والروابط تُفتح خارج الإطار
@@ -63,6 +65,10 @@ function fit() {
 watch(theme, (t) => doc()?.documentElement.setAttribute("data-theme", t));
 
 function go(id: string) {
+  if (id === "scorecard") {
+    document.getElementById("scorecard")?.scrollIntoView({ behavior: "smooth" });
+    return;
+  }
   const target = doc()?.getElementById(id);
   if (!target || !frame.value) return;
   const top = frame.value.getBoundingClientRect().top + target.getBoundingClientRect().top + window.scrollY - 112;
@@ -84,15 +90,24 @@ onBeforeUnmount(() => {
 <template>
   <header class="page-head">
     <div>
-      <h1>تحليل SWOT</h1>
-      <p>القوة والضعف والفرص والتهديدات في استخدام المنصة، والاستراتيجيات وخطة العمل.</p>
+      <h1>SWOT والأداء</h1>
+      <p>المعايير الثمانية بأرقامها الحيّة، ثم القوة والضعف والفرص والتهديدات موسومة بمعاييرها، والاستراتيجيات وخطة العمل.</p>
     </div>
-    <a class="btn sm" :href="SRC" target="_blank" rel="noopener">فتح في صفحة مستقلة</a>
+    <div class="actions">
+      <a class="btn sm" :href="SRC" target="_blank" rel="noopener">فتح التقرير مستقلًا</a>
+      <a class="btn sm" :href="`${SRC}?share`" target="_blank" rel="noopener">نسخة المشاركة</a>
+    </div>
   </header>
 
-  <nav class="seg sections" aria-label="أقسام التقرير">
-    <button v-for="[id, label] in SECTIONS" :key="id" :disabled="state !== 'ready'" @click="go(id)">{{ label }}</button>
+  <nav class="seg sections" aria-label="أقسام التبويب">
+    <button v-for="[id, label] in SECTIONS" :key="id" :disabled="id !== 'scorecard' && state !== 'ready'" @click="go(id)">
+      {{ label }}
+    </button>
   </nav>
+
+  <ScorecardPanel />
+
+  <h2 class="report-title">تقرير SWOT</h2>
 
   <p v-if="state === 'loading'" class="empty"><i class="spinner" /> تحميل التقرير...</p>
   <div v-if="state === 'failed'" class="error-box">
@@ -108,6 +123,8 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
+.actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.report-title { margin-block-end: -12px; }
 .sections { position: sticky; inset-block-start: 58px; z-index: 4; box-shadow: 0 2px 10px rgba(0, 0, 0, .06); }
 .sections button:disabled { opacity: .5; cursor: default; }
 .report { inline-size: 100%; border: 0; display: block; background: transparent; }

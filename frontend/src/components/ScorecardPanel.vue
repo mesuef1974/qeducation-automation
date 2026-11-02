@@ -54,9 +54,9 @@ onMounted(load);
 </script>
 
 <template>
-  <header class="page-head">
+  <header id="scorecard" class="page-head">
     <div>
-      <h1>بطاقة الأداء</h1>
+      <h2>بطاقة الأداء</h2>
       <p>
         المعايير الثمانية بقيمها الحالية ومستهدفاتها.
         <template v-if="card?.baseline">خط الأساس: {{ fmtDay(card.baseline.day) }}.</template>
