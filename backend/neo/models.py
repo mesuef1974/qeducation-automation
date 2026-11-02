@@ -90,6 +90,7 @@ class SyncRun(models.Model):
         PUBLISH_PLAN = "publish_plan", "اقتراح نشر"
         PUBLISH_APPLY = "publish_apply", "تطبيق نشر"
         VERIFY = "verify", "تحقق من منظور الطالب"
+        AUDIT = "audit", "تدقيق جودة الدروس"
 
     klass = models.ForeignKey(PlatformClass, on_delete=models.CASCADE, related_name="runs", verbose_name="الصف")
     kind = models.CharField("النوع", max_length=20, choices=Kind.choices)
@@ -227,6 +228,7 @@ class Job(models.Model):
         PUBLISH_APPLY = "publish_apply", "تطبيق النشر ثم التحقق"
         VERIFY = "verify", "التحقق من منظور الطالب"
         WEEKLY = "weekly", "الدورة الأسبوعية"
+        AUDIT = "audit", "تدقيق جودة الدروس"
 
     class Status(models.TextChoices):
         QUEUED = "queued", "في الانتظار"
@@ -283,6 +285,28 @@ class WorkerHeartbeat(models.Model):
 
     def __str__(self):
         return f"العامل {self.pid} - {self.seen_at:%H:%M:%S}"
+
+
+class LessonAudit(models.Model):
+    """نتيجة تدقيق جودة درس (قراءة فقط): ما ينقصه ليجذب الطالب ويُعلّمه."""
+
+    lesson = models.OneToOneField(PlatformLesson, on_delete=models.CASCADE, related_name="audit", verbose_name="الدرس")
+    image_default = models.BooleanField("صورة عامة")
+    sections = models.JSONField("أنواع الأقسام", default=list)  # بترتيبها، مثل ["عرض", "فيديو", "تقييم"]
+    has_outcomes = models.BooleanField("مربوط بنتاج")
+    issues = models.JSONField("النواقص", default=list)  # رموز من domain.quality.ISSUES
+    audited_at = models.DateTimeField("وقت التدقيق")
+
+    class Meta:
+        verbose_name = "تدقيق درس"
+        verbose_name_plural = "تدقيق الدروس"
+
+    @property
+    def complete(self) -> bool:
+        return not self.issues
+
+    def __str__(self):
+        return f"{self.lesson}: {len(self.issues)} نواقص"
 
 
 class ScorecardSnapshot(models.Model):

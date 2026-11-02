@@ -108,6 +108,9 @@ class NeoClient:
     def lesson_list_html(self, lms_id: int) -> str:
         return self.get_html(f"/teacher_lessons/list/{lms_id}")
 
+    def lesson_page_html(self, lms_id: int, lesson_id: int) -> str:
+        return self.get_html(f"/teacher_lesson/show/{lms_id}?lesson_id={lesson_id}")
+
     def timetable_html(self, lms_id: int) -> str:
         return self.get_html(f"/class_configure/schedule/{lms_id}")
 

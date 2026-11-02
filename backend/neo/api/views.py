@@ -54,7 +54,7 @@ class LessonViewSet(viewsets.ReadOnlyModelViewSet):
     lookup_field = "lms_lesson_id"
 
     def get_queryset(self):
-        qs = PlatformLesson.objects.filter(klass__active=True).select_related("klass")
+        qs = PlatformLesson.objects.filter(klass__active=True).select_related("klass", "audit")
         if (lms := _int_param(self.request, "class")) is not None:
             qs = qs.filter(klass__lms_id=lms)
         for flag, field in (("hidden", "hidden"), ("dated", "date__isnull")):

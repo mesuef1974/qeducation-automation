@@ -16,6 +16,22 @@ class ParsedLesson:
 
 
 @dataclass(frozen=True)
+class ParsedTile:
+    """ما تعرضه بطاقة الدرس في قائمة المعلم عن جودته."""
+    lms_lesson_id: int
+    image_default: bool   # صورة من مكتبة المنصة العامة لا من المحتوى
+    sections: int
+    has_outcomes: bool    # شارة «نتاجات التعلم»
+
+
+@dataclass(frozen=True)
+class ParsedSection:
+    section_id: int
+    title: str
+    kind: str  # من SECTION_KINDS، أو الأيقونة الخام إن لم تُعرف
+
+
+@dataclass(frozen=True)
 class ParsedAssessment:
     lms_assignment_id: int
     title: str

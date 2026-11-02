@@ -4,7 +4,7 @@ from datetime import date
 
 from bs4 import BeautifulSoup
 
-from neo.domain.types import ParsedAssessment, ParsedLesson, ParsedSlot
+from neo.domain.types import ParsedAssessment, ParsedLesson, ParsedSection, ParsedSlot, ParsedTile
 
 MONTHS = {m: i for i, m in enumerate(
     ["يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو", "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"], 1)}
@@ -55,6 +55,40 @@ def parse_lessons(html: str, academic_year: str) -> list[ParsedLesson]:
             period=period,
             hidden=HIDDEN_BADGE in badges,
             awards_points=POINTS_BADGE in badges,
+        ))
+    return out
+
+
+def parse_tiles(html: str) -> list[ParsedTile]:
+    """جودة البطاقة من قائمة الدروس: الصورة، وعدد الأقسام، وشارة النتاجات."""
+    soup = BeautifulSoup(html, "lxml")
+    out = []
+    for tile in soup.select("#blockView > div.draggable[id]"):
+        style = " ".join(e.get("style", "") for e in tile.select("[style]"))
+        label = tile.select_one(".footer .label")
+        count = re.search(r"\d+", label.get_text(" ", strip=True)) if label else None
+        out.append(ParsedTile(
+            lms_lesson_id=int(tile["id"]),
+            image_default="/images/default-images/" in style or "url(" not in style,
+            sections=int(count.group()) if count else 0,
+            has_outcomes=tile.select_one(".footer i.graph") is not None,
+        ))
+    return out
+
+
+def parse_sections(html: str) -> list[ParsedSection]:
+    """أقسام الدرس من صفحته (تبويب الأقسام) بترتيبها وأنواعها."""
+    soup = BeautifulSoup(html, "lxml")
+    out = []
+    for row in soup.select("#section_list > tr"):
+        link, icon = row.select_one("a[href*='section_id=']"), row.select_one("i.icnColor")
+        if not link:
+            continue
+        raw = next((c for c in icon.get("class", []) if c not in ("small", "icnColor")), "") if icon else ""
+        out.append(ParsedSection(
+            section_id=int(re.search(r"section_id=(\d+)", link["href"]).group(1)),
+            title=link.get_text(" ", strip=True),
+            kind=raw,
         ))
     return out
 

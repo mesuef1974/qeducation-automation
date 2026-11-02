@@ -38,6 +38,15 @@ export interface PlatformClass {
   overview: Overview;
 }
 
+export interface LessonAudit {
+  image_default: boolean;
+  sections: string[];
+  has_outcomes: boolean;
+  issues: string[];
+  issue_labels: string[];
+  audited_at: string;
+}
+
 export interface Lesson {
   lms_lesson_id: number;
   lms_id: number;
@@ -53,6 +62,7 @@ export interface Lesson {
   override_code: string;
   effective_code: string;
   fetched_at: string;
+  audit: LessonAudit | null;
 }
 
 export interface Run {
@@ -104,7 +114,7 @@ export type Proposal = DateProposal | PublishProposal | AssignProposal;
 
 export type JobKind =
   | "login" | "sync_plan" | "sync_apply" | "assign_plan" | "assign_apply" | "publish_plan" | "publish_apply" | "verify"
-  | "weekly";
+  | "weekly" | "audit";
 export type JobStatus = "queued" | "running" | "done" | "failed";
 
 export interface JobParams {

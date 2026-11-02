@@ -6,28 +6,31 @@ import { neo } from "@/api/neo";
 import type { Lesson } from "@/api/types";
 import { todayIso } from "@/domain";
 import { useClassesStore } from "@/stores/classes";
-import { fmtDay } from "@/utils/format";
+import { useJobsStore } from "@/stores/jobs";
+import { ago, fmtDay } from "@/utils/format";
 
 const route = useRoute();
 const router = useRouter();
 const classes = useClassesStore();
+const jobs = useJobsStore();
 
 const lms = computed(() => Number(route.query.class) || classes.items[0]?.lms_id);
 const lessons = ref<Lesson[]>([]);
 const loading = ref(false);
 const error = ref("");
 const search = ref("");
-type Filter = "all" | "hidden" | "undated" | "nopoints" | "unmatched";
+type Filter = "all" | "incomplete" | "hidden" | "undated" | "nopoints" | "unmatched";
 const filter = ref<Filter>("all");
 const FILTERS: [Filter, string, (l: Lesson) => boolean][] = [
   ["all", "الكل", () => true],
+  ["incomplete", "ناقصة الجودة", (l) => !!l.audit?.issues.length],
   ["hidden", "مخفية", (l) => l.hidden],
   ["undated", "بلا تاريخ", (l) => !l.date],
   ["nopoints", "بلا نقاط", (l) => !l.awards_points],
   ["unmatched", "بلا مطابقة", (l) => !l.effective_code || l.effective_code === "-"],
 ];
 
-watch(lms, async (id) => {
+async function load(id = lms.value) {
   if (!id) return;
   loading.value = true;
   try {
@@ -38,7 +41,20 @@ watch(lms, async (id) => {
   } finally {
     loading.value = false;
   }
-}, { immediate: true });
+}
+watch(lms, (id) => load(id), { immediate: true });
+// انتهاء التدقيق يحدّث الجدول
+jobs.onFinished((j) => { if (j.kind === "audit") void load(); });
+
+async function audit() {
+  try {
+    await jobs.enqueue("audit", { classes: [lms.value] });
+  } catch (e) {
+    error.value = (e as Error).message;
+  }
+}
+const audited = computed(() => lessons.value.filter((l) => l.audit).length);
+const lastAudit = computed(() => lessons.value.map((l) => l.audit?.audited_at ?? "").sort().at(-1) || null);
 
 const count = (f: Filter) => lessons.value.filter(FILTERS.find(([k]) => k === f)![2]).length;
 const shown = computed(() => {
@@ -53,8 +69,15 @@ const today = todayIso();
   <header class="page-head">
     <div>
       <h1>الدروس</h1>
-      <p>كما على المنصة بعد آخر جلب، مع مطابقتها بالخطة الفصلية.</p>
+      <p>
+        كما على المنصة بعد آخر جلب، مع مطابقتها بالخطة الفصلية.
+        <template v-if="audited">الجودة مدقَّقة في {{ audited }} درسًا · {{ ago(lastAudit) }}.</template>
+        <template v-else-if="lessons.length">لم تُدقَّق جودة الدروس بعد.</template>
+      </p>
     </div>
+    <button class="btn sm" :disabled="!lms || jobs.busy('audit', lms)" @click="audit">
+      <i v-if="jobs.busy('audit', lms)" class="spinner" /> تدقيق الجودة
+    </button>
   </header>
 
   <div class="controls">
@@ -76,7 +99,7 @@ const today = todayIso();
   <div v-else class="table-wrap">
     <table>
       <thead>
-        <tr><th class="tight">#</th><th>العنوان</th><th>التاريخ</th><th class="tight">الحصة</th><th>درس الخطة</th><th>للطالب</th><th>نقاط</th></tr>
+        <tr><th class="tight">#</th><th>العنوان</th><th>التاريخ</th><th class="tight">الحصة</th><th>درس الخطة</th><th>للطالب</th><th>نقاط</th><th>الجودة</th></tr>
       </thead>
       <tbody>
         <tr v-for="l in shown" :key="l.lms_lesson_id" :class="{ today: l.date === today }">
@@ -91,9 +114,21 @@ const today = todayIso();
           </td>
           <td><span class="pill" :class="l.hidden ? 'bad' : 'ok'">{{ l.hidden ? "مخفي" : "ظاهر" }}</span></td>
           <td><span v-if="l.awards_points" class="pill ok">نعم</span><span v-else class="pill warn">لا</span></td>
+          <td class="quality">
+            <template v-if="l.audit">
+              <span v-if="!l.audit.issues.length" class="pill ok" :title="l.audit.sections.join('، ')">مستوفٍ</span>
+              <span v-for="x in l.audit.issue_labels" v-else :key="x" class="pill warn"
+                    :title="l.audit.sections.length ? `الأقسام: ${l.audit.sections.join('، ')}` : 'بلا أقسام'">{{ x }}</span>
+            </template>
+            <span v-else class="muted">-</span>
+          </td>
         </tr>
-        <tr v-if="!shown.length"><td colspan="7" class="muted">لا دروس تطابق التصفية.</td></tr>
+        <tr v-if="!shown.length"><td colspan="8" class="muted">لا دروس تطابق التصفية.</td></tr>
       </tbody>
     </table>
   </div>
 </template>
+
+<style scoped>
+.quality { display: flex; flex-wrap: wrap; gap: 4px; }
+</style>

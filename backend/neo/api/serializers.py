@@ -1,6 +1,9 @@
 from rest_framework import serializers
 
-from neo.models import AssignProposal, DateProposal, Job, PlatformClass, PlatformLesson, PublishProposal, SyncRun
+from neo.domain.quality import ISSUES
+from neo.models import (
+    AssignProposal, DateProposal, Job, LessonAudit, PlatformClass, PlatformLesson, PublishProposal, SyncRun,
+)
 from neo.services.job_service import PARAMS
 
 
@@ -17,14 +20,26 @@ class ClassSerializer(serializers.ModelSerializer):
         return self.context.get("overviews", {}).get(obj.pk)
 
 
+class LessonAuditSerializer(serializers.ModelSerializer):
+    issue_labels = serializers.SerializerMethodField()
+
+    class Meta:
+        model = LessonAudit
+        fields = ["image_default", "sections", "has_outcomes", "issues", "issue_labels", "audited_at"]
+
+    def get_issue_labels(self, a):
+        return [ISSUES[i] for i in a.issues]
+
+
 class LessonSerializer(serializers.ModelSerializer):
     lms_id = serializers.IntegerField(source="klass.lms_id", read_only=True)
     effective_code = serializers.CharField(read_only=True)
+    audit = LessonAuditSerializer(read_only=True)
 
     class Meta:
         model = PlatformLesson
         fields = ["lms_lesson_id", "lms_id", "position", "title", "description", "date", "period", "hidden",
-                  "awards_points", "match_code", "match_score", "override_code", "effective_code", "fetched_at"]
+                  "awards_points", "match_code", "match_score", "override_code", "effective_code", "fetched_at", "audit"]
 
 
 class RunSerializer(serializers.ModelSerializer):

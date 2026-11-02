@@ -7,7 +7,7 @@ from datetime import date
 from django.db.models import Count, Q
 
 from neo.domain.scorecard import CAPABILITIES, COMPLIANCE, LEVELS, TASKS
-from neo.models import PlatformAssessment, PlatformClass, PlatformLesson, ScorecardSnapshot, SyncRun
+from neo.models import LessonAudit, PlatformAssessment, PlatformClass, PlatformLesson, ScorecardSnapshot, SyncRun
 
 APPLY_KINDS = (SyncRun.Kind.APPLY, SyncRun.Kind.ASSIGN_APPLY, SyncRun.Kind.PUBLISH_APPLY)
 
@@ -36,6 +36,9 @@ def build(today: date) -> dict:
         total=Count("pk"), given=Count("pk", filter=Q(given=True)))
     applies = SyncRun.objects.filter(klass__in=classes, kind__in=APPLY_KINDS).aggregate(
         total=Count("pk"), ok=Count("pk", filter=Q(ok=True)))
+    audits = LessonAudit.objects.filter(lesson__klass__in=classes)
+    audited = audits.count()
+    complete = audits.filter(issues=[]).count()
     last_verify = [SyncRun.objects.filter(klass=k, kind=SyncRun.Kind.VERIFY).order_by("-pk").first() for k in classes]
     verify_ok = sum(1 for r in last_verify if r and r.ok)
 
@@ -67,10 +70,12 @@ def build(today: date) -> dict:
                    level=_avg_level("assess"), target_level=2,
                    detail=f"التقييمات المسندة {assess['given']} من {assess['total']}؛ الإتقان لا يُقاس بعد",
                    next_step="جمع نتائج التقييمات ثم الإتقان لكل وحدة"),
-        _criterion("content", "جودة المحتوى", _pct(lessons["described"], lessons["total"]), 100,
+        _criterion("content", "جودة المحتوى",
+                   _pct(complete, audited) if audited else _pct(lessons["described"], lessons["total"]), 100,
                    level=_avg_level("content"), target_level=2,
-                   detail=f"{lessons['described']} من {lessons['total']} درسًا له وصف؛ الصورة والأقسام لا تُقاس بعد",
-                   next_step="مدقق جودة الدروس يكشف الناقص، ثم إضافة باعتمادك"),
+                   detail=(f"{complete} من {audited} درسًا مستوفٍ (صورة من المحتوى، ووصف، و3 أقسام فأكثر، وتقييم، ونتاج)"
+                           if audited else f"{lessons['described']} من {lessons['total']} درسًا له وصف؛ لم يُدقَّق بعد"),
+                   next_step="إضافة الناقص باعتمادك: البطاقة والوصف أولًا، ثم الأقسام والتقييم"),
         _criterion("reliability", "الموثوقية", _pct(applies["ok"], applies["total"]), 98,
                    detail=f"{applies['ok']} من {applies['total']} عملية تطبيق سليمة؛ "
                           f"آخر تحقق سليم في {verify_ok} من {len(last_verify)} صف",

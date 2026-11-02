@@ -8,6 +8,7 @@ from datetime import date
 from neo.infrastructure.client import NeoClient
 from neo.models import AssignProposal, DateProposal, PlatformClass, PublishProposal, SyncRun
 from neo.services.assign_service import AssignService
+from neo.services.audit_service import AuditService
 from neo.services.publish_service import PublishService
 from neo.services.sync_service import SyncService
 from neo.services.verify_service import VerifyService
@@ -88,6 +89,13 @@ def publish_apply(run_id: int, factory: Factory, today: date, approve: str | Non
 def verify(classes: list[PlatformClass], factory: Factory, today: date) -> list[SyncRun]:
     fetched = SyncService().fetch(classes, factory)
     return fetched + VerifyService().run(classes, factory, today)
+
+
+# ------------------------------------------------------------- المرحلة 6: جودة الدروس (قراءة فقط)
+
+def audit(classes: list[PlatformClass], factory: Factory) -> list[SyncRun]:
+    fetched = SyncService().fetch(classes, factory)
+    return fetched + AuditService().run(classes, factory)
 
 
 PROPOSALS = {"date": DateProposal, "assign": AssignProposal, "publish": PublishProposal}
