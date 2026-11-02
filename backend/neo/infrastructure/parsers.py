@@ -104,6 +104,22 @@ def parse_points_actions(html: str) -> int:
     return len(BeautifulSoup(html, "lxml").select("table.rulesList tr i.star2"))
 
 
+_STUDENT_LESSON = re.compile(r"/student_lesson/show/\d+\?lesson_id=(\d+)")
+
+
+def parse_student_lessons(html: str) -> tuple[set[int], set[int]]:
+    """قائمة دروس الطالب: (بطاقات الدروس الظاهرة، دروس لوحة «اليوم»)."""
+    soup = BeautifulSoup(html, "lxml")
+
+    def ids(links):
+        return {int(m.group(1)) for a in links if (m := _STUDENT_LESSON.search(a.get("href", "")))}
+
+    today = soup.find("i", class_="اليوم")
+    today_block = today.find_parent("div", class_="block") if today else None
+    return (ids(soup.select("#blockView > a[href]")),
+            ids(today_block.select("a[href]")) if today_block else set())
+
+
 def is_login_url(url: str) -> bool:
     return any(s in url for s in ("/log_in", "not_logged_in", "log_in_required"))
 

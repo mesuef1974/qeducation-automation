@@ -1,12 +1,14 @@
 """
 python manage.py neo_publish                                  → جلب الدروس + اقتراح الإظهار والنقاط (قراءة فقط)
-python manage.py neo_publish --apply RUN [--approve all] [--limit N]  → الإظهار وإضافة النقاط (كتابة)
+python manage.py neo_publish --apply RUN [--approve all] [--limit N]  → الإظهار وإضافة النقاط (كتابة) ثم التحقق
 """
 import json
 
 from django.core.management.base import BaseCommand, CommandError
+from django.utils import timezone
 
 from neo.infrastructure.client import NeoClient, NotLoggedIn, PlatformError
+from neo.management.commands.neo_verify import verify
 from neo.models import PublishProposal, SyncRun
 from neo.services.publish_service import PublishService
 from neo.services.sync_service import NoActiveClasses, SyncService, active_classes
@@ -37,6 +39,7 @@ class Command(BaseCommand):
                     raise CommandError("لا توجد اقتراحات معتمدة")
                 log = svc.apply(run, factory, limit)
                 self.stdout.write(self.style.SUCCESS(f"[نشر #{log.pk}] {json.dumps(log.summary, ensure_ascii=False)}"))
+                verify(self.stdout, self.style, [run.klass], factory, timezone.localdate())
                 return
             classes = active_classes(opts["klass"])
             SyncService().fetch(classes, factory)

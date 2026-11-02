@@ -85,6 +85,7 @@ class SyncRun(models.Model):
         ASSIGN_APPLY = "assign_apply", "تطبيق إسناد"
         PUBLISH_PLAN = "publish_plan", "اقتراح نشر"
         PUBLISH_APPLY = "publish_apply", "تطبيق نشر"
+        VERIFY = "verify", "تحقق من منظور الطالب"
 
     klass = models.ForeignKey(PlatformClass, on_delete=models.CASCADE, related_name="runs", verbose_name="الصف")
     kind = models.CharField("النوع", max_length=20, choices=Kind.choices)

@@ -226,6 +226,32 @@ class NeoClient:
         with self.page.expect_navigation():
             self.page.click(f"{form} [name=commit]")
 
+    # ------------------------------------------------------------- منظور الطالب
+
+    def student_view_html(self, lms_id: int) -> str:
+        """
+        قائمة الدروس كما يراها «طالب عام» (عرض الصف كطالب) ثم العودة إلى عرض المعلم.
+        لا يُسجَّل دخول ولا إنجاز. المنصة تبدّل كوكي الجلسة عند التبديل، فيُحفظ بعد العودة وإلا انتهت الجلسة.
+        """
+        self._throttle()
+        back = f"{BASE_URL}/student_class/view_as_teacher/{lms_id}?from=%2Fteacher_lessons%2Flist%2F{lms_id}"
+        try:
+            self.page.goto(f"{BASE_URL}/teacher_class/submit_view_as_generic_student/{lms_id}"
+                           f"?from=%2Fteacher_lessons%2Flist%2F{lms_id}")
+            if is_login_url(self.page.url):
+                raise NotLoggedIn("انتهت الجلسة - شغّل: python manage.py neo_login")
+            if f"/student_lessons/list/{lms_id}" not in self.page.url:
+                raise PlatformError(f"لم يُفتح عرض الطالب: {self.page.url}")
+            self.page.wait_for_load_state("networkidle")
+            return self.page.content()
+        finally:
+            self.page.goto(back)
+            if is_login_url(self.page.url):
+                raise NotLoggedIn("انتهت الجلسة بعد عرض الطالب - شغّل: python manage.py neo_login")
+            self._save_cookies()
+            if "/teacher_" not in self.page.url:
+                raise PlatformError(f"لم تتم العودة إلى عرض المعلم: {self.page.url}")
+
     def _assert_form(self):
         if is_login_url(self.page.url):
             raise NotLoggedIn("انتهت الجلسة - شغّل: python manage.py neo_login")

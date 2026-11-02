@@ -80,6 +80,7 @@ python backend/manage.py migrate
 | 1. تواريخ الدروس | `neo_sync` | `neo_sync --apply RUN --approve future\|all` |
 | 2. إسناد التقييمات | `neo_assign` | `neo_assign --apply RUN --approve all` (جرّب أولًا `--limit 1`) |
 | 3. نشر الدروس (الرؤية ونقاط الإنجاز) | `neo_publish` | `neo_publish --apply RUN --approve all` (جرّب أولًا `--limit 1`) |
+| 4. التحقق من منظور الطالب | `neo_verify` (قراءة فقط، ويعمل تلقائيًا بعد تطبيق النشر) | — |
 
 كل الأوامر تعمل على الصفوف المفعّلة، ولحصرها في صف واحد أضف `--class LMS_ID`، ويمكن تكرار الخيار.
 
