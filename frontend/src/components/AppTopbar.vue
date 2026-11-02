@@ -12,7 +12,7 @@ const classes = useClassesStore();
 const { theme, next } = useTheme();
 const confirm = useConfirm();
 
-const openReview = computed(() => Object.values(classes.openReview).reduce((a, b) => a + b, 0));
+const openReview = computed(() => classes.openReview.date + classes.openReview.assign + classes.openReview.publish);
 const loginQueued = computed(() => jobs.busy("login"));
 
 async function login() {
@@ -35,6 +35,7 @@ async function login() {
           المراجعة <span v-if="openReview" class="count">{{ openReview }}</span>
         </RouterLink>
         <RouterLink to="/lessons">الدروس</RouterLink>
+        <RouterLink to="/content">المحتوى</RouterLink>
         <RouterLink to="/log">السجل</RouterLink>
         <RouterLink to="/swot">SWOT والأداء</RouterLink>
         <a href="/admin/">الإدارة</a>

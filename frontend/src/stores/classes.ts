@@ -14,7 +14,7 @@ export const useClassesStore = defineStore("classes", () => {
 
   /** المعلّق + المعتمد لكل نوع، لكل الصفوف */
   const openReview = computed(() => {
-    const totals: Record<ProposalKind, number> = { date: 0, assign: 0, publish: 0 };
+    const totals: Record<ProposalKind, number> = { date: 0, assign: 0, publish: 0, content: 0 };
     for (const c of items.value)
       for (const k of Object.keys(totals) as ProposalKind[])
         totals[k] += c.overview.review[k].pending + c.overview.review[k].approved;

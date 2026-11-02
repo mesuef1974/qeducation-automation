@@ -1,5 +1,6 @@
 import { api } from "./client";
 import type {
+  ContentProposal,
   Decision, Job, JobKind, JobParams, Lesson, Page, PlatformClass, Proposal, ProposalKind, Run, Scorecard, SessionState, WeeklyState,
 } from "./types";
 
@@ -23,6 +24,8 @@ export const neo = {
   jobs: (p: { status?: string; limit?: number; offset?: number } = {}) => api.get<Page<Job>>(`neo/jobs/${query(p)}`),
   enqueue: (kind: JobKind, params: JobParams = {}) => api.post<Job>("neo/jobs/", { kind, params }),
   scorecard: () => api.get<Scorecard>("neo/scorecard/"),
+  editContent: (id: number, payload: Record<string, string>) =>
+    api.post<ContentProposal>(`neo/proposals/content/${id}/edit/`, payload),
   weekly: () => api.get<WeeklyState>("neo/weekly/"),
   snapshot: () => api.post<void>("neo/scorecard/"),
   cancel: (id: number) => api.post<Job>(`neo/jobs/${id}/cancel/`),

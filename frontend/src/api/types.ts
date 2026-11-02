@@ -1,6 +1,6 @@
 // أشكال ردود /api/neo/ كما يعيدها Django (neo/api/serializers.py)
 
-export type ProposalKind = "date" | "assign" | "publish";
+export type ProposalKind = "date" | "assign" | "publish" | "content";
 export type ProposalStatus = "pending" | "approved" | "rejected" | "applied" | "skipped" | "failed";
 export type Decision = "approve" | "reject" | "reset";
 
@@ -110,11 +110,18 @@ export interface AssignProposal extends ProposalBase {
   flags: string;
 }
 
-export type Proposal = DateProposal | PublishProposal | AssignProposal;
+export interface ContentProposal extends ProposalBase {
+  lesson: LessonRef;
+  kind: "description" | "image" | "section";
+  kind_label: string;
+  payload: Record<string, string | number>;
+}
+
+export type Proposal = DateProposal | PublishProposal | AssignProposal | ContentProposal;
 
 export type JobKind =
   | "login" | "sync_plan" | "sync_apply" | "assign_plan" | "assign_apply" | "publish_plan" | "publish_apply" | "verify"
-  | "weekly" | "audit";
+  | "weekly" | "audit" | "content_plan" | "content_apply";
 export type JobStatus = "queued" | "running" | "done" | "failed";
 
 export interface JobParams {
@@ -123,6 +130,7 @@ export interface JobParams {
   approve?: "all" | "future";
   limit?: number;
   cycle?: string;
+  lesson?: number;
 }
 
 export interface Job {

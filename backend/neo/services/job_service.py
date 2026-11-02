@@ -30,6 +30,8 @@ PARAMS = {
     Job.Kind.VERIFY: {"classes"},
     Job.Kind.WEEKLY: {"classes", "cycle"},
     Job.Kind.AUDIT: {"classes"},
+    Job.Kind.CONTENT_PLAN: {"classes"},
+    Job.Kind.CONTENT_APPLY: {"run", "approve", "lesson"},
     Job.Kind.SYNC_APPLY: {"run", "approve"},
     Job.Kind.ASSIGN_APPLY: {"run", "approve", "limit"},
     Job.Kind.PUBLISH_APPLY: {"run", "approve", "limit"},
@@ -53,7 +55,9 @@ def _execute(job: Job, make: FactoryMaker, today: date) -> list[SyncRun]:
     factory = make(True)
     if job.kind == k.WEEKLY:
         return weekly_service.run(active_classes(p.get("classes")), factory, today, job.report)
-    if job.kind in (k.SYNC_PLAN, k.ASSIGN_PLAN, k.PUBLISH_PLAN, k.VERIFY, k.AUDIT):
+    if job.kind == k.CONTENT_APPLY:
+        return pipeline.content_apply(p["run"], factory, p.get("approve"), p.get("lesson"))
+    if job.kind in (k.SYNC_PLAN, k.ASSIGN_PLAN, k.PUBLISH_PLAN, k.VERIFY, k.AUDIT, k.CONTENT_PLAN):
         classes = active_classes(p.get("classes"))
         return {
             k.SYNC_PLAN: lambda: pipeline.sync_plan(classes, factory, today),
@@ -61,6 +65,7 @@ def _execute(job: Job, make: FactoryMaker, today: date) -> list[SyncRun]:
             k.PUBLISH_PLAN: lambda: pipeline.publish_plan(classes, factory),
             k.VERIFY: lambda: pipeline.verify(classes, factory, today),
             k.AUDIT: lambda: pipeline.audit(classes, factory),
+            k.CONTENT_PLAN: lambda: pipeline.content_plan(classes, factory),
         }[job.kind]()
     if job.kind == k.SYNC_APPLY:
         return pipeline.sync_apply(p["run"], factory, today, p.get("approve"))

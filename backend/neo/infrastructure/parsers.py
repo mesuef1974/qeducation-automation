@@ -93,6 +93,16 @@ def parse_sections(html: str) -> list[ParsedSection]:
     return out
 
 
+def parse_outcomes(html: str) -> list[tuple[str, str]]:
+    """نتاجات التعلم المربوطة بالدرس (صفحة show_competencies): (الرمز، النص)."""
+    out = []
+    for a in BeautifulSoup(html, "lxml").select(".proficiencyItem a"):
+        m = re.match(r"\s*([\d.]+?)\.?\s+(.*)", a.get_text(" ", strip=True), re.S)
+        if m:
+            out.append((m.group(1), m.group(2).strip()))
+    return out
+
+
 def parse_assessments(html: str) -> list[ParsedAssessment]:
     soup = BeautifulSoup(html, "lxml")
     out = []

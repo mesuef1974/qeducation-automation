@@ -1,4 +1,7 @@
+from django.conf import settings
+from django.http import FileResponse
 from django.utils import timezone
+from django.utils._os import safe_join
 from django.views.decorators.csrf import ensure_csrf_cookie
 from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action, api_view
@@ -7,7 +10,7 @@ from rest_framework.pagination import LimitOffsetPagination
 from rest_framework.response import Response
 
 from neo.api import serializers as s
-from neo.models import Job, PlatformClass, PlatformLesson, SyncRun
+from neo.models import Job, PlatformClass, PlatformLesson, ProposalStatus, SyncRun
 from neo.services import review_service, scorecard_service, weekly_service
 from neo.services.job_service import JobService, session_state
 from neo.services.pipeline import PROPOSALS, PipelineError
@@ -112,6 +115,32 @@ class ProposalViewSet(viewsets.ReadOnlyModelViewSet):
         body.is_valid(raise_exception=True)
         changed = review_service.decide(self._kind(), body.validated_data["ids"], body.validated_data["decision"])
         return Response({"changed": changed})
+
+    @action(detail=True, methods=["post"])
+    def edit(self, request, kind=None, pk=None):
+        """تعديل نص اقتراح المحتوى قبل اعتماده: POST .../content/{id}/edit/ {"text"|"name"|"html": ...}"""
+        if self._kind() != "content":
+            raise NotFound("التعديل لاقتراحات المحتوى فقط")
+        prop = self.get_object()
+        if prop.status != ProposalStatus.PENDING:
+            raise ValidationError("يُعدَّل الاقتراح المنتظر فقط")
+        body = s.PayloadSerializer(data=request.data)
+        body.is_valid(raise_exception=True)
+        unknown = set(body.validated_data) - set(prop.payload)
+        if not body.validated_data or unknown:
+            raise ValidationError({"payload": f"الحقول المقبولة: {sorted(prop.payload)}"})
+        prop.payload = {**prop.payload, **body.validated_data}
+        prop.save(update_fields=["payload"])
+        return Response(self.get_serializer(prop).data)
+
+    @action(detail=True, methods=["get"])
+    def image(self, request, kind=None, pk=None):
+        """معاينة صورة البطاقة المولّدة: GET .../content/{id}/image/"""
+        prop = self.get_object()
+        if self._kind() != "content" or "file" not in prop.payload:
+            raise NotFound("لا صورة لهذا الاقتراح")
+        path = safe_join(str(settings.MEDIA_ROOT), prop.payload["file"])
+        return FileResponse(open(path, "rb"), content_type="image/png")
 
 
 class JobViewSet(mixins.CreateModelMixin, viewsets.ReadOnlyModelViewSet):

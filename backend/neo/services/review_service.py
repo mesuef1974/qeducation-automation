@@ -16,7 +16,8 @@ DECISIONS = {
     "reset": ((ProposalStatus.APPROVED,), ProposalStatus.PENDING),
 }
 # عملية الاقتراح لكل نوع
-PLAN_KIND = {"date": SyncRun.Kind.PLAN, "assign": SyncRun.Kind.ASSIGN_PLAN, "publish": SyncRun.Kind.PUBLISH_PLAN}
+PLAN_KIND = {"date": SyncRun.Kind.PLAN, "assign": SyncRun.Kind.ASSIGN_PLAN, "publish": SyncRun.Kind.PUBLISH_PLAN,
+             "content": SyncRun.Kind.CONTENT_PLAN}
 
 
 def decide(kind: str, ids: list[int], decision: str) -> int:

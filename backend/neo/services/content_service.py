@@ -1,0 +1,154 @@
+"""
+المرحلة 8: محرك المحتوى. يقترح للدروس الناقصة (من التدقيق) وصفًا وصورة بطاقة وقسم تهيئة،
+ويعرضها للمعلم ليعدّلها ويعتمدها، ثم يطبّق المعتمد إضافةً فقط: لا يُعدَّل موجود ولا يُحذف.
+التطبيق على درس واحد (lesson) أولًا، ثم التعميم.
+"""
+from collections.abc import Callable
+from datetime import date
+
+from django.conf import settings
+from django.db import transaction
+from django.utils import timezone
+
+from curriculum.models import Lesson
+from neo.domain import content as gen
+from neo.infrastructure import tile_image
+from neo.infrastructure.client import NeoClient, NotLoggedIn
+from neo.infrastructure.parsers import parse_outcomes
+from neo.models import ContentProposal, PlatformClass, PlatformLesson, SyncRun
+
+Kind = ContentProposal.Kind
+# ما يُقترح لكل نقص يكشفه التدقيق
+BY_ISSUE = {"no_description": Kind.DESCRIPTION, "generic_image": Kind.IMAGE, "few_sections": Kind.SECTION}
+
+
+def _context(pl: PlatformLesson, outcomes: list[tuple[str, str]], previous: PlatformLesson | None) -> gen.LessonContext:
+    plan_lesson = Lesson.objects.filter(plan=pl.klass.plan, code=pl.effective_code).select_related("unit").first()
+    unit = plan_lesson.unit if plan_lesson else None
+    return gen.LessonContext(
+        position=pl.position, title=pl.title, unit_no=unit.unit_no if unit else None,
+        unit_title=unit.title if unit else "", outcomes=tuple(outcomes),
+        previous_title=previous.title if previous and previous.effective_code == pl.effective_code else "",
+        sources=tuple(getattr(settings, "NEO_CONTENT_SOURCES", ())),
+    )
+
+
+class ContentService:
+    # ------------------------------------------------------------- اقتراح
+
+    def plan(self, classes: list[PlatformClass], client_factory: Callable[[], NeoClient]) -> list[SyncRun]:
+        targets = {k.pk: list(PlatformLesson.objects.filter(klass=k, audit__isnull=False)
+                              .exclude(audit__issues=[]).select_related("audit", "klass__plan").order_by("position"))
+                   for k in classes}
+        outcomes: dict[int, list[tuple[str, str]]] = {}
+        with client_factory() as client:  # لا ORM هنا
+            for k in classes:
+                for pl in targets[k.pk]:
+                    outcomes[pl.lms_lesson_id] = parse_outcomes(client.outcomes_html(k.lms_id, pl.lms_lesson_id))
+        return [self.record_plan(k, targets[k.pk], outcomes) for k in classes]
+
+    @transaction.atomic
+    def record_plan(self, klass: PlatformClass, lessons: list[PlatformLesson], outcomes: dict) -> SyncRun:
+        ContentProposal.objects.filter(run__klass=klass, status__in=[
+            ContentProposal.Status.PENDING, ContentProposal.Status.APPROVED,
+        ]).update(status=ContentProposal.Status.REJECTED, error="استُبدل بعملية اقتراح أحدث")
+        run = SyncRun.objects.create(klass=klass, kind=SyncRun.Kind.CONTENT_PLAN)
+        all_lessons = {pl.position: pl for pl in PlatformLesson.objects.filter(klass=klass)}
+        drafts, counts = [], {}
+        for pl in lessons:
+            ctx = _context(pl, outcomes.get(pl.lms_lesson_id, []), all_lessons.get(pl.position - 1))
+            for issue in pl.audit.issues:
+                kind = BY_ISSUE.get(issue)
+                if not kind:
+                    continue
+                payload = self._payload(kind, ctx, pl)
+                drafts.append(ContentProposal(run=run, lesson=pl, kind=kind, payload=payload))
+                counts[kind.label] = counts.get(kind.label, 0) + 1
+        ContentProposal.objects.bulk_create(drafts)
+        run.summary = {"lessons": len(lessons), "proposals": len(drafts), "by_kind": counts,
+                       "without_outcomes": [pl.position for pl in lessons if not outcomes.get(pl.lms_lesson_id)]}
+        run.ok, run.finished_at = True, timezone.now()
+        run.save()
+        return run
+
+    @staticmethod
+    def _payload(kind: str, ctx: gen.LessonContext, pl: PlatformLesson) -> dict:
+        if kind == Kind.DESCRIPTION:
+            return {"text": gen.description(ctx)}
+        if kind == Kind.SECTION:
+            return {"name": gen.INTRO_SECTION, "html": gen.intro_section_html(ctx)}
+        spec = gen.tile_spec(ctx)
+        path = settings.MEDIA_ROOT / "content" / f"{pl.lms_lesson_id}.png"
+        tile_image.render(spec, path)
+        return {**spec, "file": str(path.relative_to(settings.MEDIA_ROOT))}
+
+    # ------------------------------------------------------------- اعتماد
+
+    def approve(self, run_id: int, lesson: int | None = None) -> int:
+        qs = ContentProposal.objects.filter(run_id=run_id, status=ContentProposal.Status.PENDING)
+        if lesson:
+            qs = qs.filter(lesson__lms_lesson_id=lesson)
+        return qs.update(status=ContentProposal.Status.APPROVED)
+
+    # ------------------------------------------------------------- تطبيق
+
+    def apply(self, run: SyncRun, client_factory: Callable[[], NeoClient], lesson: int | None = None) -> SyncRun:
+        """يضيف المعتمد فقط، درسًا واحدًا إن حُدّد؛ يقرأ الحالة قبل كل إضافة فلا يكرر ما أُضيف."""
+        qs = run.content_proposals.filter(status=ContentProposal.Status.APPROVED).select_related("lesson")
+        if lesson:
+            qs = qs.filter(lesson__lms_lesson_id=lesson)
+        items = list(qs.order_by("lesson__position", "kind"))
+        lms_id = run.klass.lms_id
+        results: dict[int, tuple[str, str]] = {}
+        session_error = None
+        with client_factory() as client:  # لا ORM هنا
+            for p in items:
+                lid, pay = p.lesson.lms_lesson_id, p.payload
+                try:
+                    if p.kind == Kind.DESCRIPTION:
+                        if client.lesson_description(lms_id, lid).strip():
+                            results[p.pk] = (ContentProposal.Status.SKIPPED, "له وصف بالفعل")
+                            continue
+                        client.set_lesson_description(lms_id, lid, pay["text"])
+                    elif p.kind == Kind.SECTION:
+                        if pay["name"] in client.section_names(lms_id, lid):
+                            results[p.pk] = (ContentProposal.Status.SKIPPED, "القسم موجود بالفعل")
+                            continue
+                        client.add_page_section(lms_id, lid, pay["name"], pay["html"])
+                    else:
+                        if not client.tile_is_default(lms_id, lid):
+                            results[p.pk] = (ContentProposal.Status.SKIPPED, "له صورة من المحتوى بالفعل")
+                            continue
+                        client.set_tile_picture(lms_id, lid, settings.MEDIA_ROOT / pay["file"], pay["color"])
+                    results[p.pk] = (ContentProposal.Status.APPLIED, "")
+                except NotLoggedIn as exc:
+                    session_error = str(exc)
+                    break
+                except Exception as exc:  # noqa: BLE001 - يُسجَّل على الاقتراح ويستمر غيره
+                    results[p.pk] = (ContentProposal.Status.FAILED, str(exc)[:500])
+        return self._record_apply(run, items, results, session_error)
+
+    @transaction.atomic
+    def _record_apply(self, run, items, results, session_error) -> SyncRun:
+        now, stats = timezone.now(), {}
+        for p in items:
+            if p.pk not in results:
+                continue
+            p.status, p.error = results[p.pk]
+            if p.status == ContentProposal.Status.APPLIED:
+                p.applied_at = now
+            p.save(update_fields=["status", "error", "applied_at"])
+            stats[p.status] = stats.get(p.status, 0) + 1
+        summary = {"plan_run": run.pk, **stats}
+        if session_error:
+            summary["error"] = "انتهت الجلسة"
+        run_apply = SyncRun.objects.create(
+            klass=run.klass, kind=SyncRun.Kind.CONTENT_APPLY, summary=summary, finished_at=now,
+            ok=not session_error and not stats.get(ContentProposal.Status.FAILED))
+        if session_error:
+            raise NotLoggedIn(session_error)
+        return run_apply
+
+
+def today() -> date:
+    return timezone.localdate()

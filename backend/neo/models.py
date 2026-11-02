@@ -91,6 +91,8 @@ class SyncRun(models.Model):
         PUBLISH_APPLY = "publish_apply", "تطبيق نشر"
         VERIFY = "verify", "تحقق من منظور الطالب"
         AUDIT = "audit", "تدقيق جودة الدروس"
+        CONTENT_PLAN = "content_plan", "اقتراح محتوى"
+        CONTENT_APPLY = "content_apply", "تطبيق محتوى"
 
     klass = models.ForeignKey(PlatformClass, on_delete=models.CASCADE, related_name="runs", verbose_name="الصف")
     kind = models.CharField("النوع", max_length=20, choices=Kind.choices)
@@ -212,6 +214,34 @@ class PublishProposal(models.Model):
         return f"{self.lesson} → {' + '.join(parts)}"
 
 
+class ContentProposal(models.Model):
+    """ما يُقترح إضافته إلى درس ناقص؛ يعدّله المعلم ويعتمده، ثم يُضاف دون المساس بالموجود."""
+
+    class Kind(models.TextChoices):
+        DESCRIPTION = "description", "الوصف"
+        IMAGE = "image", "صورة البطاقة"
+        SECTION = "section", "قسم تهيئة"
+
+    Status = ProposalStatus
+
+    run = models.ForeignKey(SyncRun, on_delete=models.CASCADE, related_name="content_proposals", verbose_name="العملية")
+    lesson = models.ForeignKey(PlatformLesson, on_delete=models.CASCADE, related_name="content_proposals",
+                               verbose_name="الدرس")
+    kind = models.CharField("النوع", max_length=12, choices=Kind.choices)
+    payload = models.JSONField("المحتوى")  # الوصف: text؛ الصورة: file وcolor وtitle؛ القسم: name وhtml
+    status = models.CharField("الحالة", max_length=10, choices=Status.choices, default=Status.PENDING, db_index=True)
+    error = models.TextField("الخطأ", blank=True)
+    applied_at = models.DateTimeField("وقت التطبيق", null=True, blank=True)
+
+    class Meta:
+        verbose_name = "اقتراح محتوى"
+        verbose_name_plural = "اقتراحات المحتوى"
+        ordering = ["lesson__position", "kind"]
+
+    def __str__(self):
+        return f"{self.lesson}: {self.get_kind_display()} - {self.get_status_display()}"
+
+
 class Job(models.Model):
     """
     مهمة تعمل على المنصة، تطلبها الواجهة وينفّذها عامل واحد (neo_worker) بالترتيب.
@@ -229,6 +259,8 @@ class Job(models.Model):
         VERIFY = "verify", "التحقق من منظور الطالب"
         WEEKLY = "weekly", "الدورة الأسبوعية"
         AUDIT = "audit", "تدقيق جودة الدروس"
+        CONTENT_PLAN = "content_plan", "اقتراح المحتوى"
+        CONTENT_APPLY = "content_apply", "إضافة المحتوى المعتمد"
 
     class Status(models.TextChoices):
         QUEUED = "queued", "في الانتظار"

@@ -6,9 +6,10 @@ from collections.abc import Callable
 from datetime import date
 
 from neo.infrastructure.client import NeoClient
-from neo.models import AssignProposal, DateProposal, PlatformClass, PublishProposal, SyncRun
+from neo.models import AssignProposal, ContentProposal, DateProposal, PlatformClass, PublishProposal, SyncRun
 from neo.services.assign_service import AssignService
 from neo.services.audit_service import AuditService
+from neo.services.content_service import ContentService
 from neo.services.publish_service import PublishService
 from neo.services.sync_service import SyncService
 from neo.services.verify_service import VerifyService
@@ -98,4 +99,18 @@ def audit(classes: list[PlatformClass], factory: Factory) -> list[SyncRun]:
     return fetched + AuditService().run(classes, factory)
 
 
-PROPOSALS = {"date": DateProposal, "assign": AssignProposal, "publish": PublishProposal}
+# ------------------------------------------------------------- المرحلة 8: المحتوى (إضافة باعتماد)
+
+def content_plan(classes: list[PlatformClass], factory: Factory) -> list[SyncRun]:
+    return ContentService().plan(classes, factory)
+
+
+def content_apply(run_id: int, factory: Factory, approve: str | None = None, lesson: int | None = None) -> list[SyncRun]:
+    svc, run = ContentService(), _plan_run(run_id, SyncRun.Kind.CONTENT_PLAN)
+    if approve:
+        svc.approve(run_id, lesson)
+    _require_approved(run.content_proposals.all())
+    return [svc.apply(run, factory, lesson)]
+
+
+PROPOSALS = {"date": DateProposal, "assign": AssignProposal, "publish": PublishProposal, "content": ContentProposal}

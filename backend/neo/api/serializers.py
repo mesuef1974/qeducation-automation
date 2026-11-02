@@ -2,7 +2,8 @@ from rest_framework import serializers
 
 from neo.domain.quality import ISSUES
 from neo.models import (
-    AssignProposal, DateProposal, Job, LessonAudit, PlatformClass, PlatformLesson, PublishProposal, SyncRun,
+    AssignProposal, ContentProposal, DateProposal, Job, LessonAudit, PlatformClass, PlatformLesson, PublishProposal,
+    SyncRun,
 )
 from neo.services.job_service import PARAMS
 
@@ -92,7 +93,22 @@ class AssignProposalSerializer(_ProposalSerializer):
         return {"id": a.lms_assignment_id, "title": a.title, "lesson_id": a.lms_lesson_id, "given": a.given}
 
 
-PROPOSAL_SERIALIZERS = {"date": DateProposalSerializer, "assign": AssignProposalSerializer,
+class ContentProposalSerializer(_LessonProposalSerializer):
+    kind_label = serializers.CharField(source="get_kind_display", read_only=True)
+
+    class Meta:
+        model = ContentProposal
+        fields = _ProposalSerializer.BASE + ["lesson", "kind", "kind_label", "payload"]
+
+
+class PayloadSerializer(serializers.Serializer):
+    """ما يجوز للمعلم تعديله قبل الاعتماد؛ الصورة تُولَّد ولا تُحرَّر."""
+    text = serializers.CharField(required=False)
+    name = serializers.CharField(required=False, max_length=100)
+    html = serializers.CharField(required=False)
+
+
+PROPOSAL_SERIALIZERS = {"date": DateProposalSerializer, "assign": AssignProposalSerializer, "content": ContentProposalSerializer,
                         "publish": PublishProposalSerializer}
 
 
@@ -121,8 +137,9 @@ class JobSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError({"params": "run مطلوب (رقم عملية الاقتراح)"})
         if params.get("approve") not in (None, "all", "future"):
             raise serializers.ValidationError({"params": "approve: all | future"})
-        if params.get("limit") is not None and (not isinstance(params["limit"], int) or params["limit"] < 1):
-            raise serializers.ValidationError({"params": "limit عدد موجب"})
+        for key in ("limit", "lesson"):
+            if params.get(key) is not None and (not isinstance(params[key], int) or params[key] < 1):
+                raise serializers.ValidationError({"params": f"{key} عدد موجب"})
         classes = params.get("classes")
         if classes is not None and (not isinstance(classes, list) or not all(isinstance(c, int) for c in classes)):
             raise serializers.ValidationError({"params": "classes قائمة LMS IDs"})

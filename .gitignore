@@ -30,3 +30,6 @@ frontend/dist/
 
 # نسخ PDF المولّدة من التقرير
 docs/report/out/
+
+# صور المحتوى المولّدة
+backend/media/

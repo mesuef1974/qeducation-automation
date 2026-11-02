@@ -12,6 +12,7 @@ from playwright.sync_api import Error as PlaywrightError
 from playwright.sync_api import sync_playwright
 
 from neo.infrastructure.parsers import (
+    parse_sections, parse_tiles,
     is_login_page,
     is_login_url,
     parse_default_visibility,
@@ -110,6 +111,91 @@ class NeoClient:
 
     def lesson_page_html(self, lms_id: int, lesson_id: int) -> str:
         return self.get_html(f"/teacher_lesson/show/{lms_id}?lesson_id={lesson_id}")
+
+    def outcomes_html(self, lms_id: int, lesson_id: int) -> str:
+        return self.get_html(f"/teacher_lesson/show_competencies/{lms_id}?lesson_id={lesson_id}")
+
+    # ------------------------------------------------------------- المحتوى (المرحلة 8)
+
+    def lesson_description(self, lms_id: int, lesson_id: int) -> str:
+        self._throttle()
+        self.page.goto(f"{BASE_URL}/teacher_lesson/edit/{lms_id}?lesson_id={lesson_id}")
+        self._assert_form()
+        return self.page.input_value("#lesson_description")
+
+    def set_lesson_description(self, lms_id: int, lesson_id: int, text: str) -> None:
+        """يملأ الوصف في نموذج التعديل ويحفظ؛ بقية الحقول (التاريخ، الاسم) تبقى كما هي."""
+        self._throttle()
+        self.page.goto(f"{BASE_URL}/teacher_lesson/edit/{lms_id}?lesson_id={lesson_id}")
+        self._assert_form()
+        self.page.wait_for_load_state("networkidle")
+        self.page.fill("#lesson_description", text)
+        with self.page.expect_navigation():
+            self.page.click("form[action*='/teacher_lesson/save/'] [name=commit]")
+        if "/teacher_lesson/edit/" in self.page.url:
+            raise PlatformError("رفضت المنصة حفظ الوصف")
+
+    def section_names(self, lms_id: int, lesson_id: int) -> list[str]:
+        return [s.title for s in parse_sections(self.lesson_page_html(lms_id, lesson_id))]
+
+    def add_page_section(self, lms_id: int, lesson_id: int, name: str, html: str) -> None:
+        """قسم «صفحة» جديد باسمه، ثم محتواه في محرر القسم (TinyMCE) ويُحفظ."""
+        self._throttle()
+        self.page.goto(f"{BASE_URL}/teacher_html_section/new/{lms_id}?lesson_id={lesson_id}")
+        if is_login_url(self.page.url):
+            raise NotLoggedIn("انتهت الجلسة - شغّل: python manage.py neo_login")
+        self.page.fill("#section_name", name)
+        with self.page.expect_navigation():
+            self.page.click("form[action*='/teacher_html_section/create/'] [type=submit], "
+                            "form[action*='/teacher_html_section/create/'] button")
+        section = next((s for s in parse_sections(self.lesson_page_html(lms_id, lesson_id)) if s.title == name), None)
+        if section is None:
+            raise PlatformError("لم يظهر القسم الجديد في قائمة الأقسام")
+        self.fill_section(lms_id, lesson_id, section.section_id, html)
+
+    def fill_section(self, lms_id: int, lesson_id: int, section_id: int, html: str) -> None:
+        """محتوى قسم «صفحة» موجود: يُكتب في TinyMCE وفي الحقل المخفي الذي يقرؤه الخادم، ثم يُحفظ."""
+        self._throttle()
+        self.page.goto(f"{BASE_URL}/teacher_html_section/edit/{lms_id}?lesson_id={lesson_id}&section_id={section_id}")
+        if is_login_url(self.page.url):
+            raise NotLoggedIn("انتهت الجلسة - شغّل: python manage.py neo_login")
+        self.page.wait_for_function("window.tinymce && tinymce.activeEditor && tinymce.activeEditor.initialized",
+                                    timeout=30_000)
+        self.page.evaluate(
+            """(html) => { tinymce.activeEditor.setContent(html); tinymce.activeEditor.save();
+                           const h = document.getElementById('content_hidden'); if (h) h.value = html; }""", html)
+        with self.page.expect_navigation():
+            self.page.click("form[action*='/teacher_html_section/save/'] button[type=submit]")
+        if "/teacher_html_section/edit/" in self.page.url:
+            raise PlatformError("رفضت المنصة حفظ محتوى القسم")
+
+    def tile_is_default(self, lms_id: int, lesson_id: int) -> bool:
+        tiles = parse_tiles(self.lesson_list_html(lms_id))
+        return next((t.image_default for t in tiles if t.lms_lesson_id == lesson_id), True)
+
+    def set_tile_picture(self, lms_id: int, lesson_id: int, png: Path, color: str) -> None:
+        """صورة البطاقة من المحرر السريع في قائمة الدروس: نافذة رفع داخل الصفحة، ثم حفظ، ثم تحقق من البطاقة."""
+        self._throttle()
+        self.page.goto(f"{BASE_URL}/teacher_lessons/list/{lms_id}")
+        if is_login_url(self.page.url):
+            raise NotLoggedIn("انتهت الجلسة - شغّل: python manage.py neo_login")
+        self.page.wait_for_load_state("networkidle")
+        self.page.click(f'[id="{lesson_id}"] button.quick_edit_icon')  # المعرّف رقمي، فلا يصلح #id
+        box = f'[id^="quick_edit_box_lesson_{lesson_id}"]'  # للمعرّف لاحقة عشوائية
+        self.page.wait_for_selector(f"{box} #save_btn", timeout=15_000)
+        self.page.click(f"{box} button.options_btn:not(.ai_tile_image)")
+        self.page.wait_for_selector("input[type=file]", state="attached", timeout=10_000)
+        self.page.set_input_files("input[type=file]", str(png))
+        wrapper = f"#UploaderWrapperlesson_{lesson_id}"
+        self.page.wait_for_function(
+            f"document.querySelector('{wrapper}') && document.querySelector('{wrapper}').children.length > 0",
+            timeout=60_000)
+        self.page.wait_for_timeout(1500)  # اكتمال شريط الرفع
+        self.page.click(f"{box} #save_btn")
+        self.page.wait_for_load_state("networkidle")
+        self.page.wait_for_timeout(2000)
+        if self.tile_is_default(lms_id, lesson_id):
+            raise PlatformError("حُفظ المحرر السريع لكن الصورة لم تتغير")
 
     def timetable_html(self, lms_id: int) -> str:
         return self.get_html(f"/class_configure/schedule/{lms_id}")

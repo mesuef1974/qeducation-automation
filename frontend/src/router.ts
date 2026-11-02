@@ -10,6 +10,7 @@ export const router = createRouter({
     { path: "/review/:kind(date|assign|publish)?", name: "review", component: () => import("@/views/ReviewView.vue"),
       meta: { title: "المراجعة" } },
     { path: "/lessons", name: "lessons", component: () => import("@/views/LessonsView.vue"), meta: { title: "الدروس" } },
+    { path: "/content", name: "content", component: () => import("@/views/ContentView.vue"), meta: { title: "المحتوى" } },
     { path: "/log", name: "log", component: () => import("@/views/LogView.vue"), meta: { title: "السجل" } },
     { path: "/swot", name: "swot", component: () => import("@/views/SwotView.vue"), meta: { title: "SWOT والأداء" } },
     { path: "/scorecard", redirect: "/swot" },
