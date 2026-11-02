@@ -1,0 +1,48 @@
+﻿# تشغيل الأتمتة بأمر واحد: .\start.ps1
+# يشغّل ما ليس يعمل فقط (الخادم، العامل)، كلًّا في نافذة، ثم يفتح الموقع. الإيقاف: أغلق النافذة أو Ctrl+C فيها.
+$ErrorActionPreference = "Stop"
+$root = $PSScriptRoot
+$backend = Join-Path $root "backend"
+$site = "http://127.0.0.1:8765"
+$shell = if (Get-Command pwsh -ErrorAction SilentlyContinue) { "pwsh" } else { "powershell" }
+
+function Start-Window([string]$title, [string]$command) {
+    Start-Process $shell -WorkingDirectory $backend -ArgumentList "-NoExit", "-Command",
+        "`$Host.UI.RawUI.WindowTitle = '$title'; $command"
+}
+
+function Get-Session {
+    try { Invoke-RestMethod "$site/api/neo/session/" -TimeoutSec 2 } catch { $null }
+}
+
+# الواجهة المبنية (أول مرة فقط)
+if (-not (Test-Path (Join-Path $root "frontend\dist\index.html"))) {
+    Write-Host "بناء الواجهة لأول مرة..."
+    Push-Location (Join-Path $root "frontend")
+    try { npm install --no-fund --no-audit; npm run build } finally { Pop-Location }
+}
+
+# قاعدة البيانات محدّثة قبل أن يعمل الخادم أو العامل
+Push-Location $backend
+try { python manage.py migrate --noinput | Out-Null } finally { Pop-Location }
+
+# الخادم
+$session = Get-Session
+if ($session) {
+    Write-Host "الخادم يعمل مسبقًا."
+} else {
+    Start-Window "الخادم" "python manage.py runserver 127.0.0.1:8765"
+    for ($i = 0; $i -lt 30 -and -not $session; $i++) { Start-Sleep -Seconds 1; $session = Get-Session }
+    if (-not $session) { throw "لم يستجب الخادم على $site؛ راجع نافذة الخادم." }
+    Write-Host "شُغّل الخادم."
+}
+
+# العامل (من نبضه، فلا يُشغَّل عاملان على ملف الدخول نفسه)
+if ($session.worker_alive) {
+    Write-Host "العامل يعمل مسبقًا."
+} else {
+    Start-Window "العامل" "python manage.py neo_worker"
+    Write-Host "شُغّل العامل."
+}
+
+Start-Process "$site/"

@@ -189,3 +189,13 @@ def test_docs(db, client):
     r.close()
     assert client.get("/docs/automation_tasks.md").status_code == 404  # صفحات الويب فقط
     assert client.get("/docs/..%2Fbackend%2Fmanage.py").status_code == 404
+
+
+def test_session_survives_recover(classes):
+    """توقف العامل المفاجئ لا يخفي انتهاء الجلسة."""
+    svc = JobService()
+    svc.run(svc.enqueue(Job.Kind.VERIFY, {"classes": [LMS]})[0], maker(NotLoggedIn("x")))
+    svc.enqueue(Job.Kind.LOGIN)
+    svc.claim()
+    assert svc.recover() == 1
+    assert session_state()["expired"] is True

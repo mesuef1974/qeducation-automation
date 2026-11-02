@@ -7,6 +7,7 @@ from collections.abc import Callable
 from datetime import date, timedelta
 
 from django.db import IntegrityError, transaction
+from django.db.models import Q
 from django.utils import timezone
 
 from neo.infrastructure.client import BrowserBusy, NeoClient, NotLoggedIn, PlatformError
@@ -143,9 +144,10 @@ def worker_alive() -> bool:
 
 
 def session_state() -> dict:
-    """آخر ما نعرفه عن جلسة المنصة (من آخر مهمة لمست المنصة)، وحال العامل من نبضه."""
-    last = Job.objects.exclude(status__in=Job.ACTIVE) \
-        .exclude(error_kind__in=[Job.Error.INPUT, Job.Error.BUSY]).order_by("-finished_at").first()
+    """آخر ما نعرفه عن جلسة المنصة (من آخر مهمة وصلت المنصة فعلًا)، وحال العامل من نبضه."""
+    # الطلب غير الصالح والمتصفح المشغول والتوقف المفاجئ لا تخبر بشيء عن الجلسة
+    last = Job.objects.filter(Q(status=Job.Status.DONE) | Q(error_kind__in=[Job.Error.SESSION, Job.Error.PLATFORM])) \
+        .order_by("-finished_at").first()
     alive = worker_alive()
     return {
         "expired": bool(last and last.error_kind == Job.Error.SESSION),
