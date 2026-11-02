@@ -2,7 +2,7 @@
 import { computed, onMounted, ref } from "vue";
 
 import { neo } from "@/api/neo";
-import type { Criterion, Scorecard } from "@/api/types";
+import type { Criterion, Scorecard, ScorecardData } from "@/api/types";
 import { fmtDay } from "@/utils/format";
 
 const AREAS: Record<string, string> = { admin: "إداري", content: "محتوى", assess: "تقييم", students: "طلاب" };
@@ -46,6 +46,10 @@ function delta(c: Criterion): string {
   const d = Math.round((c.value - base) * 10) / 10;
   return `${d > 0 ? "+" : ""}${d} عن خط الأساس`;
 }
+
+type Cap = ScorecardData["capabilities"][number];
+const capTone = (c: Cap) => (c.automated ? "info" : c.used ? "ok" : c.enabled ? "warn" : "prep");
+const capLabel = (c: Cap) => (c.automated ? "مؤتمتة" : c.used ? "مستعملة" : c.enabled ? "مفعّلة بلا استعمال" : "معطّلة");
 
 const fmt = (v: number | null, unit: string) => (v === null ? "—" : unit === "%" ? `${v}%` : `${v} ${unit}`);
 const fill = (c: Criterion) => (c.value === null ? 0 : Math.min(100, (100 * c.value) / c.target));
@@ -123,9 +127,10 @@ onMounted(load);
     <section class="cards">
       <article class="card">
         <h2>قدرات المنصة</h2>
+        <p class="muted">التبويبات كما في إعدادات الصف، ثم القدرات داخلها. الاستعمال بإفادتك.</p>
         <ul class="chips">
-          <li v-for="c in cur.capabilities" :key="c.title" class="pill" :class="c.used ? 'ok' : 'prep'">
-            {{ c.used ? "مستعملة" : "غير مستعملة" }} · {{ c.title }}
+          <li v-for="c in cur.capabilities" :key="c.title" class="pill" :class="capTone(c)">
+            {{ capLabel(c) }} · {{ c.title }}
           </li>
         </ul>
       </article>

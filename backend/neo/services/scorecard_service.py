@@ -44,6 +44,8 @@ def build(today: date) -> dict:
     now = sum(t.minutes * LEVELS[t.level][1] for t in TASKS)
     goal = sum(t.minutes * LEVELS[t.target][1] for t in TASKS)
     used = sum(1 for c in CAPABILITIES if c.used)
+    enabled = sum(1 for c in CAPABILITIES if c.enabled)
+    automated = sum(1 for c in CAPABILITIES if c.automated)
     gates = sum(1 for _, ok in COMPLIANCE if ok)
 
     criteria = [
@@ -55,7 +57,8 @@ def build(today: date) -> dict:
                    detail=f"يدويًا {manual} دقيقة أسبوعيًا للصفين، والمتبقي الآن {round(now)} (تقدير أولي)",
                    next_step="قِس دقائقك الفعلية لكل مهمة أسبوعًا واحدًا لتصحيح التقدير"),
         _criterion("platform", "شمولية قدرات المنصة", _pct(used, len(CAPABILITIES)), 85,
-                   detail=f"{used} من {len(CAPABILITIES)} قدرة مستعملة",
+                   detail=f"مستعملة {used} من {len(CAPABILITIES)} قدرة (26 تبويبًا و5 داخلية)؛ "
+                          f"مفعّلة {enabled}، ومؤتمتة {automated}. الاستعمال بإفادة المعلم",
                    next_step="استكشاف إعدادات الشارات وإنجاز الصف وأولياء الأمور (قراءة فقط)"),
         _criterion("engagement", "تفاعل الطالب", None, 80, level=_avg_level("students"), target_level=3,
                    measured=False, detail="لا يُجمع تقدّم الطلاب بعد (الدخول والإنجاز والتسليم)",
@@ -81,7 +84,8 @@ def build(today: date) -> dict:
         "tasks": [{"key": t.key, "title": t.title, "area": t.area, "level": t.level, "target": t.target,
                    "minutes": t.minutes} for t in TASKS],
         "levels": {n: name for n, (name, _) in LEVELS.items()},
-        "capabilities": [{"title": c.title, "used": c.used} for c in CAPABILITIES],
+        "capabilities": [{"title": c.title, "group": c.group, "enabled": c.enabled, "used": c.used,
+                          "automated": c.automated} for c in CAPABILITIES],
         "compliance": [{"title": t, "ok": ok} for t, ok in COMPLIANCE],
     }
 

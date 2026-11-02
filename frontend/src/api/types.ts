@@ -157,7 +157,7 @@ export interface ScorecardData {
   criteria: Criterion[];
   tasks: { key: string; title: string; area: string; level: number; target: number; minutes: number }[];
   levels: Record<string, string>;
-  capabilities: { title: string; used: boolean }[];
+  capabilities: { title: string; group: "tab" | "inner"; enabled: boolean; used: boolean; automated: boolean }[];
   compliance: { title: string; ok: boolean }[];
 }
 export interface Scorecard {

@@ -45,24 +45,45 @@ TASKS = (
 @dataclass(frozen=True)
 class Capability:
     title: str
-    used: bool
+    group: str        # tab = تبويب في الصف | inner = قدرة داخل تبويب
+    enabled: bool     # مفعّلة في إعدادات الصف (الإعدادات ← الخصائص، لقطة 2 نوفمبر 2026)
+    used: bool        # مستعملة مع الطلاب هذا الفصل، بإفادة المعلم في 2 نوفمبر 2026
+    automated: bool = False  # تقرؤها أو تكتبها الأتمتة
 
 
+# التبويبات الـ 26 كما تعرضها المنصة، ثم 5 قدرات داخل التبويبات
 CAPABILITIES = (
-    Capability("الدروس وتواريخها", True),
-    Capability("التقييمات والإسناد", True),
-    Capability("الإظهار والإخفاء", True),
-    Capability("لعبة النقاط", True),
-    Capability("عرض الطالب", True),
-    Capability("الجدول الدراسي", True),
-    Capability("بطاقة الدرس وصورته", False),
-    Capability("بنك الأسئلة", False),
-    Capability("الشارات", False),
-    Capability("إنجاز الصف", False),
-    Capability("مسارات التعلم", False),
-    Capability("أولياء الأمور", False),
-    Capability("الرسائل والإعلانات", False),
-    Capability("التقارير والتحليلات", False),
+    Capability("الصفحة الرئيسية", "tab", True, True),
+    Capability("الدروس", "tab", True, True, automated=True),
+    Capability("الأخبار", "tab", True, True),
+    Capability("التقويم", "tab", True, True),
+    Capability("المجموعات", "tab", True, True),
+    Capability("مرحبا", "tab", True, True),
+    Capability("التقييمات", "tab", True, True, automated=True),
+    Capability("دفتر الدرجات", "tab", True, True),
+    Capability("الإتقان", "tab", True, False),
+    Capability("المصادر", "tab", True, True),
+    Capability("الطلاب", "tab", True, True),
+    Capability("أولياء الأمور", "tab", True, False),
+    Capability("المعلمون", "tab", True, True),
+    Capability("المعلمون المساعدون", "tab", False, False),
+    Capability("تلعيب التعلم", "tab", True, True, automated=True),
+    Capability("مخطط المقاعد", "tab", False, False),
+    Capability("الحضور والغياب", "tab", True, False),
+    Capability("المنتديات", "tab", True, False),
+    Capability("الدردشة", "tab", True, False),
+    Capability("Wiki", "tab", False, False),
+    Capability("المدونات", "tab", True, False),
+    Capability("المنهج", "tab", False, False),
+    Capability("آراء الزملاء", "tab", False, False),
+    Capability("التشغيل الآلي", "tab", True, True),
+    Capability("نشاط المستخدمين", "tab", False, False),
+    Capability("ملف الإنجاز", "tab", True, True),
+    Capability("بطاقة الدرس وصورته", "inner", True, False),
+    Capability("بنك الأسئلة", "inner", True, False),
+    Capability("الشارات", "inner", True, False),
+    Capability("إنجاز الصف", "inner", True, False),
+    Capability("مسارات التعلم", "inner", True, False),
 )
 
 # شروط الامتثال (نجاح أو إخفاق)؛ تتغير بقرار لا ببيانات
