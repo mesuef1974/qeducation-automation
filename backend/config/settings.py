@@ -73,10 +73,8 @@ DATABASES = {
     }
 }
 
-# قاعدة الخطط المبنية بـ db/build_db.py - مصدر الاستيراد
-PLANS_SOURCE_DB = Path(os.environ.get(
-    "PLANS_SOURCE_DB", PROJECT_ROOT / "db" / "math_plans_2026_2027.db"
-))
+# ملفات الخطط الموحّدة (Excel): مجلد <العام>/ف<الفصل>/ - المصدر المعتمد للاستيراد
+PLANS_DIR = Path(os.environ.get("PLANS_DIR", PROJECT_ROOT / "plans"))
 
 # منصة قطر للتعليم: ملف تعريف المتصفح (جلسة الدخول)
 NEO_PROFILE_DIR = BASE_DIR / ".neo_profile"

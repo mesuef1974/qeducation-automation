@@ -11,6 +11,6 @@ CLASSES = {602598: (10, "الرياضيات 10/3"), 602728: (12, "الرياضي
 
 @pytest.fixture
 def classes(db) -> dict[int, PlatformClass]:
-    PlanImportService(settings.PLANS_SOURCE_DB).run()
+    PlanImportService(settings.PLANS_DIR).run()
     return {lms: PlatformClass.objects.create(lms_id=lms, name=name, plan=Plan.objects.get(grade_level=g))
             for lms, (g, name) in CLASSES.items()}

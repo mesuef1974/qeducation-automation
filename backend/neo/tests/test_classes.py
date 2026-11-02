@@ -28,5 +28,5 @@ def test_register_is_idempotent_and_relinks(classes):
 
 def test_reimport_keeps_class_links(classes, settings):
     before = {k.lms_id: k.plan_id for k in classes.values()}
-    PlanImportService(settings.PLANS_SOURCE_DB).run()
+    PlanImportService(settings.PLANS_DIR).run()
     assert {k.lms_id: k.plan_id for k in active_classes()} == before

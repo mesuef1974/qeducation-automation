@@ -13,7 +13,7 @@ pytestmark = pytest.mark.django_db
 
 @pytest.fixture
 def imported():
-    return PlanImportService(settings.PLANS_SOURCE_DB).run()
+    return PlanImportService(settings.PLANS_DIR).run()
 
 
 def plan_id(grade: int) -> int:
@@ -25,7 +25,7 @@ def test_import_counts(imported):
 
 
 def test_import_is_idempotent(imported):
-    again = PlanImportService(settings.PLANS_SOURCE_DB).run()
+    again = PlanImportService(settings.PLANS_DIR).run()
     assert again == imported
     assert m.Competency.objects.count() == 5
 
@@ -79,7 +79,7 @@ def test_import_is_additive_and_keeps_plan_ids(imported):
                                                  classification="عام", department="قسم", file_name="t2.pdf",
                                                  page_count=1),
         subject=g10.subject, academic_year="2026-2027", term_no=2, grade_level=10, shift=g10.shift)
-    again = PlanImportService(settings.PLANS_SOURCE_DB).run()
+    again = PlanImportService(settings.PLANS_DIR).run()
     assert again == imported
     assert m.Plan.objects.filter(pk=other.pk).exists() and m.Plan.objects.get(grade_level=10, term_no=1).pk == g10.pk
 
