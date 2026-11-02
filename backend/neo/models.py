@@ -3,24 +3,30 @@ from django.db import models
 from curriculum.models import Plan
 
 
+class ActiveClassQuerySet(models.QuerySet):
+    def active(self):
+        return self.filter(active=True).select_related("plan")
+
+
 class PlatformClass(models.Model):
+    """صف على المنصة مربوط بخطته الفصلية. يُضاف من لوحة الإدارة أو بأمر neo_class."""
+
     lms_id = models.PositiveIntegerField("LMS ID", unique=True)
     name = models.CharField("الاسم", max_length=120)
-    # ربط بالمستوى لا بمفتاح الخطة: استيراد الخطط يعيد إنشاءها
-    grade_level = models.PositiveSmallIntegerField("المستوى")
+    # الاستيراد تراكمي ويحفظ مفتاح الخطة، فالربط المباشر آمن؛ PROTECT يمنع حذف خطة مستخدمة
+    plan = models.ForeignKey(Plan, on_delete=models.PROTECT, related_name="platform_classes", verbose_name="الخطة")
+    active = models.BooleanField("مفعّل", default=True, help_text="الصفوف غير المفعّلة تُستثنى من كل المهام")
     last_fetched_at = models.DateTimeField("آخر جلب", null=True, blank=True)
+
+    objects = ActiveClassQuerySet.as_manager()
 
     class Meta:
         verbose_name = "صف على المنصة"
         verbose_name_plural = "الصفوف على المنصة"
-        ordering = ["name"]
+        ordering = ["-active", "name"]
 
     def __str__(self):
         return self.name
-
-    @property
-    def plan(self) -> Plan:
-        return Plan.objects.get(grade_level=self.grade_level)
 
 
 class TimetableSlot(models.Model):

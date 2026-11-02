@@ -22,7 +22,11 @@ class SlotInline(admin.TabularInline):
 
 @admin.register(PlatformClass)
 class PlatformClassAdmin(admin.ModelAdmin):
-    list_display = ("name", "lms_id", "grade_level", "last_fetched_at", "lessons_count")
+    list_display = ("name", "lms_id", "plan", "active", "last_fetched_at", "lessons_count")
+    list_editable = ("active",)
+    list_filter = ("active", "plan__academic_year", "plan__term_no", "plan__subject")
+    list_select_related = ("plan",)
+    readonly_fields = ("last_fetched_at",)
     inlines = [SlotInline]
 
     @admin.display(description="الدروس")

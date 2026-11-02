@@ -78,15 +78,12 @@ PLANS_SOURCE_DB = Path(os.environ.get(
     "PLANS_SOURCE_DB", PROJECT_ROOT / "db" / "math_plans_2026_2027.db"
 ))
 
-# منصة قطر للتعليم: ملف تعريف المتصفح (جلسة الدخول) والصفوف المربوطة بالخطط
+# منصة قطر للتعليم: ملف تعريف المتصفح (جلسة الدخول)
 NEO_PROFILE_DIR = BASE_DIR / ".neo_profile"
 NEO_BROWSER_CHANNEL = "msedge"
 # سياسة الإسناد (المهمة 2) - اختيار المعلم: يظهر صباح يوم الدرس، يستحق بعد يومين، يُقبل المتأخر
 NEO_ASSIGN_POLICY = {"due_days": 2, "allow_late": True}
-NEO_CLASSES = {
-    602598: (10, "الرياضيات 10/3"),
-    602728: (12, "الرياضيات 12/2"),
-}
+# الصفوف وربطها بالخطط في قاعدة البيانات (PlatformClass) لا هنا
 
 # دخول تلقائي كمدير - يعمل فقط لطلبات loopback
 LOCAL_AUTO_LOGIN = True

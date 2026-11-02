@@ -23,6 +23,7 @@ class EventItem:
 
 @dataclass(frozen=True)
 class WeekSnapshot:
+    plan_id: int
     grade_level: int
     platform_class: str
     week_no: int
@@ -37,6 +38,7 @@ class WeekSnapshot:
 
 @dataclass(frozen=True)
 class PlanProgress:
+    plan_id: int
     grade_level: int
     as_of: date
     planned_periods_done: int

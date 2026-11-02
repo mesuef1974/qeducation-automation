@@ -7,7 +7,6 @@ from collections import Counter, defaultdict
 from collections.abc import Callable
 from datetime import date
 
-from django.conf import settings
 from django.db import transaction
 from django.utils import timezone
 
@@ -35,14 +34,25 @@ def build_targets(plan: Plan) -> list[Target]:
     return [Target(c, titles[c], first[c], frozenset(weeks[c]), periods[c], is_lesson[c]) for c in first]
 
 
+class NoActiveClasses(LookupError):
+    pass
+
+
+def active_classes(lms_ids: list[int] | None = None) -> list[PlatformClass]:
+    """الصفوف المفعّلة (أو المحددة منها). تُدار من لوحة الإدارة أو بأمر neo_class."""
+    qs = PlatformClass.objects.active()
+    if lms_ids:
+        qs = qs.filter(lms_id__in=lms_ids)
+        missing = set(lms_ids) - set(qs.values_list("lms_id", flat=True))
+        if missing:
+            raise NoActiveClasses(f"صفوف غير مسجلة أو غير مفعّلة: {sorted(missing)}")
+    classes = list(qs)
+    if not classes:
+        raise NoActiveClasses("لا توجد صفوف مفعّلة؛ أضف صفًا: python manage.py neo_class add LMS_ID --plan PLAN_ID")
+    return classes
+
+
 class SyncService:
-    def ensure_classes(self) -> list[PlatformClass]:
-        out = []
-        for lms_id, (grade, name) in settings.NEO_CLASSES.items():
-            klass, _ = PlatformClass.objects.update_or_create(
-                lms_id=lms_id, defaults={"name": name, "grade_level": grade})
-            out.append(klass)
-        return out
 
     # ------------------------------------------------------------- جلب
 

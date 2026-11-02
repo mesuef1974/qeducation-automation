@@ -11,7 +11,7 @@ from django.utils import timezone
 from neo.infrastructure.client import NeoClient, NotLoggedIn, PlatformError
 from neo.models import AssignProposal, SyncRun
 from neo.services.assign_service import AssignService
-from neo.services.sync_service import SyncService
+from neo.services.sync_service import NoActiveClasses, active_classes
 
 
 class Command(BaseCommand):
@@ -22,6 +22,8 @@ class Command(BaseCommand):
         parser.add_argument("--apply", type=int, metavar="RUN_ID")
         parser.add_argument("--approve", choices=["all", "future"])
         parser.add_argument("--limit", type=int, default=None, help="تطبيق أول N فقط (للتجربة)")
+        parser.add_argument("--class", dest="klass", type=int, action="append", metavar="LMS_ID",
+                            help="حصر العمل في صف (يتكرر)؛ الافتراضي كل الصفوف المفعّلة")
         parser.add_argument("--show-browser", action="store_true")
 
     def handle(self, *args, today, apply, approve, limit, show_browser, **opts):
@@ -41,11 +43,11 @@ class Command(BaseCommand):
                 log = svc.apply(run, factory, today, limit)
                 self.stdout.write(self.style.SUCCESS(f"[إسناد #{log.pk}] {json.dumps(log.summary, ensure_ascii=False)}"))
                 return
-            classes = SyncService().ensure_classes()
+            classes = active_classes(opts["klass"])
             svc.fetch(classes, factory)
             for k in classes:
                 r = svc.plan(k, today)
                 self.stdout.write(self.style.SUCCESS(f"[اقتراح إسناد #{r.pk}] {k}"))
                 self.stdout.write(json.dumps(r.summary, ensure_ascii=False, indent=1))
-        except (NotLoggedIn, PlatformError) as exc:
+        except (NotLoggedIn, PlatformError, NoActiveClasses) as exc:
             raise CommandError(str(exc)) from exc

@@ -32,10 +32,8 @@ def test_plan_window_future_and_past():
 
 
 @pytest.fixture
-def setup(db, settings):
-    from curriculum.services.import_service import PlanImportService
-    PlanImportService(settings.PLANS_SOURCE_DB).run()
-    k = {c.lms_id: c for c in SyncService().ensure_classes()}[602598]
+def setup(classes):
+    k = classes[602598]
     SyncService().ingest(k, [
         ParsedLesson(1, 1, "حل المعادلات النسبية(1)", "", date(2026, 10, 5), 3),
         ParsedLesson(2, 2, "حل المعادلات النسبية(2)", "", date(2026, 11, 10), 6),

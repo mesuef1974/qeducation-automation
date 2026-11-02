@@ -37,7 +37,7 @@ CREATE TABLE plans (
     tracks         TEXT,
     shift          TEXT NOT NULL,
     platform_class TEXT,
-    UNIQUE (academic_year, term_no, grade_level)
+    UNIQUE (subject, academic_year, term_no, grade_level, tracks, shift)
 );
 
 CREATE TABLE units (

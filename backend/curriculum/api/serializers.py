@@ -14,7 +14,7 @@ class PlanSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = m.Plan
-        fields = ("grade_level", "subject", "academic_year", "term_no", "tracks", "shift", "platform_class", "units")
+        fields = ("id", "grade_level", "subject", "academic_year", "term_no", "tracks", "shift", "platform_class", "units")
 
 
 class LessonSerializer(serializers.ModelSerializer):

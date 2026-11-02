@@ -18,6 +18,10 @@ class SourceDocument(models.Model):
         return self.file_name
 
 
+# هوية الخطة الطبيعية: تسمح بخطط لمواد وفصول ومسارات متعددة للمستوى نفسه
+PLAN_KEY_FIELDS = ("subject", "academic_year", "term_no", "grade_level", "tracks", "shift")
+
+
 class Plan(models.Model):
     document = models.OneToOneField(SourceDocument, on_delete=models.PROTECT, verbose_name="الوثيقة")
     subject = models.CharField("المادة", max_length=60)
@@ -31,13 +35,12 @@ class Plan(models.Model):
     class Meta:
         verbose_name = "خطة فصلية"
         verbose_name_plural = "الخطط الفصلية"
-        ordering = ["grade_level"]
-        constraints = [
-            models.UniqueConstraint(fields=["academic_year", "term_no", "grade_level"], name="uq_plan_term_grade"),
-        ]
+        ordering = ["-academic_year", "-term_no", "subject", "grade_level"]
+        constraints = [models.UniqueConstraint(fields=list(PLAN_KEY_FIELDS), name="uq_plan_identity")]
 
     def __str__(self):
-        return f"{self.subject} - المستوى {self.grade_level} - {self.academic_year} ف{self.term_no}"
+        tracks = f" ({self.tracks})" if self.tracks else ""
+        return f"{self.subject} - المستوى {self.grade_level}{tracks} - {self.academic_year} ف{self.term_no}"
 
 
 class Unit(models.Model):

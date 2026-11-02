@@ -6,8 +6,8 @@ from curriculum.models import CalendarEvent, Lesson, Plan, ScheduleEntry, Week
 
 
 class PlanRepository:
-    def get_by_grade(self, grade_level: int) -> Plan | None:
-        return Plan.objects.filter(grade_level=grade_level).first()
+    def get(self, plan_id: int) -> Plan | None:
+        return Plan.objects.filter(pk=plan_id).first()
 
     def week_on_or_after(self, plan: Plan, d: date) -> Week | None:
         return Week.objects.filter(plan=plan, end_date__gte=d).order_by("start_date").first()

@@ -11,7 +11,7 @@ from django.utils import timezone
 
 from neo.infrastructure.client import NeoClient, NotLoggedIn, PlatformError
 from neo.models import DateProposal, SyncRun
-from neo.services.sync_service import SyncService
+from neo.services.sync_service import NoActiveClasses, SyncService, active_classes
 
 
 class Command(BaseCommand):
@@ -23,6 +23,8 @@ class Command(BaseCommand):
         parser.add_argument("--apply", type=int, metavar="RUN_ID")
         parser.add_argument("--approve", choices=["future", "all"],
                             help="مع --apply: يعتمد المعلّق أولًا (future = من اليوم فصاعدًا)")
+        parser.add_argument("--class", dest="klass", type=int, action="append", metavar="LMS_ID",
+                            help="حصر العمل في صف (يتكرر)؛ الافتراضي كل الصفوف المفعّلة")
         parser.add_argument("--show-browser", action="store_true")
 
     def handle(self, *args, no_fetch, today, apply, approve, show_browser, **opts):
@@ -33,7 +35,7 @@ class Command(BaseCommand):
                     n = svc.approve(apply, only_from=None if approve == "all" else (today or timezone.localdate()))
                     self.stdout.write(f"اعتُمد {n} اقتراح.")
                 return self._apply(svc, apply, show_browser)
-            classes = svc.ensure_classes()
+            classes = active_classes(opts["klass"])
             if not no_fetch:
                 for k, r in zip(classes, svc.fetch(classes, lambda: NeoClient(headless=not show_browser))):
                     self.stdout.write(f"[جلب] {k}: {json.dumps(r.summary, ensure_ascii=False)}")
@@ -41,7 +43,7 @@ class Command(BaseCommand):
                 r = svc.plan(k, today or timezone.localdate())
                 self.stdout.write(self.style.SUCCESS(f"[اقتراح #{r.pk}] {k}"))
                 self.stdout.write(json.dumps(r.summary, ensure_ascii=False, indent=1))
-        except (NotLoggedIn, PlatformError) as exc:
+        except (NotLoggedIn, PlatformError, NoActiveClasses) as exc:
             raise CommandError(str(exc)) from exc
 
     def _apply(self, svc, run_id, show_browser):

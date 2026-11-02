@@ -1,7 +1,8 @@
 """
-استيراد الخطط من قاعدة db/math_plans_2026_2027.db إلى نماذج Django.
-Idempotent: كل تشغيل يستبدل بيانات الخطط بالكامل داخل transaction واحدة،
-فالنتيجة نفسها مهما تكرر التشغيل. المصدر هو المرجع؛ تعديلات الإدارة تُستبدل.
+استيراد الخطط من قاعدة مصدر (يبنيها db/build_db.py) إلى نماذج Django.
+تراكمي وIdempotent: كل خطة في المصدر تُطابَق بهويتها الطبيعية (PLAN_KEY_FIELDS) فتُحدَّث
+ويُستبدل محتواها؛ والخطط غير الموجودة في المصدر (فصول أو مواد أخرى) لا تُمس.
+مفتاح الخطة ثابت عبر الاستيراد، فالصفوف المربوطة بها على المنصة تبقى مربوطة.
 """
 import sqlite3
 from dataclasses import dataclass
@@ -10,6 +11,10 @@ from pathlib import Path
 from django.db import transaction
 
 from curriculum import models as m
+
+# المحتوى التابع للخطة، بترتيب حذف آمن
+PLAN_CHILDREN = (m.EnrichmentItem, m.ScheduleEntry, m.OutcomeBlock, m.CalendarEvent, m.Guideline,
+                 m.TeachingStep, m.Lesson, m.Week, m.Unit)
 
 
 @dataclass(frozen=True)
@@ -27,42 +32,50 @@ class PlanImportService:
         self.source = Path(source)
 
     def run(self) -> ImportResult:
+        """يعيد إحصاء ما استُورد من هذا المصدر وحده."""
         src = sqlite3.connect(f"file:{self.source.as_posix()}?mode=ro", uri=True)
         src.row_factory = sqlite3.Row
         try:
             with transaction.atomic():
-                self._clear()
-                self._load(src)
+                plans = self._load(src)
+                self._prune_orphans()
         finally:
             src.close()
+        ids = [p.pk for p in plans]
         return ImportResult(
-            plans=m.Plan.objects.count(),
-            lessons=m.Lesson.objects.count(),
-            entries=m.ScheduleEntry.objects.count(),
-            outcomes=m.LearningOutcome.objects.count(),
+            plans=len(ids),
+            lessons=m.Lesson.objects.filter(plan_id__in=ids).count(),
+            entries=m.ScheduleEntry.objects.filter(plan_id__in=ids).count(),
+            outcomes=m.LearningOutcome.objects.filter(block__plan_id__in=ids).count(),
         )
 
     @staticmethod
-    def _clear():
-        m.Plan.objects.all().delete()  # CASCADE لكل البيانات التابعة
-        m.SourceDocument.objects.all().delete()
-        m.Competency.objects.all().delete()
-        m.CoreValue.objects.all().delete()
+    def _upsert_plan(doc: m.SourceDocument, r) -> m.Plan:
+        key = {"subject": r["subject"], "academic_year": r["academic_year"], "term_no": r["term_no"],
+               "grade_level": r["grade_level"], "tracks": r["tracks"] or "", "shift": r["shift"]}
+        plan, _ = m.Plan.objects.update_or_create(
+            **key, defaults={"document": doc, "platform_class": r["platform_class"] or ""})
+        for model in PLAN_CHILDREN:
+            model.objects.filter(plan=plan).delete()
+        return plan
+
+    @staticmethod
+    def _prune_orphans():
+        m.SourceDocument.objects.filter(plan__isnull=True).delete()
+        m.Competency.objects.filter(outcomeblock__isnull=True).delete()
+        m.CoreValue.objects.filter(outcomeblock__isnull=True).delete()
 
     def _load(self, src):
         q = lambda sql: src.execute(sql).fetchall()  # noqa: E731
 
-        docs = {r["doc_id"]: m.SourceDocument.objects.create(
-            form_code=r["form_code"], issue_no=r["issue_no"], issue_date=r["issue_date"],
-            classification=r["classification"], department=r["department"],
-            file_name=r["file_name"], page_count=r["page_count"],
-        ) for r in q("SELECT * FROM source_documents")}
+        docs = {r["doc_id"]: m.SourceDocument.objects.update_or_create(
+            file_name=r["file_name"], defaults={
+                "form_code": r["form_code"], "issue_no": r["issue_no"], "issue_date": r["issue_date"],
+                "classification": r["classification"], "department": r["department"],
+                "page_count": r["page_count"]},
+        )[0] for r in q("SELECT * FROM source_documents")}
 
-        plans = {r["plan_id"]: m.Plan.objects.create(
-            document=docs[r["doc_id"]], subject=r["subject"], academic_year=r["academic_year"],
-            term_no=r["term_no"], grade_level=r["grade_level"], tracks=r["tracks"] or "",
-            shift=r["shift"], platform_class=r["platform_class"] or "",
-        ) for r in q("SELECT * FROM plans")}
+        plans = {r["plan_id"]: self._upsert_plan(docs[r["doc_id"]], r) for r in q("SELECT * FROM plans")}
 
         units = {r["unit_id"]: m.Unit.objects.create(
             plan=plans[r["plan_id"]], unit_no=r["unit_no"], title=r["title"], domain=r["domain"],
@@ -84,9 +97,9 @@ class PlanImportService:
             activity_type=r["activity_type"], title=r["title"], periods=r["periods"],
         ) for r in q("SELECT * FROM schedule_entries")])
 
-        comps = {r["competency_id"]: m.Competency.objects.create(name=r["name"])
+        comps = {r["competency_id"]: m.Competency.objects.get_or_create(name=r["name"])[0]
                  for r in q("SELECT * FROM competencies")}
-        vals = {r["value_id"]: m.CoreValue.objects.create(name=r["name"])
+        vals = {r["value_id"]: m.CoreValue.objects.get_or_create(name=r["name"])[0]
                 for r in q("SELECT * FROM core_values")}
 
         blocks = {r["block_id"]: m.OutcomeBlock.objects.create(
@@ -117,3 +130,4 @@ class PlanImportService:
         m.TeachingStep.objects.bulk_create([m.TeachingStep(
             plan=plans[r["plan_id"]], seq=r["seq"], component=r["component"], procedure=r["procedure"],
         ) for r in q("SELECT * FROM teaching_methodology")])
+        return list(plans.values())

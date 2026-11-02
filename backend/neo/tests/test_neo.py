@@ -3,9 +3,7 @@ from datetime import date
 from pathlib import Path
 
 import pytest
-from django.conf import settings
 
-from curriculum.services.import_service import PlanImportService
 from neo.domain.types import ParsedLesson, ParsedSlot
 from neo.infrastructure.parsers import parse_date_label, parse_lessons, parse_timetable
 from neo.models import DateProposal, PlatformLesson
@@ -49,10 +47,8 @@ def test_strip_part(raw, clean):
 # ---------------------------------------------------------------- مطابقة واقتراح (لقطة حقيقية)
 
 @pytest.fixture
-def loaded(db):
-    PlanImportService(settings.PLANS_SOURCE_DB).run()
+def loaded(classes):
     svc = SyncService()
-    classes = {k.lms_id: k for k in svc.ensure_classes()}
     for lms_id, k in classes.items():
         lessons = []
         for i, (title, label) in enumerate(SNAP[str(lms_id)], 1):
