@@ -74,12 +74,11 @@ class SyncService:
         now = timezone.now()
         seen = []
         for p in lessons:
+            # «hidden» من الشارة تقدير أولي عند الإنشاء فقط؛ المرجع تبويب «الرؤية» (PublishService.fetch)
+            defaults = {"klass": klass, "position": p.position, "title": p.title, "description": p.description,
+                        "date": p.date, "period": p.period, "awards_points": p.awards_points, "fetched_at": now}
             PlatformLesson.objects.update_or_create(
-                lms_lesson_id=p.lms_lesson_id,
-                defaults={"klass": klass, "position": p.position, "title": p.title,
-                          "description": p.description, "date": p.date, "period": p.period,
-                          "hidden": p.hidden, "awards_points": p.awards_points, "fetched_at": now},
-            )
+                lms_lesson_id=p.lms_lesson_id, defaults=defaults, create_defaults={**defaults, "hidden": p.hidden})
             seen.append(p.lms_lesson_id)
         removed, _ = PlatformLesson.objects.filter(klass=klass).exclude(lms_lesson_id__in=seen).delete()
         if slots:

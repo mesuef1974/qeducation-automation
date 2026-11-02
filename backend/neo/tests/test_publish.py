@@ -5,9 +5,14 @@ import pytest
 
 from neo.domain.types import ParsedLesson
 from neo.infrastructure.client import NotLoggedIn
-from neo.infrastructure.parsers import parse_default_visibility, parse_lessons, parse_points_actions
+from neo.infrastructure.parsers import (
+    parse_default_visibility,
+    parse_lessons,
+    parse_points_actions,
+    parse_points_games,
+)
 from neo.models import PlatformLesson, PublishProposal
-from neo.services.publish_service import ALREADY, PublishService
+from neo.services.publish_service import ALREADY, PublishService, policy
 from neo.services.sync_service import SyncService
 
 FIX = Path(__file__).parent / "fixtures"
@@ -58,8 +63,12 @@ def test_plan(setup):
 class FakeClient:
     """يحاكي المنصة: {lesson_id: [ظاهر، عدد إجراءات النقاط]}."""
 
-    def __init__(self, state, broken=(), expire_at=None):
+    def __init__(self, state, broken=(), expire_at=None, games=("نجوم الرياضيات",)):
         self.state, self.broken, self.expire_at, self.writes = state, set(broken), expire_at, []
+        self.games = list(games)
+
+    def points_games(self, lms_id, lid):
+        return self.games
 
     def __enter__(self):
         return self
@@ -118,3 +127,47 @@ def test_apply_failure_and_session(setup):
     with pytest.raises(NotLoggedIn):
         svc.apply(run, lambda: FakeClient({3: [False, 0]}, expire_at=3))
     assert run.publish_proposals.get().status == PublishProposal.Status.APPROVED
+
+
+def test_parse_points_games():
+    html = """<form><select name="rule_action[arg2_id]"><option value="">تحديد</option>
+      <option value="263104">تحدي التحمل</option><option value="442577">نجوم الرياضيات</option></select></form>"""
+    assert parse_points_games(html) == ["تحدي التحمل", "نجوم الرياضيات"]
+
+
+def test_class_policy_override(setup):
+    _, k = setup
+    assert (policy(k).game, policy(k).points) == ("نجوم الرياضيات", 5)
+    k.points_game, k.points = "نجوم العلوم", 3
+    assert (policy(k).game, policy(k).points) == ("نجوم العلوم", 3)
+    k.points = 0
+    assert policy(k).points == 0
+
+
+def test_plan_game_missing(setup):
+    svc, k = setup
+    run = svc.plan(k, games=["تحدي التحمل"])
+    assert not run.ok and "غير موجودة" in run.summary["points_error"]
+    # الإظهار يبقى مقترحًا، والنقاط لا
+    assert [(p.lesson.lms_lesson_id, p.show, p.add_points) for p in run.publish_proposals.all()] == [(3, True, False)]
+
+
+def test_apply_game_missing(setup):
+    svc, k = setup
+    run = svc.plan(k)
+    svc.approve(run.pk)
+    fake = FakeClient({2: [True, 0], 3: [False, 0]}, games=["تحدي التحمل"])
+    svc.apply(run, lambda: fake)
+    assert fake.writes == [("show", 3)]
+    assert {p.status for p in run.publish_proposals.all()} == {PublishProposal.Status.FAILED}
+
+
+def test_fetch_visibility_from_tab(setup):
+    svc, k = setup
+    # الشارة قالت «مخفي» للدرس 3، والتبويب «ظاهر»؛ والدرس 2 عكسه
+    games = svc.fetch([k], lambda: FakeClient({1: [True, 1], 2: [False, 0], 3: [True, 0], 5: [True, 0]}))
+    hidden = dict(PlatformLesson.objects.filter(klass=k).values_list("lms_lesson_id", "hidden"))
+    assert hidden == {1: False, 2: True, 3: False, 4: True} and games[k.pk] == ["نجوم الرياضيات"]
+    # إعادة جلب القائمة لا تعيد «hidden» إلى قيمة الشارة
+    SyncService().ingest(k, [ParsedLesson(3, 3, "مخفي مؤرخ", "", date(2026, 11, 2), 6, hidden=True)], [])
+    assert PlatformLesson.objects.get(lms_lesson_id=3).hidden is False

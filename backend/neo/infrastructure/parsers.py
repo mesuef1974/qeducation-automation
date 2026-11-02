@@ -104,6 +104,12 @@ def parse_points_actions(html: str) -> int:
     return len(BeautifulSoup(html, "lxml").select("table.rulesList tr i.star2"))
 
 
+def parse_points_games(html: str) -> list[str]:
+    """نموذج «منح النقاط»: أسماء الألعاب المتاحة في الصف."""
+    return [o.get_text(strip=True) for o in
+            BeautifulSoup(html, "lxml").select("select[name='rule_action[arg2_id]'] option") if o.get("value")]
+
+
 _STUDENT_LESSON = re.compile(r"/student_lesson/show/\d+\?lesson_id=(\d+)")
 
 

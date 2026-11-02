@@ -16,6 +16,10 @@ class PlatformClass(models.Model):
     # الاستيراد تراكمي ويحفظ مفتاح الخطة، فالربط المباشر آمن؛ PROTECT يمنع حذف خطة مستخدمة
     plan = models.ForeignKey(Plan, on_delete=models.PROTECT, related_name="platform_classes", verbose_name="الخطة")
     active = models.BooleanField("مفعّل", default=True, help_text="الصفوف غير المفعّلة تُستثنى من كل المهام")
+    # تتقدّم على NEO_PUBLISH_POLICY؛ الفارغ يأخذ القيمة العامة
+    points_game = models.CharField("لعبة النقاط", max_length=120, blank=True,
+                                   help_text="اسم اللعبة كما في المنصة، مثل «نجوم الرياضيات»")
+    points = models.PositiveSmallIntegerField("نقاط الإنجاز", null=True, blank=True, help_text="0 = بلا نقاط")
     last_fetched_at = models.DateTimeField("آخر جلب", null=True, blank=True)
 
     objects = ActiveClassQuerySet.as_manager()

@@ -1,12 +1,14 @@
 """
 المهمة 3: نشر الدروس للطلاب.
-- الرؤية: الدرس المؤرخ المخفي افتراضيًا («شخصى» في قائمة الدروس) يُجعل «ظاهرًا».
+- الرؤية: الدرس المؤرخ المخفي افتراضيًا يُجعل «ظاهرًا». المرجع تبويب «الرؤية» في كل درس، لا شارة «شخصى»
+  في قائمة الدروس (ثبت أنها قد تبقى على درس ظاهر).
 - الإنجاز: الدرس الذي لا يمنح نقاطًا («يمنح النقاط» غائبة) يُضاف له إجراء منح النقاط عند إنجازه.
-السياسة في settings.NEO_PUBLISH_POLICY. الحالة تُقرأ من المنصة قبل كل كتابة؛ لا يُعدَّل إجراء قائم ولا يُكرَّر.
-الحالة تُجلب بأمر neo_sync (قائمة الدروس) قبل الاقتراح.
+السياسة: settings.NEO_PUBLISH_POLICY، ولكل صف أن يحدد لعبته ونقاطه (PlatformClass.points_game/points).
+وجود اللعبة في الصف يُفحص عند الاقتراح وقبل التطبيق. الحالة تُقرأ من المنصة قبل كل كتابة؛
+لا يُعدَّل إجراء قائم ولا يُكرَّر.
 """
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 from django.conf import settings
 from django.db import transaction
@@ -22,26 +24,66 @@ ALREADY = "مطبّق على المنصة مسبقًا"
 class PublishPolicy:
     show_dated: bool = True
     points: int = 5            # 0 = لا تُضاف نقاط
-    game: str = "نجوم الرياضيات"
+    game: str = ""             # اسم لعبة النقاط في الصف؛ يختلف بين المواد
     notification: str = "Popup"  # Popup نافذة | Dropdown منسدلة
 
 
-def policy() -> PublishPolicy:
-    return PublishPolicy(**getattr(settings, "NEO_PUBLISH_POLICY", {}))
+def policy(klass: PlatformClass) -> PublishPolicy:
+    p = PublishPolicy(**getattr(settings, "NEO_PUBLISH_POLICY", {}))
+    if klass.points_game:
+        p = replace(p, game=klass.points_game)
+    if klass.points is not None:
+        p = replace(p, points=klass.points)
+    return p
 
 
-def lesson_actions(lesson: PlatformLesson, p: PublishPolicy) -> tuple[bool, bool]:
+def game_error(p: PublishPolicy, games: list[str] | None) -> str:
+    """سبب تعذّر منح النقاط في الصف، أو "" إن أمكن (games=None: لم تُفحص)."""
+    if p.points <= 0:
+        return ""
+    if not p.game:
+        return "لم تُحدَّد لعبة النقاط للصف (points_game)"
+    if games is not None and p.game not in games:
+        return f"اللعبة «{p.game}» غير موجودة في الصف؛ المتاح: {'، '.join(games) or 'لا شيء'}"
+    return ""
+
+
+def lesson_actions(lesson: PlatformLesson, p: PublishPolicy, points_ok: bool = True) -> tuple[bool, bool]:
     """منطق نقي: (إظهار، منح النقاط) المطلوبان لدرس."""
     return (p.show_dated and lesson.hidden and lesson.date is not None,
-            p.points > 0 and not lesson.awards_points)
+            points_ok and p.points > 0 and not lesson.awards_points)
 
 
 class PublishService:
+    # ------------------------------------------------------------- جلب
+
+    def fetch(self, classes: list[PlatformClass], client_factory: Callable[[], NeoClient]) -> dict[int, list[str]]:
+        """
+        بعد جلب قائمة الدروس (SyncService.fetch): يقرأ تبويب «الرؤية» لكل درس مؤرخ ويحدّث PlatformLesson.hidden،
+        ويعيد ألعاب النقاط المتاحة في كل صف.
+        """
+        dated = {k.pk: list(PlatformLesson.objects.filter(klass=k, date__isnull=False)
+                            .values_list("pk", "lms_lesson_id")) for k in classes}
+        any_lesson = {k.pk: PlatformLesson.objects.filter(klass=k).values_list("lms_lesson_id", flat=True).first()
+                      for k in classes}
+        shown, games = {}, {}
+        with client_factory() as client:  # لا ORM هنا
+            for k in classes:
+                for pk, lid in dated[k.pk]:
+                    shown[pk] = client.lesson_shown(k.lms_id, lid)
+                games[k.pk] = client.points_games(k.lms_id, any_lesson[k.pk]) if any_lesson[k.pk] else []
+        with transaction.atomic():
+            for pk, s in shown.items():
+                if s is not None:
+                    PlatformLesson.objects.filter(pk=pk).update(hidden=not s)
+        return games
+
     # ------------------------------------------------------------- اقتراح
 
     @transaction.atomic
-    def plan(self, klass: PlatformClass) -> SyncRun:
-        p = policy()
+    def plan(self, klass: PlatformClass, games: list[str] | None = None) -> SyncRun:
+        p = policy(klass)
+        points_error = game_error(p, games)
         PublishProposal.objects.filter(run__klass=klass, status__in=[
             PublishProposal.Status.PENDING, PublishProposal.Status.APPROVED,
         ]).update(status=PublishProposal.Status.REJECTED, error="استُبدل بعملية اقتراح أحدث")
@@ -49,7 +91,7 @@ class PublishService:
 
         drafts, hidden_undated = [], []
         for lesson in PlatformLesson.objects.filter(klass=klass).order_by("position"):
-            show, points = lesson_actions(lesson, p)
+            show, points = lesson_actions(lesson, p, points_ok=not points_error)
             if lesson.hidden and lesson.date is None:
                 hidden_undated.append(lesson.position)
             if show or points:
@@ -63,7 +105,9 @@ class PublishService:
             "policy": {"show_dated": p.show_dated, "points": p.points, "game": p.game,
                        "notification": p.notification},
         }
-        run.ok, run.finished_at = True, timezone.now()
+        if points_error:
+            run.summary["points_error"] = points_error
+        run.ok, run.finished_at = not points_error, timezone.now()
         run.save()
         return run
 
@@ -74,7 +118,7 @@ class PublishService:
     # ------------------------------------------------------------- تطبيق
 
     def apply(self, run: SyncRun, client_factory: Callable[[], NeoClient], limit: int | None = None) -> SyncRun:
-        p = policy()
+        p = policy(run.klass)
         lms_id = run.klass.lms_id
         items = list(run.publish_proposals.filter(status=PublishProposal.Status.APPROVED)
                      .select_related("lesson").order_by("lesson__position")[:limit])
@@ -82,10 +126,14 @@ class PublishService:
         state: dict[int, tuple[bool, bool]] = {}  # الدرس ← (ظاهر، يمنح النقاط) بعد التطبيق
         session_error = None
         with client_factory() as client:  # لا ORM هنا
+            points_error = ""
+            if any(prop.add_points for prop in items):
+                points_error = game_error(p, client.points_games(lms_id, items[0].lesson.lms_lesson_id))
             for prop in items:
                 lid = prop.lesson.lms_lesson_id
                 try:
-                    results[prop.pk], state[prop.lesson_id] = self._apply_one(client, lms_id, lid, prop, p)
+                    results[prop.pk], state[prop.lesson_id] = self._apply_one(client, lms_id, lid, prop, p,
+                                                                              points_error)
                 except NotLoggedIn as exc:
                     session_error = exc
                     break
@@ -97,7 +145,8 @@ class PublishService:
         return log
 
     @staticmethod
-    def _apply_one(client: NeoClient, lms_id: int, lid: int, prop: PublishProposal, p: PublishPolicy):
+    def _apply_one(client: NeoClient, lms_id: int, lid: int, prop: PublishProposal, p: PublishPolicy,
+                   points_error: str):
         done = False
         shown = client.lesson_shown(lms_id, lid)
         if shown is None:
@@ -110,6 +159,8 @@ class PublishService:
             done = True
         points = client.lesson_points_actions(lms_id, lid) > 0
         if prop.add_points and not points:
+            if points_error:
+                return (PublishProposal.Status.FAILED, points_error), (shown, False)
             client.add_points_action(lms_id, lid, p.points, p.game, p.notification)
             points = client.lesson_points_actions(lms_id, lid) > 0
             if not points:

@@ -8,6 +8,7 @@ from datetime import date, datetime
 from pathlib import Path
 
 from django.conf import settings
+from playwright.sync_api import Error as PlaywrightError
 from playwright.sync_api import sync_playwright
 
 from neo.infrastructure.parsers import (
@@ -15,6 +16,7 @@ from neo.infrastructure.parsers import (
     is_login_url,
     parse_default_visibility,
     parse_points_actions,
+    parse_points_games,
 )
 
 BASE_URL = "https://qeducation.edu.gov.qa"
@@ -39,6 +41,10 @@ class PlatformError(RuntimeError):
     pass
 
 
+class BrowserBusy(PlatformError):
+    pass
+
+
 class NeoClient:
     """استخدام: with NeoClient() as c: c.get_html(...)"""
 
@@ -51,9 +57,15 @@ class NeoClient:
 
     def __enter__(self):
         self._pw = sync_playwright().start()
-        self.context = self._pw.chromium.launch_persistent_context(
-            str(self.profile_dir), channel=settings.NEO_BROWSER_CHANNEL, headless=self.headless, locale="ar-QA",
-        )
+        try:
+            self.context = self._pw.chromium.launch_persistent_context(
+                str(self.profile_dir), channel=settings.NEO_BROWSER_CHANNEL, headless=self.headless, locale="ar-QA",
+            )
+        except PlaywrightError as exc:
+            self._pw.stop()
+            # ملف التعريف يُقفل ما دام متصفح آخر يستخدمه (neo_login أو أمر آخر قيد التشغيل)
+            raise BrowserBusy("المتصفح مشغول: أمر آخر يعمل بملف الدخول نفسه (neo_login أو مهمة أخرى). "
+                              "انتظر انتهاءه ثم أعد المحاولة.") from exc
         # كوكي الجلسة في المنصة غير دائم فيُفقد عند إغلاق المتصفح؛ نحفظه ونستعيده صراحةً
         if self.cookies_path.exists():
             self.context.add_cookies(json.loads(self.cookies_path.read_text(encoding="utf-8")))
@@ -210,11 +222,18 @@ class NeoClient:
     def lesson_points_actions(self, lms_id: int, lesson_id: int) -> int:
         return parse_points_actions(self.get_html(f"/teacher_lesson/completion/{lms_id}?lesson_id={lesson_id}"))
 
+    def points_games(self, lms_id: int, lesson_id: int) -> list[str]:
+        return parse_points_games(self.get_html(self._points_form_path(lms_id, lesson_id)))
+
+    @staticmethod
+    def _points_form_path(lms_id: int, lesson_id: int) -> str:
+        return (f"/teacher_lesson/new_rule_action/{lms_id}?lesson_id={lesson_id}"
+                "&rule_action_class=AwardPointsAction&rule_class=CompletedLessonRule")
+
     def add_points_action(self, lms_id: int, lesson_id: int, points: int, game: str, notification: str) -> None:
         """«إجراءات الإنجاز ← إضافة ← منح النقاط» بالرسالة الجاهزة؛ يُنفَّذ عند إنجاز الطالب للدرس."""
         self._throttle()
-        self.page.goto(f"{BASE_URL}/teacher_lesson/new_rule_action/{lms_id}?lesson_id={lesson_id}"
-                       "&rule_action_class=AwardPointsAction&rule_class=CompletedLessonRule")
+        self.page.goto(BASE_URL + self._points_form_path(lms_id, lesson_id))
         if is_login_url(self.page.url):
             raise NotLoggedIn("انتهت الجلسة - شغّل: python manage.py neo_login")
         form = f"form[action*='/teacher_lesson/create_rule_action/{lms_id}']"

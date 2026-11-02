@@ -43,8 +43,9 @@ class Command(BaseCommand):
                 return
             classes = active_classes(opts["klass"])
             SyncService().fetch(classes, factory)
+            games = svc.fetch(classes, factory)
             for k in classes:
-                r = svc.plan(k)
+                r = svc.plan(k, games[k.pk])
                 self.stdout.write(self.style.SUCCESS(f"[اقتراح نشر #{r.pk}] {k}"))
                 self.stdout.write(json.dumps(r.summary, ensure_ascii=False, indent=1))
         except (NotLoggedIn, PlatformError, NoActiveClasses) as exc:

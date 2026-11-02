@@ -1,6 +1,6 @@
-from django.core.management.base import BaseCommand
+from django.core.management.base import BaseCommand, CommandError
 
-from neo.infrastructure.client import NeoClient
+from neo.infrastructure.client import BrowserBusy, NeoClient
 
 
 class Command(BaseCommand):
@@ -11,6 +11,9 @@ class Command(BaseCommand):
 
     def handle(self, *args, timeout, **opts):
         self.stdout.write("سجّل الدخول في النافذة المفتوحة... (تُغلق تلقائيًا بعد الوصول للصفحة الرئيسية)")
-        with NeoClient(headless=False) as client:
-            client.login_interactive(timeout)
+        try:
+            with NeoClient(headless=False) as client:
+                client.login_interactive(timeout)
+        except BrowserBusy as exc:
+            raise CommandError(str(exc)) from exc
         self.stdout.write(self.style.SUCCESS("تم حفظ الجلسة."))
