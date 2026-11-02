@@ -226,6 +226,7 @@ class Job(models.Model):
         PUBLISH_PLAN = "publish_plan", "جلب واقتراح النشر"
         PUBLISH_APPLY = "publish_apply", "تطبيق النشر ثم التحقق"
         VERIFY = "verify", "التحقق من منظور الطالب"
+        WEEKLY = "weekly", "الدورة الأسبوعية"
 
     class Status(models.TextChoices):
         QUEUED = "queued", "في الانتظار"
@@ -254,6 +255,7 @@ class Job(models.Model):
     error_kind = models.CharField("نوع الخطأ", max_length=12, choices=Error.choices, blank=True)
     error = models.TextField("الخطأ", blank=True)
     runs = models.ManyToManyField(SyncRun, blank=True, related_name="jobs", verbose_name="العمليات الناتجة")
+    report = models.JSONField("التقرير", default=dict, blank=True)  # الدورة الأسبوعية: ما اعتُمد وما بقي ولماذا
 
     class Meta:
         verbose_name = "مهمة"
@@ -281,3 +283,18 @@ class WorkerHeartbeat(models.Model):
 
     def __str__(self):
         return f"العامل {self.pid} - {self.seen_at:%H:%M:%S}"
+
+
+class ScorecardSnapshot(models.Model):
+    """لقطة يومية لبطاقة الأداء؛ أول لقطة هي خط الأساس الذي يُقاس عليه التحسن."""
+
+    day = models.DateField("اليوم", unique=True)
+    data = models.JSONField("القيم")
+
+    class Meta:
+        ordering = ["-day"]
+        verbose_name = "لقطة بطاقة الأداء"
+        verbose_name_plural = "لقطات بطاقة الأداء"
+
+    def __str__(self):
+        return f"بطاقة الأداء {self.day}"

@@ -199,3 +199,17 @@ def test_session_survives_recover(classes):
     svc.claim()
     assert svc.recover() == 1
     assert session_state()["expired"] is True
+
+
+# ------------------------------------------------------------- بطاقة الأداء
+
+def test_scorecard(client, publish_run):
+    data = client.get("/api/neo/scorecard/").json()
+    crit = {c["key"]: c for c in data["current"]["criteria"]}
+    assert len(crit) == 8 and data["baseline"] is None
+    assert crit["engagement"]["measured"] is False and crit["compliance"]["value"] == 100
+    assert crit["content"]["value"] == 0  # درسان بلا وصف
+    assert client.post("/api/neo/scorecard/").status_code == 201
+    assert client.post("/api/neo/scorecard/").status_code == 200  # لقطة واحدة لليوم
+    data = client.get("/api/neo/scorecard/").json()
+    assert data["baseline"]["day"] == data["current"]["day"] and len(data["series"]) == 1

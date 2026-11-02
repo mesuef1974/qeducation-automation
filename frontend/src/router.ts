@@ -11,6 +11,8 @@ export const router = createRouter({
       meta: { title: "المراجعة" } },
     { path: "/lessons", name: "lessons", component: () => import("@/views/LessonsView.vue"), meta: { title: "الدروس" } },
     { path: "/log", name: "log", component: () => import("@/views/LogView.vue"), meta: { title: "السجل" } },
+    { path: "/scorecard", name: "scorecard", component: () => import("@/views/ScorecardView.vue"),
+      meta: { title: "بطاقة الأداء" } },
     { path: "/swot", name: "swot", component: () => import("@/views/SwotView.vue"), meta: { title: "تحليل SWOT" } },
     { path: "/:pathMatch(.*)*", redirect: "/" },
   ],

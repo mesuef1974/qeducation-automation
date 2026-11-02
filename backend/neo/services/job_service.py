@@ -12,7 +12,7 @@ from django.utils import timezone
 
 from neo.infrastructure.client import BrowserBusy, NeoClient, NotLoggedIn, PlatformError
 from neo.models import Job, SyncRun, WorkerHeartbeat
-from neo.services import pipeline
+from neo.services import pipeline, weekly_service
 from neo.services.sync_service import NoActiveClasses, active_classes
 
 # headless → مصنع عملاء؛ الاختبارات تمرّر مصنعًا وهميًا
@@ -28,6 +28,7 @@ PARAMS = {
     Job.Kind.ASSIGN_PLAN: {"classes"},
     Job.Kind.PUBLISH_PLAN: {"classes"},
     Job.Kind.VERIFY: {"classes"},
+    Job.Kind.WEEKLY: {"classes", "cycle"},
     Job.Kind.SYNC_APPLY: {"run", "approve"},
     Job.Kind.ASSIGN_APPLY: {"run", "approve", "limit"},
     Job.Kind.PUBLISH_APPLY: {"run", "approve", "limit"},
@@ -49,6 +50,8 @@ def _execute(job: Job, make: FactoryMaker, today: date) -> list[SyncRun]:
             client.login_interactive(LOGIN_TIMEOUT)
         return []
     factory = make(True)
+    if job.kind == k.WEEKLY:
+        return weekly_service.run(active_classes(p.get("classes")), factory, today, job.report)
     if job.kind in (k.SYNC_PLAN, k.ASSIGN_PLAN, k.PUBLISH_PLAN, k.VERIFY):
         classes = active_classes(p.get("classes"))
         return {
@@ -114,7 +117,7 @@ class JobService:
             # المراحل تسجّل ما طُبّق قبل انقطاع الجلسة ثم ترفع الاستثناء؛ عامل واحد، فكل عملية منذ البداية لهذه المهمة
             runs = list(SyncRun.objects.filter(started_at__gte=job.started_at))
         job.finished_at = timezone.now()
-        job.save(update_fields=["status", "started_at", "error_kind", "error", "finished_at"])
+        job.save(update_fields=["status", "started_at", "error_kind", "error", "finished_at", "report"])
         job.runs.set(runs)
         return job
 

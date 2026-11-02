@@ -1,5 +1,7 @@
 ﻿# تشغيل الأتمتة بأمر واحد: .\start.ps1
 # يشغّل ما ليس يعمل فقط (الخادم، العامل)، كلًّا في نافذة، ثم يفتح الموقع. الإيقاف: أغلق النافذة أو Ctrl+C فيها.
+# -Background: للتشغيل عند الدخول إلى ويندوز (autostart.ps1)؛ نوافذ مصغّرة ولا يُفتح الموقع.
+param([switch]$Background)
 $ErrorActionPreference = "Stop"
 $root = $PSScriptRoot
 $backend = Join-Path $root "backend"
@@ -7,7 +9,8 @@ $site = "http://127.0.0.1:8765"
 $shell = if (Get-Command pwsh -ErrorAction SilentlyContinue) { "pwsh" } else { "powershell" }
 
 function Start-Window([string]$title, [string]$command) {
-    Start-Process $shell -WorkingDirectory $backend -ArgumentList "-NoExit", "-Command",
+    $style = if ($Background) { "Minimized" } else { "Normal" }
+    Start-Process $shell -WorkingDirectory $backend -WindowStyle $style -ArgumentList "-NoExit", "-Command",
         "`$Host.UI.RawUI.WindowTitle = '$title'; $command"
 }
 
@@ -45,4 +48,4 @@ if ($session.worker_alive) {
     Write-Host "شُغّل العامل."
 }
 
-Start-Process "$site/"
+if (-not $Background) { Start-Process "$site/" }

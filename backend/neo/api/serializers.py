@@ -95,8 +95,8 @@ class JobSerializer(serializers.ModelSerializer):
     class Meta:
         model = Job
         fields = ["id", "kind", "kind_label", "params", "status", "status_label", "created_at", "started_at",
-                  "finished_at", "error_kind", "error_label", "error", "runs"]
-        read_only_fields = ["status", "created_at", "started_at", "finished_at", "error_kind", "error"]
+                  "finished_at", "error_kind", "error_label", "error", "runs", "report"]
+        read_only_fields = ["report", "status", "created_at", "started_at", "finished_at", "error_kind", "error"]
 
     def validate(self, attrs):
         params, allowed = attrs.get("params") or {}, PARAMS[attrs["kind"]]

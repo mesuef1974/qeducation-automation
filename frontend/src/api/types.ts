@@ -103,7 +103,8 @@ export interface AssignProposal extends ProposalBase {
 export type Proposal = DateProposal | PublishProposal | AssignProposal;
 
 export type JobKind =
-  | "login" | "sync_plan" | "sync_apply" | "assign_plan" | "assign_apply" | "publish_plan" | "publish_apply" | "verify";
+  | "login" | "sync_plan" | "sync_apply" | "assign_plan" | "assign_apply" | "publish_plan" | "publish_apply" | "verify"
+  | "weekly";
 export type JobStatus = "queued" | "running" | "done" | "failed";
 
 export interface JobParams {
@@ -111,6 +112,7 @@ export interface JobParams {
   run?: number;
   approve?: "all" | "future";
   limit?: number;
+  cycle?: string;
 }
 
 export interface Job {
@@ -127,6 +129,7 @@ export interface Job {
   error_label: string;
   error: string;
   runs: Run[];
+  report: WeeklyReport | Record<string, never>;
 }
 
 export interface Page<T> {
@@ -143,4 +146,40 @@ export interface SessionState {
   worker_alive: boolean;
   worker_busy: boolean;
   queued: number;
+}
+
+export interface Criterion {
+  key: string; title: string; value: number | null; target: number; unit: string;
+  level: number | null; target_level: number | null; measured: boolean; detail: string; next: string;
+}
+export interface ScorecardData {
+  day: string;
+  criteria: Criterion[];
+  tasks: { key: string; title: string; area: string; level: number; target: number; minutes: number }[];
+  levels: Record<string, string>;
+  capabilities: { title: string; used: boolean }[];
+  compliance: { title: string; ok: boolean }[];
+}
+export interface Scorecard {
+  current: ScorecardData;
+  baseline: ScorecardData | null;
+  series: { day: string; values: Record<string, number | null> }[];
+}
+
+export interface WeeklyStage {
+  proposals?: number; eligible?: number; held?: number; approved?: number;
+  applied?: number; failed?: number; ok?: boolean; anomaly?: string;
+}
+export interface WeeklyReport {
+  today?: string;
+  horizon?: string;
+  attention?: number;
+  classes?: Record<string, Record<string, WeeklyStage & { missing_past?: number[]; missing_today?: number[] }>>;
+}
+export interface WeeklyState {
+  enabled: boolean;
+  next_at: string;
+  due: string | null;
+  cycle: string;
+  last: Job | null;
 }

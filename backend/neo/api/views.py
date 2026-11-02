@@ -8,7 +8,7 @@ from rest_framework.response import Response
 
 from neo.api import serializers as s
 from neo.models import Job, PlatformClass, PlatformLesson, SyncRun
-from neo.services import review_service
+from neo.services import review_service, scorecard_service, weekly_service
 from neo.services.job_service import JobService, session_state
 from neo.services.pipeline import PROPOSALS, PipelineError
 
@@ -150,3 +150,23 @@ class JobViewSet(mixins.CreateModelMixin, viewsets.ReadOnlyModelViewSet):
 def session(request):
     """حالة جلسة المنصة والعامل: /api/neo/session/ (أول طلب للواجهة؛ يضبط ملف csrftoken لطلبات POST)"""
     return Response(session_state())
+
+
+@api_view(["GET", "POST"])
+def scorecard(request):
+    """بطاقة الأداء: GET القيم الحالية مع خط الأساس، POST يحفظ لقطة اليوم (مرة لكل يوم)."""
+    today = timezone.localdate()
+    if request.method == "POST":
+        _, created = scorecard_service.snapshot(today)
+        return Response(status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
+    return Response({"current": scorecard_service.build(today), **scorecard_service.history()})
+
+
+@api_view(["GET"])
+def weekly(request):
+    """الدورة الأسبوعية: موعدها القادم وآخر دورة بتقريرها."""
+    now = timezone.localtime()
+    last = Job.objects.filter(kind=Job.Kind.WEEKLY).order_by("-created_at").first()
+    return Response({"enabled": weekly_service.config()["enabled"], "next_at": weekly_service.next_run(now),
+                     "due": weekly_service.due_cycle(now), "cycle": weekly_service.cycle_start(now).date(),
+                     "last": s.JobSerializer(last).data if last else None})

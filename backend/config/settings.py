@@ -84,6 +84,9 @@ NEO_BROWSER_CHANNEL = "msedge"
 NEO_ASSIGN_POLICY = {"due_days": 2, "allow_late": True}
 # سياسة النشر (المهمة 3) - اختيار المعلم: يظهر كل درس مؤرخ، وكل درس يمنح عند إنجازه ما تمنحه الدروس الأولى
 NEO_PUBLISH_POLICY = {"show_dated": True, "points": 5, "game": "نجوم الرياضيات", "notification": "Popup"}
+# الدورة الأسبوعية (قرار المعلم: تلقائي مع تقرير بعده) - الخميس 14:00، تُستدرك حتى صباح الأحد.
+# يُعتمد آليًا ما يقع في 14 يومًا القادمة بلا تنبيه، وما زاد على 20 تغييرًا في مرحلة يبقى للمراجعة
+NEO_WEEKLY = {"enabled": True, "weekday": 3, "hour": 14, "catchup_hours": 66, "window_days": 14, "max_per_stage": 20}
 # الصفوف وربطها بالخطط في قاعدة البيانات (PlatformClass) لا هنا
 
 # دخول تلقائي كمدير - يعمل فقط لطلبات loopback

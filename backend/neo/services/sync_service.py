@@ -52,6 +52,9 @@ def active_classes(lms_ids: list[int] | None = None) -> list[PlatformClass]:
     return classes
 
 
+SHRINK_LIMIT = 0.8  # أقل من 80% من الدروس المحفوظة → صفحة غير متوقعة
+
+
 class SyncService:
 
     # ------------------------------------------------------------- جلب
@@ -67,6 +70,11 @@ class SyncService:
         empty = [k.name for k in classes if not parsed[k.pk][0]]
         if empty:  # صفحة غير متوقعة؛ لا نحذف بيانات محلية بناءً عليها
             raise PlatformError(f"لم يُعثر على دروس في: {', '.join(empty)}")
+        # نقص كبير مفاجئ في عدد الدروس يعني غالبًا تغيّر شكل الصفحة لا حذفًا فعليًا
+        shrunk = [k.name for k in classes
+                  if len(parsed[k.pk][0]) < SHRINK_LIMIT * PlatformLesson.objects.filter(klass=k).count()]
+        if shrunk:
+            raise PlatformError(f"عدد الدروس نقص كثيرًا عن المحفوظ في: {', '.join(shrunk)}؛ لم يُحفظ شيء، تحقق من المنصة")
         return [self.ingest(k, *parsed[k.pk]) for k in classes]
 
     @transaction.atomic

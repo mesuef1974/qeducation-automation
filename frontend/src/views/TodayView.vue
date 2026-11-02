@@ -2,6 +2,7 @@
 import { ref } from "vue";
 
 import type { JobKind, PlatformClass } from "@/api/types";
+import WeeklyCard from "@/components/WeeklyCard.vue";
 import { STAGES, todayIso } from "@/domain";
 import { useClassesStore } from "@/stores/classes";
 import { useJobsStore } from "@/stores/jobs";
@@ -36,6 +37,8 @@ const missing = (k: PlatformClass) => (k.overview.last_verify?.summary.missing_p
   <div v-if="classes.error" class="error-box">تعذّر تحميل الصفوف: {{ classes.error }}</div>
   <p v-else-if="classes.loading && !classes.items.length" class="empty"><i class="spinner" /> تحميل...</p>
   <p v-else-if="!classes.items.length" class="empty">لا توجد صفوف مفعّلة. أضف صفًا من لوحة الإدارة.</p>
+
+  <WeeklyCard />
 
   <section class="cards">
     <article v-for="k in classes.items" :key="k.lms_id" class="card klass">
