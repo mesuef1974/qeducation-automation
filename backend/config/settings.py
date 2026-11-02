@@ -81,6 +81,8 @@ NEO_PROFILE_DIR = BASE_DIR / ".neo_profile"
 NEO_BROWSER_CHANNEL = "msedge"
 # سياسة الإسناد (المهمة 2) - اختيار المعلم: يظهر صباح يوم الدرس، يستحق بعد يومين، يُقبل المتأخر
 NEO_ASSIGN_POLICY = {"due_days": 2, "allow_late": True}
+# سياسة النشر (المهمة 3) - اختيار المعلم: يظهر كل درس مؤرخ، وكل درس يمنح عند إنجازه ما تمنحه الدروس الأولى
+NEO_PUBLISH_POLICY = {"show_dated": True, "points": 5, "game": "نجوم الرياضيات", "notification": "Popup"}
 # الصفوف وربطها بالخطط في قاعدة البيانات (PlatformClass) لا هنا
 
 # دخول تلقائي كمدير - يعمل فقط لطلبات loopback

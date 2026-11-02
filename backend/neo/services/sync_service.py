@@ -77,7 +77,8 @@ class SyncService:
             PlatformLesson.objects.update_or_create(
                 lms_lesson_id=p.lms_lesson_id,
                 defaults={"klass": klass, "position": p.position, "title": p.title,
-                          "description": p.description, "date": p.date, "period": p.period, "fetched_at": now},
+                          "description": p.description, "date": p.date, "period": p.period,
+                          "hidden": p.hidden, "awards_points": p.awards_points, "fetched_at": now},
             )
             seen.append(p.lms_lesson_id)
         removed, _ = PlatformLesson.objects.filter(klass=klass).exclude(lms_lesson_id__in=seen).delete()

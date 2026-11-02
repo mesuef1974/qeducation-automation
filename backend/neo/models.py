@@ -54,6 +54,8 @@ class PlatformLesson(models.Model):
     description = models.TextField("الوصف", blank=True)
     date = models.DateField("التاريخ", null=True, blank=True)
     period = models.PositiveSmallIntegerField("الحصة", null=True, blank=True)
+    hidden = models.BooleanField("مخفي عن الطلاب", default=False)
+    awards_points = models.BooleanField("يمنح النقاط", default=False)
     match_code = models.CharField("المطابقة الآلية", max_length=60, blank=True,
                                   help_text="رمز درس الخطة (مثل 2.1) أو نشاط غير درسي (مثل مراجعة واختبار وحدة#1)")
     match_score = models.FloatField("درجة المطابقة", null=True, blank=True)
@@ -81,6 +83,8 @@ class SyncRun(models.Model):
         APPLY = "apply", "تطبيق"
         ASSIGN_PLAN = "assign_plan", "اقتراح إسناد"
         ASSIGN_APPLY = "assign_apply", "تطبيق إسناد"
+        PUBLISH_PLAN = "publish_plan", "اقتراح نشر"
+        PUBLISH_APPLY = "publish_apply", "تطبيق نشر"
 
     klass = models.ForeignKey(PlatformClass, on_delete=models.CASCADE, related_name="runs", verbose_name="الصف")
     kind = models.CharField("النوع", max_length=20, choices=Kind.choices)
@@ -174,3 +178,29 @@ class AssignProposal(models.Model):
 
     def __str__(self):
         return f"{self.assessment} → {self.begin_at:%m-%d} / {self.end_at:%m-%d}"
+
+
+class PublishProposal(models.Model):
+    """المهمة 3: إظهار الدرس للطلاب و/أو إضافة إجراء منح النقاط عند إنجازه."""
+
+    Status = ProposalStatus
+
+    run = models.ForeignKey(SyncRun, on_delete=models.CASCADE, related_name="publish_proposals",
+                            verbose_name="العملية")
+    lesson = models.ForeignKey(PlatformLesson, on_delete=models.CASCADE, related_name="publish_proposals",
+                               verbose_name="الدرس")
+    show = models.BooleanField("إظهار", default=False)
+    add_points = models.BooleanField("منح النقاط", default=False)
+    status = models.CharField("الحالة", max_length=10, choices=Status.choices, default=Status.PENDING, db_index=True)
+    error = models.TextField("الخطأ", blank=True)
+    applied_at = models.DateTimeField("وقت التطبيق", null=True, blank=True)
+
+    class Meta:
+        verbose_name = "اقتراح نشر"
+        verbose_name_plural = "اقتراحات النشر"
+        ordering = ["run", "lesson__position"]
+        constraints = [models.UniqueConstraint(fields=["run", "lesson"], name="uq_publish_run_lesson")]
+
+    def __str__(self):
+        parts = [t for t, on in (("إظهار", self.show), ("نقاط", self.add_points)) if on]
+        return f"{self.lesson} → {' + '.join(parts)}"

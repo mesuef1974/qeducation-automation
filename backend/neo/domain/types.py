@@ -11,6 +11,8 @@ class ParsedLesson:
     description: str
     date: date | None
     period: int | None
+    hidden: bool = False         # «شخصى»: مخفي افتراضيًا عن الطلاب
+    awards_points: bool = False  # «يمنح النقاط»: له إجراء إنجاز يمنح نقاطًا
 
 
 @dataclass(frozen=True)

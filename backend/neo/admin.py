@@ -10,6 +10,7 @@ from neo.models import (
     PlatformClass,
     PlatformLesson,
     ProposalStatus,
+    PublishProposal,
     SyncRun,
     TimetableSlot,
 )
@@ -36,13 +37,14 @@ class PlatformClassAdmin(admin.ModelAdmin):
 
 @admin.register(PlatformLesson)
 class PlatformLessonAdmin(admin.ModelAdmin):
-    list_display = ("position", "title", "klass", "date", "period", "match_code", "match_score", "override_code")
+    list_display = ("position", "title", "klass", "date", "period", "hidden", "awards_points", "match_code",
+                    "match_score", "override_code")
     list_display_links = ("title",)
     list_editable = ("override_code",)
-    list_filter = ("klass", ("date", admin.EmptyFieldListFilter), "match_code")
+    list_filter = ("klass", ("date", admin.EmptyFieldListFilter), "hidden", "awards_points", "match_code")
     search_fields = ("title", "match_code", "override_code")
-    readonly_fields = ("lms_lesson_id", "position", "title", "description", "date", "period",
-                       "match_code", "match_score", "fetched_at", "klass")
+    readonly_fields = ("lms_lesson_id", "position", "title", "description", "date", "period", "hidden",
+                       "awards_points", "match_code", "match_score", "fetched_at", "klass")
 
 
 class ProposalInline(admin.TabularInline):
@@ -119,3 +121,11 @@ class AssignProposalAdmin(ReviewActionsMixin, admin.ModelAdmin):
     list_select_related = ("assessment", "run__klass")
     readonly_fields = ("run", "assessment", "lesson_date", "begin_at", "end_at", "allow_late", "flags",
                        "status", "error", "applied_at")
+
+
+@admin.register(PublishProposal)
+class PublishProposalAdmin(ReviewActionsMixin, admin.ModelAdmin):
+    list_display = ("lesson", "klass", "show", "add_points", "status", "error", "run")
+    list_filter = ("status", "run__klass", "run", "show", "add_points")
+    list_select_related = ("lesson", "run__klass")
+    readonly_fields = ("run", "lesson", "show", "add_points", "status", "error", "applied_at")

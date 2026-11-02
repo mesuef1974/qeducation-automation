@@ -13,6 +13,8 @@ WEEKDAYS = {"الإثنين": 0, "الاثنين": 0, "الثلاثاء": 1, "ا
 
 _LABEL = re.compile(r"(?P<month>[؀-ۿ]+)\s+(?P<day>\d{1,2})\s*,?\s*(?:الحصة\s*(?:ال)?(?P<period>\d+))?")
 _POSITION = re.compile(r"^\s*(\d+)\.\s*")
+# شارات بطاقة الدرس في قائمة الدروس
+HIDDEN_BADGE, POINTS_BADGE = "شخصى", "يمنح النقاط"
 
 
 def year_for_month(month: int, academic_year: str) -> int:
@@ -43,6 +45,7 @@ def parse_lessons(html: str, academic_year: str) -> list[ParsedLesson]:
         d, period = parse_date_label(label.get_text(" ", strip=True), academic_year) if label else (None, None)
         desc = tile.select_one("p.lightText")
         description = desc.get_text("\n", strip=True) if desc else ""
+        badges = {e["title"] for e in tile.select("[title]")}
         out.append(ParsedLesson(
             lms_lesson_id=lesson_id,
             position=int(pos.group(1)) if pos else len(out) + 1,
@@ -50,6 +53,8 @@ def parse_lessons(html: str, academic_year: str) -> list[ParsedLesson]:
             description="" if description == "وصف الدرس." else description,
             date=d,
             period=period,
+            hidden=HIDDEN_BADGE in badges,
+            awards_points=POINTS_BADGE in badges,
         ))
     return out
 
@@ -86,6 +91,17 @@ def parse_timetable(html: str) -> list[ParsedSlot]:
         if day is not None and period is not None:
             slots.append(ParsedSlot(day, period))
     return slots
+
+
+def parse_default_visibility(html: str) -> bool | None:
+    """تبويب «الرؤية»: True إن كان الدرس ظاهرًا افتراضيًا، None إن لم يوجد الخيار."""
+    checked = BeautifulSoup(html, "lxml").select_one("input[name=default_visibility][checked]")
+    return None if checked is None else checked["value"] == "Show"
+
+
+def parse_points_actions(html: str) -> int:
+    """تبويب «متطلبات الإنجاز»: عدد إجراءات منح النقاط عند إنجاز الدرس."""
+    return len(BeautifulSoup(html, "lxml").select("table.rulesList tr i.star2"))
 
 
 def is_login_url(url: str) -> bool:

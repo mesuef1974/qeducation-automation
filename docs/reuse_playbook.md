@@ -79,6 +79,7 @@ python backend/manage.py migrate
 |---|---|---|
 | 1. تواريخ الدروس | `neo_sync` | `neo_sync --apply RUN --approve future\|all` |
 | 2. إسناد التقييمات | `neo_assign` | `neo_assign --apply RUN --approve all` (جرّب أولًا `--limit 1`) |
+| 3. نشر الدروس (الرؤية ونقاط الإنجاز) | `neo_publish` | `neo_publish --apply RUN --approve all` (جرّب أولًا `--limit 1`) |
 
 كل الأوامر تعمل على الصفوف المفعّلة، ولحصرها في صف واحد أضف `--class LMS_ID`، ويمكن تكرار الخيار.
 
@@ -87,7 +88,7 @@ python backend/manage.py migrate
 ### قائمة تحقق لكل صف أو فصل جديد
 - [ ] الصف يطابق الخطة: اقرأ ناتج `neo_sync`، ففيه الدروس غير المطابقة وبنود الخطة المفقودة من المنصة.
 - [ ] جدول الحصص في المنصة صحيح، لأن الاقتراحات مبنية عليه.
-- [ ] السياسة `NEO_ASSIGN_POLICY` ما زالت هي المطلوبة.
+- [ ] السياستان `NEO_ASSIGN_POLICY` و`NEO_PUBLISH_POLICY` ما زالتا هما المطلوبتين، ومنها اسم لعبة النقاط في المادة الجديدة.
 - [ ] `python -m pytest backend` ينجح بعد أي تعديل.
 
 ## 5. التعميم: ما أُنجز وما بقي

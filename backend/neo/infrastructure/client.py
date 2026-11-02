@@ -10,7 +10,12 @@ from pathlib import Path
 from django.conf import settings
 from playwright.sync_api import sync_playwright
 
-from neo.infrastructure.parsers import is_login_page, is_login_url
+from neo.infrastructure.parsers import (
+    is_login_page,
+    is_login_url,
+    parse_default_visibility,
+    parse_points_actions,
+)
 
 BASE_URL = "https://qeducation.edu.gov.qa"
 MONTHS_AR = ["يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو",
@@ -189,6 +194,37 @@ class NeoClient:
             raise PlatformError(f"تقييمات غير موجودة في القائمة: {missing}")
         with self.page.expect_navigation():
             self.page.locator(f"a[href='/teacher_assignments/give/{lms_id}']").first.click()
+
+    # ------------------------------------------------------------- الرؤية والإنجاز
+
+    def lesson_shown(self, lms_id: int, lesson_id: int) -> bool | None:
+        return parse_default_visibility(self.get_html(f"/teacher_lesson/shown/{lms_id}?lesson_id={lesson_id}"))
+
+    def show_lesson(self, lms_id: int, lesson_id: int) -> None:
+        """ما يفعله اختيار «ظاهر» في تبويب الرؤية: الرؤية الافتراضية للجميع. استثناءات الإخفاء تبقى."""
+        self._throttle()
+        self.page.goto(f"{BASE_URL}/teacher_lesson/set_shown_default/{lms_id}?lesson_id={lesson_id}&value=Show")
+        if is_login_url(self.page.url):
+            raise NotLoggedIn("انتهت الجلسة - شغّل: python manage.py neo_login")
+
+    def lesson_points_actions(self, lms_id: int, lesson_id: int) -> int:
+        return parse_points_actions(self.get_html(f"/teacher_lesson/completion/{lms_id}?lesson_id={lesson_id}"))
+
+    def add_points_action(self, lms_id: int, lesson_id: int, points: int, game: str, notification: str) -> None:
+        """«إجراءات الإنجاز ← إضافة ← منح النقاط» بالرسالة الجاهزة؛ يُنفَّذ عند إنجاز الطالب للدرس."""
+        self._throttle()
+        self.page.goto(f"{BASE_URL}/teacher_lesson/new_rule_action/{lms_id}?lesson_id={lesson_id}"
+                       "&rule_action_class=AwardPointsAction&rule_class=CompletedLessonRule")
+        if is_login_url(self.page.url):
+            raise NotLoggedIn("انتهت الجلسة - شغّل: python manage.py neo_login")
+        form = f"form[action*='/teacher_lesson/create_rule_action/{lms_id}']"
+        if not self.page.query_selector(form):
+            raise PlatformError(f"نموذج منح النقاط غير موجود: {self.page.url}")
+        self.page.select_option(f"{form} [name='rule_action[arg2_id]']", label=game)
+        self.page.fill(f"{form} [name='rule_action[points]']", str(points))
+        self.page.check(f"{form} [name='rule_action[notification_type]'][value='{notification}']")
+        with self.page.expect_navigation():
+            self.page.click(f"{form} [name=commit]")
 
     def _assert_form(self):
         if is_login_url(self.page.url):

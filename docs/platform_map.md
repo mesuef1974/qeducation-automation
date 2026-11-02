@@ -39,6 +39,8 @@
 | التشغيل الآلي (أصلي) | `/teacher_automation/course/{id}` |
 | الإتقان | `/teacher_curriculum/index/{id}` |
 | تحليلات الدروس | `/teacher_lesson_analytics/index/{id}` |
+| رؤية الدرس | `/teacher_lesson/shown/{id}?lesson_id=N` |
+| متطلبات إنجاز الدرس | `/teacher_lesson/completion/{id}?lesson_id=N` |
 
 ## الدروس على المنصة
 كل درس على المنصة = حصة واحدة، مؤرخة برقم الحصة. ويضم أقسامًا: عرض تقديمي، فيديو تفاعلي، فيديو تعليمي، نشاط تفاعلي، تقييم ختامي.
