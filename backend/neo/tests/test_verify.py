@@ -31,9 +31,9 @@ def lessons(klass):
 def test_compare(classes):
     r = compare(lessons(classes[602598]), tiles={1, 5}, today_ids={3}, today=TODAY)
     assert (r.missing, r.today_missing, r.unexpected, r.scheduled, r.undated) == ([2], [], [5], [4], [6])
-    assert not r.ok
+    assert not r.ok and r.hidden == []
     r = compare(lessons(classes[602598]), tiles={1, 2}, today_ids=set(), today=TODAY)
-    assert r.today_missing == [3] and not r.ok
+    assert r.today_missing == [3] and r.hidden == [5] and not r.ok
 
 
 def test_record(classes):

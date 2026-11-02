@@ -25,6 +25,7 @@ class VisibilityReport:
     unexpected: list[int] = field(default_factory=list)         # مخفي عندنا ويراه الطالب
     scheduled: list[int] = field(default_factory=list)          # مستقبلي ستكشفه المنصة
     undated: list[int] = field(default_factory=list)            # بلا تاريخ ولا يراه الطالب
+    hidden: list[int] = field(default_factory=list)             # مخفي عندنا («شخصى») ولا يراه الطالب
 
     @property
     def ok(self) -> bool:
@@ -37,8 +38,7 @@ def compare(lessons: list[PlatformLesson], tiles: set[int], today_ids: set[int],
     for pl in sorted(lessons, key=lambda x: x.position):
         lid, seen = pl.lms_lesson_id, pl.lms_lesson_id in tiles
         if pl.hidden:
-            if seen:
-                r.unexpected.append(pl.position)
+            (r.unexpected if seen else r.hidden).append(pl.position)
         elif pl.date is None:
             if not seen:
                 r.undated.append(pl.position)
@@ -66,5 +66,5 @@ class VerifyService:
             summary={"today": today.isoformat(), "seen_by_student": r.seen, "missing_past": r.missing,
                      "missing_today": r.today_missing, "hidden_but_seen": r.unexpected,
                      "scheduled_future": len(r.scheduled), "next_scheduled": r.scheduled[:3],
-                     "undated_unseen": r.undated},
+                     "undated_unseen": r.undated, "hidden_unseen": r.hidden},
         )
