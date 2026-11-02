@@ -1,0 +1,343 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>تقرير منصة قطر للتعليم</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&family=Reem+Kufi:wght@500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --maroon:#8A1538; --maroon-soft:#f6e9ed; --ink:#1f2933; --muted:#5b6672; --line:#e3e6ea;
+  --bg:#f7f7f8; --card:#ffffff; --ok:#1f7a4d; --ok-soft:#e5f3eb; --warn:#a15c00; --warn-soft:#fdf1df;
+  --bad:#a3122a; --bad-soft:#fbe6ea; --code:#f1f3f5;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --maroon:#d9577c; --maroon-soft:#3a1823; --ink:#e7eaee; --muted:#a3adb8; --line:#2e3640;
+    --bg:#14181d; --card:#1b2027; --ok:#5cc08b; --ok-soft:#173326; --warn:#e6a54a; --warn-soft:#382a14;
+    --bad:#f07a8f; --bad-soft:#3b1a21; --code:#232a32;
+  }
+}
+:root[data-theme="dark"]{
+  --maroon:#d9577c; --maroon-soft:#3a1823; --ink:#e7eaee; --muted:#a3adb8; --line:#2e3640;
+  --bg:#14181d; --card:#1b2027; --ok:#5cc08b; --ok-soft:#173326; --warn:#e6a54a; --warn-soft:#382a14;
+  --bad:#f07a8f; --bad-soft:#3b1a21; --code:#232a32;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.85 "IBM Plex Sans Arabic",system-ui,sans-serif}
+header.hero{background:#8A1538;color:#fff;padding-block:48px 40px;padding-inline:16px}
+.wrap{max-width:1040px;margin-inline:auto;padding-inline:16px}
+header.hero .wrap{padding-inline:0}
+h1,h2,h3{font-family:"Reem Kufi","IBM Plex Sans Arabic",sans-serif;line-height:1.4}
+h1{font-size:clamp(28px,4.5vw,40px);margin:0 0 8px}
+.hero p{margin:0;opacity:.92;max-width:760px}
+.meta{margin-top:18px;display:flex;flex-wrap:wrap;gap:8px}
+.meta span{background:rgba(255,255,255,.14);border-radius:999px;padding:2px 12px;font-size:14px}
+nav.toc{position:sticky;top:0;z-index:5;background:var(--card);border-block-end:1px solid var(--line)}
+nav.toc .wrap{display:flex;gap:6px;overflow-x:auto;padding-block:8px;scrollbar-width:thin}
+nav.toc a{white-space:nowrap;color:var(--muted);text-decoration:none;font-size:14px;padding:4px 10px;border-radius:8px}
+nav.toc a:hover{background:var(--maroon-soft);color:var(--maroon)}
+section{padding-block:36px 8px}
+h2{font-size:26px;margin:0 0 6px;color:var(--maroon)}
+h2 small{display:block;font:500 14px "IBM Plex Sans Arabic";color:var(--muted)}
+h3{font-size:19px;margin:28px 0 8px}
+p{margin:8px 0}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px 20px;margin-block:14px}
+.grid{display:grid;gap:14px}
+.g2{grid-template-columns:repeat(auto-fit,minmax(280px,1fr))}
+.g4{grid-template-columns:repeat(auto-fit,minmax(170px,1fr))}
+.stat{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 16px}
+.stat b{display:block;font:700 30px "Reem Kufi";color:var(--maroon)}
+.stat span{color:var(--muted);font-size:14px}
+figure{margin:18px 0;background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+figure img{display:block;width:100%;height:auto;max-height:640px;object-fit:contain;object-position:top;background:#f3f3f3;cursor:zoom-in}
+figcaption{padding:10px 16px;font-size:14px;color:var(--muted);border-block-start:1px solid var(--line)}
+figcaption b{color:var(--ink)}
+.shots{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(300px,1fr))}
+.shots figure{margin:0}
+.tag{display:inline-block;font-size:12.5px;border-radius:6px;padding:0 8px;margin-inline-end:4px;font-weight:600}
+.t-ok{background:var(--ok-soft);color:var(--ok)} .t-warn{background:var(--warn-soft);color:var(--warn)}
+.t-bad{background:var(--bad-soft);color:var(--bad)} .t-info{background:var(--maroon-soft);color:var(--maroon)}
+.callout{border-inline-start:4px solid var(--maroon);background:var(--maroon-soft);border-radius:10px;padding:12px 16px;margin-block:14px}
+.callout.warn{border-color:var(--warn);background:var(--warn-soft)}
+table{width:100%;border-collapse:collapse;font-size:15px}
+.tbl{overflow-x:auto;background:var(--card);border:1px solid var(--line);border-radius:14px;margin-block:14px}
+th,td{text-align:start;padding:10px 14px;border-block-end:1px solid var(--line);vertical-align:top}
+th{background:var(--code);font-weight:600;white-space:nowrap}
+tr:last-child td{border-block-end:0}
+code{font:14px "IBM Plex Mono",monospace;background:var(--code);border-radius:5px;padding:1px 6px;direction:ltr;unicode-bidi:embed}
+ul,ol{padding-inline-start:22px;margin:8px 0} li{margin-block:4px}
+.prio{font:700 13px "IBM Plex Mono";color:#fff;background:var(--maroon);border-radius:6px;padding:1px 8px}
+.prio.p2{background:#4f6475} .prio.p3{background:#8a96a3}
+.phase{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;align-items:start}
+.phase .n{font:700 22px "Reem Kufi";color:var(--maroon);min-width:36px}
+footer{margin-top:40px;padding:28px 16px;border-block-start:1px solid var(--line);color:var(--muted);font-size:14px;text-align:center}
+#lb{position:fixed;inset:0;background:rgba(0,0,0,.85);display:none;align-items:center;justify-content:center;z-index:20;padding:16px;cursor:zoom-out}
+#lb img{max-width:100%;max-height:100%;border-radius:8px}
+@media print{nav.toc{display:none} figure img{max-height:none} section{break-inside:avoid-page}}
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <h1>تقرير منصة قطر للتعليم</h1>
+    <p>جولة موثّقة بالصور في منصة CYPHER NEO لصفّي الرياضيات 10/3 و12/2: ما الذي تقدمه المنصة اليوم، وكيف تخدم الطالب، وما الذي يرفع كفاءته وتحصيله، وكيف نطوّر الأتمتة لتشمل المنصة كاملة.</p>
+    <div class="meta"><span>العام 2026-2027 · الفصل الأول</span><span>تاريخ الجولة: 2 نوفمبر 2026</span><span>بصفة معلم مشارك</span><span>اللقطات مقصوصة وأسماء الطلاب محجوبة</span></div>
+  </div>
+</header>
+
+<nav class="toc"><div class="wrap">
+  <a href="#summary">الملخص</a><a href="#tour">جولة المنصة</a><a href="#student">خدمة الطالب</a>
+  <a href="#raise">رفع التحصيل</a><a href="#cards">البطاقات والصور</a><a href="#automation">تطوير الأتمتة</a>
+  <a href="#roadmap">خارطة الطريق</a><a href="#notes">الضوابط</a>
+</div></nav>
+
+<main class="wrap">
+
+<!-- ============================================================ الملخص -->
+<section id="summary">
+  <h2>الملخص التنفيذي</h2>
+  <div class="grid g4">
+    <div class="stat"><b>47</b><span>درسًا في صف 10/3، منها 194 قسمًا</span></div>
+    <div class="stat"><b>11 / 30</b><span>تقييمًا مُسندًا من المتاح</span></div>
+    <div class="stat"><b>0%</b><span>الدرجات والإتقان المسجّلان حتى الآن</span></div>
+    <div class="stat"><b>≈ 3</b><span>طلاب فتحوا الدروس 1–14، بمدة 0–1 دقيقة غالبًا</span></div>
+  </div>
+  <div class="card">
+    <p>المنصة غنية بالأدوات: دروس بأقسام تفاعلية، وتقييمات، وخريطة إتقان مرتبطة بنتاجات التعلم، وتلعيب بالنقاط والمستويات والشارات، وتحليلات، وتشغيل آلي، ومحرر بطاقات يدعم توليد الصورة بالذكاء الاصطناعي. لكن الاستخدام الفعلي ما يزال في بدايته: التفاعل الطلابي شبه معدوم، والإتقان صفري، ونصف بطاقات الدروس بصور عامة ووصف افتراضي.</p>
+    <p>الأتمتة الحالية (أربع مراحل: التواريخ، الإسناد، النشر والنقاط، التحقق من منظور الطالب) أنهت «البنية التحتية» للصفين. الخطوة التالية أن تنتقل من <b>تجهيز الدروس</b> إلى <b>متابعة التعلم</b>: قراءة التحليلات والإتقان أسبوعيًا، وتنبيه المعلم بالطلاب المتأخرين، وتجويد البطاقات، وربط التقييمات بالنتاجات.</p>
+  </div>
+  <div class="grid g2">
+    <div class="card"><h3 style="margin-top:0">أهم ثلاث فرص</h3>
+      <ol>
+        <li>ربط كل تقييم بنتاج تعلم حتى تعمل خريطة الإتقان وتُظهر الفجوات.</li>
+        <li>تفعيل الشارات والمستويات والإنجاز التلقائي للصف، ليرى الطالب تقدّمه.</li>
+        <li>توحيد بطاقات الدروس 1–24 على نمط الدروس 25 فما بعد: صورة من المحتوى ووصف بالأهداف.</li>
+      </ol></div>
+    <div class="card"><h3 style="margin-top:0">أهم ثلاث مراحل أتمتة قادمة</h3>
+      <ol>
+        <li>تقرير أسبوعي للقراءة فقط: التفاعل والإنجاز والإتقان لكل طالب (محليًا).</li>
+        <li>مدقق جودة البطاقات: يرصد الصور العامة والوصف الافتراضي ويقترح البديل.</li>
+        <li>مراجعة ربط التقييمات بالنتاجات وتغطية الإتقان.</li>
+      </ol></div>
+  </div>
+</section>
+
+<!-- ============================================================ الجولة -->
+<section id="tour">
+  <h2>جولة في المنصة<small>كل جزء: ماذا يعرض، ماذا لاحظنا، وما دلالته</small></h2>
+
+  <h3>1. الصفحة الرئيسية للصف</h3>
+  <figure><img src="img/dashboard.jpg" alt="الصفحة الرئيسية للصف" loading="lazy">
+    <figcaption><b>لوحة الصف.</b> عناصر الترحيب الافتراضية دون تخصيص. 31 طالبًا نشطًا، 0 أنجزوا الصف، 47 درسًا، 194 قسمًا، 30 تقييمًا أُسند منها 11، الدرجات والإتقان 0%، وزيارة واحدة مسجلة.</figcaption></figure>
+  <p><span class="tag t-warn">ملاحظة</span> الصفحة الرئيسية أول ما يراه الطالب، ويمكن أن تحمل: درس اليوم، الواجب القادم، ترتيب لوحة النقاط، ورسالة أسبوعية قصيرة.</p>
+
+  <h3>2. قائمة الدروس والبطاقات</h3>
+  <div class="shots">
+    <figure><img src="img/lessons_stock.jpg" alt="بطاقات بصور عامة" loading="lazy">
+      <figcaption><b>الدروس 1–24:</b> صور عامة (كتب وأقلام) ووصف افتراضي «وصف الدرس.» وقسم واحد لكل درس.</figcaption></figure>
+    <figure><img src="img/lessons_content.jpg" alt="بطاقات بصور من المحتوى" loading="lazy">
+      <figcaption><b>الدروس 25 فما بعد:</b> صور من المحتوى (منحنيات، معادلات) ووصف بالأهداف و5–6 أقسام.</figcaption></figure>
+  </div>
+  <p>الشارات على البطاقة: <span class="tag t-info">شخصى</span> درس مخفي افتراضيًا (وثبت أنها غير موثوقة، والمرجع تبويب الرؤية)، <span class="tag t-info">يمنح النقاط</span> للدرس قاعدة إنجاز تمنح نقاطًا، <span class="tag t-info">نتاجات التعلم</span> للدرس نتاجات مرتبطة.</p>
+
+  <h3>3. أقسام الدرس</h3>
+  <figure><img src="img/lesson_sections.jpg" alt="أقسام الدرس 28" loading="lazy">
+    <figcaption><b>الدرس 28 نموذجًا:</b> عرض تقديمي، فيديو تفاعلي، فيديو تعليمي، عرض ثانٍ، نشاط تفاعلي، ثم تقييم ختامي مُسند. هذا هو البناء المثالي الذي ينبغي أن تصل إليه كل الدروس.</figcaption></figure>
+
+  <h3>4. الرؤية والإنجاز على مستوى الدرس</h3>
+  <div class="shots">
+    <figure><img src="img/visibility.jpg" alt="تبويب الرؤية" loading="lazy">
+      <figcaption><b>تبويب الرؤية:</b> ظاهر أو مخفي افتراضيًا. تضبطه مرحلة النشر آليًا للدروس المؤرخة.</figcaption></figure>
+    <figure><img src="img/completion.jpg" alt="تبويب متطلبات إنجاز الدرس" loading="lazy">
+      <figcaption><b>متطلبات الإنجاز:</b> قاعدة «عند إنجاز الدرس امنح 5 نقاط» في لعبة «نجوم الرياضيات». مطبّقة على كل دروس الصفين.</figcaption></figure>
+  </div>
+
+  <h3>5. التقييمات</h3>
+  <figure><img src="img/assignments.jpg" alt="قائمة التقييمات" loading="lazy">
+    <figcaption><b>التقييمات:</b> 30 تقييمًا جاهزًا مرتبطة بالدروس، أُسند منها 11 بتواريخ بداية واستحقاق آليًا (مرحلة الإسناد). البقية تُسند حين يحل تاريخ درسها.</figcaption></figure>
+
+  <h3>6. الإتقان ونتاجات التعلم</h3>
+  <figure><img src="img/mastery.jpg" alt="خريطة الإتقان" loading="lazy">
+    <figcaption><b>الإتقان:</b> نتاجات كثيرة بلا دروس ولا تقييمات. النتاجات 10.3.x لها دروس دون تقييمات، والمصفوفات 10.4.x غير مغطاة. يوجد زر «تعلم استخدام الذكاء الاصطناعي».</figcaption></figure>
+  <div class="callout warn">الإتقان لا يُحسب إلا من تقييمات مربوطة بنتاجات. ما دام الربط ناقصًا ستبقى النسبة 0% مهما أنجز الطلاب، ولن يرى المعلم ولا ولي الأمر أين الفجوة.</div>
+
+  <h3>7. التحليلات</h3>
+  <figure><img src="img/analytics.jpg" alt="تحليلات الدروس" loading="lazy">
+    <figcaption><b>تحليلات الدروس:</b> نحو 3 طلاب فقط فتحوا الدروس 1–14، أغلبهم 0–1 دقيقة، ولا أحد بعدها. لم نتحقق إن كانوا طلابًا فعليين أم حسابات تجريبية.</figcaption></figure>
+
+  <h3>8. تلعيب التعلم</h3>
+  <figure><img src="img/game.jpg" alt="لعبة نجوم الرياضيات" loading="lazy">
+    <figcaption><b>«نجوم الرياضيات»:</b> 3 لاعبين فقط، 6 مستويات، 0 شارات، 235 نقطة. النقاط تُمنح الآن عند إنجاز كل درس، لكن الشارات غائبة واللاعبون قليلون.</figcaption></figure>
+
+  <h3>9. التشغيل الآلي المدمج في المنصة</h3>
+  <figure><img src="img/automation_native.jpg" alt="التشغيل الآلي في المنصة" loading="lazy">
+    <figcaption><b>التشغيل الآلي:</b> رسالتان جاهزتان فقط (عند التسجيل وعند إنجاز الصف). المنصة تدعم قواعد أوسع: تنبيه عند التأخر، رسالة عند درجة منخفضة، منح شارة.</figcaption></figure>
+
+  <h3>10. إعدادات الصف</h3>
+  <div class="shots">
+    <figure><img src="img/settings_lessons.jpg" alt="إعدادات الدروس" loading="lazy">
+      <figcaption><b>الدروس:</b> عرض الدروس حتى الدرس الحالي، وإخفاء ما بعده، وتعيين الدرس الحالي حسب التاريخ. لذا يظهر الدرس للطالب في يومه.</figcaption></figure>
+    <figure><img src="img/settings_completion.jpg" alt="إعدادات إنجاز الصف" loading="lazy">
+      <figcaption><b>إنجاز الصف:</b> التحقق التلقائي معطّل، والتسلسل معطّل، والإنجاز التلقائي للقسم عند زيارته مفعّل مع اشتراط إنهاء الفيديو. إجراء واحد عند الإنجاز: رسالة جاهزة.</figcaption></figure>
+  </div>
+  <figure><img src="img/features.jpg" alt="تبويبات الصف" loading="lazy">
+    <figcaption><b>الخصائص (التبويبات):</b> مفعّل منها أولياء الأمور والتلعيب والتشغيل الآلي والمنتديات وملف الإنجاز. معطّل: المعلمون المساعدون، مخطط المقاعد، Wiki، المنهج، آراء الزملاء، نشاط المستخدمين.</figcaption></figure>
+  <p><span class="tag t-warn">ملاحظة</span> يظهر الصف «غير منشور» رغم وجود 31 طالبًا نشطًا. يُستحسن أن يتحقق مالك الصف من أثر ذلك على ظهوره في واجهة الطلاب.</p>
+
+  <h3>11. المصادر</h3>
+  <p>أربعة مصادر: كتاب الطالب (PDF)، تطبيقات الآلة الحاسبة، الكتاب التفاعلي، دليل STEM. كافية كبداية، وتنقصها بنوك تدريب وملخصات لكل وحدة.</p>
+
+  <h3>12. منظور الطالب</h3>
+  <figure><img src="img/student_lesson.jpg" alt="الدرس من منظور الطالب" loading="lazy">
+    <figcaption><b>الدرس كما يراه الطالب:</b> الأقسام متتابعة مع نسبة إنجاز ظاهرة (11% هنا). مرحلة التحقق تقارن ما يراه الطالب بما يجب أن يراه بعد كل نشر.</figcaption></figure>
+</section>
+
+<!-- ============================================================ خدمة الطالب -->
+<section id="student">
+  <h2>كيف تخدم المنصة الطالب اليوم</h2>
+  <div class="tbl"><table>
+    <thead><tr><th>الحاجة</th><th>ما يتوفر</th><th>الحالة</th></tr></thead>
+    <tbody>
+      <tr><td>معرفة درس اليوم</td><td>الدرس الحالي يُعيَّن بالتاريخ ويظهر في لوحة «اليوم»</td><td><span class="tag t-ok">يعمل</span> بفضل مرحلتي التواريخ والنشر</td></tr>
+      <tr><td>محتوى الدرس</td><td>عروض وفيديو تفاعلي وأنشطة في الدروس 25+</td><td><span class="tag t-warn">جزئي</span> الدروس 1–24 قسم واحد</td></tr>
+      <tr><td>التقييم والتغذية الراجعة</td><td>تقييمات ختامية مُسندة بمواعيد</td><td><span class="tag t-warn">جزئي</span> 11 من 30، ولا درجات بعد</td></tr>
+      <tr><td>رؤية التقدم</td><td>نسبة إنجاز الدرس، نقاط عند الإنجاز</td><td><span class="tag t-warn">جزئي</span> لا شارات ولا إتقان</td></tr>
+      <tr><td>معرفة نقاط الضعف</td><td>خريطة الإتقان</td><td><span class="tag t-bad">معطّل فعليًا</span> الربط بالنتاجات ناقص</td></tr>
+      <tr><td>الدافعية</td><td>لعبة بست مستويات</td><td><span class="tag t-bad">ضعيف</span> 3 لاعبين، 0 شارات</td></tr>
+      <tr><td>إشراك ولي الأمر</td><td>تبويب أولياء الأمور مفعّل</td><td><span class="tag t-warn">غير مستثمر</span> لا تنبيهات آلية</td></tr>
+    </tbody></table></div>
+  <div class="callout">المشكلة الجوهرية ليست في الأدوات بل في <b>التفاعل</b>: الطلاب لا يدخلون. أي تحسين يجب أن يُقاس بسؤال واحد: هل زاد عدد الطلاب الذين ينجزون درس اليوم؟</div>
+</section>
+
+<!-- ============================================================ رفع التحصيل -->
+<section id="raise">
+  <h2>ما الذي يرفع كفاءة الطالب وتحصيله</h2>
+  <div class="tbl"><table>
+    <thead><tr><th>الأولوية</th><th>الإضافة</th><th>الأثر على الطالب</th><th>من ينفذ</th></tr></thead>
+    <tbody>
+      <tr><td><span class="prio">P1</span></td><td>ربط كل تقييم بنتاج تعلم، وإضافة تقييمات قصيرة لنتاجات 10.3.x و10.4.x</td><td>يرى نسبة إتقانه لكل مهارة ويعرف ما يراجع</td><td>المالك أو المعلم، والأتمتة تكشف الفجوات</td></tr>
+      <tr><td><span class="prio">P1</span></td><td>تقييم قصير (3–5 أسئلة) في نهاية كل درس من 1–24</td><td>تغذية راجعة فورية بدل درس من قسم واحد</td><td>المعلم</td></tr>
+      <tr><td><span class="prio">P1</span></td><td>شارات للمستويات: «أنجز وحدة»، «5 دروس متتالية»، «إتقان 80%»</td><td>دافعية مرئية وهدف قريب</td><td>المالك، ثم تُضاف القواعد آليًا</td></tr>
+      <tr><td><span class="prio p2">P2</span></td><td>تفعيل التحقق التلقائي لإنجاز الصف وإصدار شهادة</td><td>نهاية واضحة للمسار ومكافأة</td><td>المالك</td></tr>
+      <tr><td><span class="prio p2">P2</span></td><td>قواعد تشغيل آلي: رسالة عند تأخر الواجب، تشجيع عند درجة عالية، دعم عند درجة منخفضة</td><td>متابعة شخصية دون عبء على المعلم</td><td>الأتمتة بموافقة</td></tr>
+      <tr><td><span class="prio p2">P2</span></td><td>تنبيهات أولياء الأمور بالواجبات المتأخرة والتقدم الأسبوعي</td><td>دعم من البيت</td><td>المالك يفعّل، والمحتوى من التقرير الأسبوعي</td></tr>
+      <tr><td><span class="prio p2">P2</span></td><td>أنشطة تدريب إضافية اختيارية (بنك أسئلة متدرج) في كل وحدة</td><td>تمايز: علاجي للمتعثر وإثرائي للمتقدم</td><td>المعلم</td></tr>
+      <tr><td><span class="prio p3">P3</span></td><td>مسار تعلم أو تسلسل الأقسام للدروس المتراكمة</td><td>يمنع القفز إلى التقييم قبل الشرح</td><td>المالك بعد تجربة على وحدة</td></tr>
+      <tr><td><span class="prio p3">P3</span></td><td>منتدى أسئلة لكل وحدة، وتخصيص الصفحة الرئيسية</td><td>تعلم بالأقران ومدخل واضح</td><td>المعلم</td></tr>
+    </tbody></table></div>
+</section>
+
+<!-- ============================================================ البطاقات -->
+<section id="cards">
+  <h2>تجويد البطاقات والصور المعبّرة عن الحصة</h2>
+  <p>البطاقة هي أول ما يقرر الطالب عنده هل يفتح الدرس. الدروس 25+ تثبت أن البطاقة الجيدة ممكنة في المنصة نفسها؛ المطلوب تعميمها.</p>
+  <div class="grid g2">
+    <div class="card"><h3 style="margin-top:0">معايير البطاقة</h3>
+      <ul>
+        <li><b>الصورة من المحتوى:</b> المنحنى أو المعادلة أو الشكل الهندسي الخاص بالدرس، لا صورة عامة.</li>
+        <li><b>هوية لونية للوحدة:</b> شريط أو خلفية بلون ثابت لكل وحدة، ليعرف الطالب موقعه.</li>
+        <li><b>عنوان موحّد:</b> «رقم الدرس. اسم المهارة»، مع رمز الخطة (مثل 2.1) في الوصف.</li>
+        <li><b>وصف بالأهداف:</b> سطران: «ستتعلم أن...» و«ستحتاج إلى...»، بدل «وصف الدرس.».</li>
+        <li><b>قابلية القراءة:</b> نص قليل على الصورة، تباين عالٍ، وصورة واضحة في الحجم الصغير على الهاتف.</li>
+      </ul></div>
+    <div class="card"><h3 style="margin-top:0">طرق الإنتاج</h3>
+      <ul>
+        <li><b>صورة الذكاء الاصطناعي في المنصة:</b> محرر البطاقة السريع يحوي خيار توليد صورة البطاقة (<code>ai_tile_image</code>). يُجرَّب على درس واحد ويُقيَّم قبل التعميم.</li>
+        <li><b>قالب موحّد:</b> قالب بصيغة SVG أو PNG بلون الوحدة، يُملأ آليًا بالعنوان والرسم، ويُرفع بموافقة.</li>
+        <li><b>لقطة من محتوى الدرس:</b> أول شريحة من العرض التقديمي غالبًا هي أفضل صورة.</li>
+      </ul></div>
+  </div>
+  <div class="tbl"><table>
+    <thead><tr><th>العنصر</th><th>الآن (الدروس 1–24)</th><th>المقترح</th></tr></thead>
+    <tbody>
+      <tr><td>الصورة</td><td>كتب وأقلام عامة</td><td>رسم المفهوم بلون الوحدة</td></tr>
+      <tr><td>الوصف</td><td>«وصف الدرس.»</td><td>هدفان قابلان للقياس ورمز الخطة</td></tr>
+      <tr><td>الأقسام</td><td>قسم واحد</td><td>تمهيد، شرح، نشاط، تقييم قصير</td></tr>
+      <tr><td>النتاجات</td><td>غير مربوطة غالبًا</td><td>نتاج واحد على الأقل لكل درس</td></tr>
+    </tbody></table></div>
+</section>
+
+<!-- ============================================================ الأتمتة -->
+<section id="automation">
+  <h2>تطوير الأتمتة للتحكم في المنصة كاملة<small>المبدأ الثابت: قراءة أولًا، ثم اقتراح، ثم موافقة، ثم تطبيق يقرأ الحالة قبل الكتابة، ثم تحقق</small></h2>
+
+  <h3>ما هو قائم</h3>
+  <div class="tbl"><table>
+    <thead><tr><th>المرحلة</th><th>الأمر</th><th>ما تفعله</th><th>الحالة</th></tr></thead>
+    <tbody>
+      <tr><td>1. التواريخ</td><td><code>neo_sync</code></td><td>مطابقة دروس المنصة بالخطة وتأريخها بالجدول</td><td><span class="tag t-ok">مكتمل</span></td></tr>
+      <tr><td>2. الإسناد</td><td><code>neo_assign</code></td><td>إسناد التقييم بموعد الدرس</td><td><span class="tag t-ok">مكتمل</span></td></tr>
+      <tr><td>3. النشر</td><td><code>neo_publish</code></td><td>إظهار الدروس المؤرخة ومنح 5 نقاط عند الإنجاز</td><td><span class="tag t-ok">مكتمل</span> 10/3: 23 إظهار و26 نقاط · 12/2: 31 و31</td></tr>
+      <tr><td>4. التحقق</td><td><code>neo_verify</code></td><td>مقارنة ما يراه الطالب بالمتوقع (قراءة فقط)</td><td><span class="tag t-ok">ناجح</span> آخر تشغيل #49</td></tr>
+    </tbody></table></div>
+
+  <h3>المراحل المقترحة</h3>
+  <div class="tbl"><table>
+    <thead><tr><th>الأولوية</th><th>المرحلة</th><th>النوع</th><th>المخرَج</th></tr></thead>
+    <tbody>
+      <tr><td><span class="prio">P1</span></td><td><b>5. تقرير التعلم الأسبوعي</b> <code>neo_insights</code>: التحليلات، الإنجاز، الدرجات، الإتقان لكل طالب</td><td><span class="tag t-ok">قراءة</span></td><td>قائمة «لم يفتح درس اليوم» و«متأخر في الواجب» محليًا فقط</td></tr>
+      <tr><td><span class="prio">P1</span></td><td><b>6. مدقق جودة الدروس</b> <code>neo_audit</code>: صورة عامة، وصف افتراضي، قسم واحد، بلا نتاج، بلا تقييم</td><td><span class="tag t-ok">قراءة</span></td><td>جدول فجوات لكل درس مرتّب بالأولوية</td></tr>
+      <tr><td><span class="prio">P1</span></td><td><b>7. تغطية الإتقان</b>: نتاجات الخطة مقابل النتاجات المربوطة بالدروس والتقييمات</td><td><span class="tag t-ok">قراءة</span></td><td>قائمة النتاجات غير المغطاة لكل وحدة</td></tr>
+      <tr><td><span class="prio p2">P2</span></td><td><b>8. تجويد البطاقات</b>: اقتراح وصف من أهداف الخطة، وصورة من قالب الوحدة</td><td><span class="tag t-warn">كتابة بموافقة</span></td><td>اقتراحات تُراجع في لوحة الإدارة ثم تُطبق</td></tr>
+      <tr><td><span class="prio p2">P2</span></td><td><b>9. قواعد التلعيب</b>: شارات المستويات وإنجاز الوحدة</td><td><span class="tag t-warn">كتابة بموافقة</span></td><td>قواعد مضافة بنفس نمط النقاط</td></tr>
+      <tr><td><span class="prio p2">P2</span></td><td><b>10. التشغيل الآلي المدمج</b>: قواعد التأخر والدرجة المنخفضة</td><td><span class="tag t-warn">كتابة بموافقة</span></td><td>المنصة تتابع الطالب دون تشغيل يومي</td></tr>
+      <tr><td><span class="prio p3">P3</span></td><td><b>11. الجدولة</b>: تشغيل التحقق والتقرير أسبوعيًا</td><td><span class="tag t-ok">قراءة</span></td><td>تقرير جاهز كل أحد</td></tr>
+      <tr><td><span class="prio p3">P3</span></td><td><b>12. التعميم</b>: استخراج الخطة من PDF، مطابقة عناوين المواد الأخرى، اكتشاف الصفوف</td><td><span class="tag t-info">بنية</span></td><td>معلم آخر يبدأ بأمر واحد</td></tr>
+    </tbody></table></div>
+
+  <h3>ضمانات التصميم</h3>
+  <div class="grid g2">
+    <div class="card"><ul>
+      <li>كل كتابة: اقتراح محفوظ، موافقة صريحة لكل عملية، قراءة الحالة قبل الكتابة، تحقق بعدها، سجل في <code>SyncRun</code>.</li>
+      <li>لا تعديل على إجراء قائم ولا تكرار (Idempotent).</li>
+      <li>تجربة على درس واحد (<code>--limit 1</code>) قبل التعميم.</li>
+    </ul></div>
+    <div class="card"><ul>
+      <li>بيانات الطلاب في قاعدة محلية فقط، ولا أسماء في التقارير المشتركة أو المستودع (PDPPL).</li>
+      <li>الدخول يدوي دائمًا؛ لا كلمات مرور ولا ملفات جلسة في المستودع.</li>
+      <li>إعدادات الصف (التسلسل، الإنجاز، الخصائص) قرار المالك؛ الأتمتة تقترح ولا تغيّر.</li>
+    </ul></div>
+  </div>
+</section>
+
+<!-- ============================================================ خارطة الطريق -->
+<section id="roadmap">
+  <h2>خارطة الطريق</h2>
+  <div class="card phase">
+    <div class="n">1</div><div><b>الأسبوعان القادمان — القياس.</b> بناء التقرير الأسبوعي ومدقق الجودة وتغطية الإتقان (قراءة فقط). التحقق من الدرس 31 بعد 4 نوفمبر.</div>
+    <div class="n">2</div><div><b>الشهر الأول — المحتوى.</b> تجويد بطاقات الدروس 1–24 (وصف وصورة)، وتجربة صورة الذكاء الاصطناعي على درس، واقتراح ربط التقييمات بالنتاجات على مالك الصف.</div>
+    <div class="n">3</div><div><b>الشهر الثاني — الدافعية والمتابعة.</b> الشارات، قواعد التأخر والتشجيع، تنبيهات أولياء الأمور بالتنسيق مع المالك.</div>
+    <div class="n">4</div><div><b>الفصل الثاني — التعميم.</b> الجدولة، استخراج الخطة من PDF، وتشغيل الأتمتة لمعلم أو مادة أخرى.</div>
+  </div>
+  <div class="card"><b>مؤشرات النجاح:</b> نسبة الطلاب الذين ينجزون درس اليوم، متوسط دقائق التعلم لكل درس، عدد اللاعبين في اللعبة، ونسبة الإتقان لكل وحدة. تُقاس أسبوعيًا من المرحلة 5.</div>
+</section>
+
+<!-- ============================================================ الضوابط -->
+<section id="notes">
+  <h2>الضوابط والملاحظات</h2>
+  <ul>
+    <li>الصفان مملوكان لمعلم آخر، والمستخدم معلم مشارك؛ أي تغيير في إعدادات الصف أو هيكله يتم بالتنسيق مع المالك.</li>
+    <li>اللقطات في هذا التقرير مقصوصة الترويسة، وأسماء الطلاب محجوبة. الأرقام مجمّعة دون بيانات فردية.</li>
+    <li>أرقام التحليلات قد تشمل حسابات تجريبية؛ لم يُتحقق من هوية من فتحوا الدروس.</li>
+    <li>التقرير محفوظ محليًا ولم يُنشر.</li>
+  </ul>
+</section>
+
+</main>
+
+<footer>تقرير منصة قطر للتعليم · الرياضيات 10/3 و12/2 · 2 نوفمبر 2026</footer>
+
+<div id="lb" role="dialog" aria-label="عرض الصورة"><img alt=""></div>
+<script>
+const lb = document.getElementById('lb'), lbImg = lb.querySelector('img');
+document.querySelectorAll('figure img').forEach(img => img.addEventListener('click', () => {
+  lbImg.src = img.src; lbImg.alt = img.alt; lb.style.display = 'flex';
+}));
+lb.addEventListener('click', () => { lb.style.display = 'none'; });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') lb.style.display = 'none'; });
+</script>
+</body>
+</html>
