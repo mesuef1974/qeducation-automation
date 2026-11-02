@@ -52,7 +52,8 @@ ROOT_URLCONF = "config.urls"
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
-        "DIRS": [],
+        # قبل قوالب التطبيقات: يتقدّم admin/base_site.html هنا على قالب django.contrib.admin
+        "DIRS": [BASE_DIR / "templates"],
         "APP_DIRS": True,
         "OPTIONS": {
             "context_processors": [
@@ -97,6 +98,9 @@ USE_I18N = True
 USE_TZ = True
 
 STATIC_URL = "static/"
+# هوية المشروع (الألوان والخطوط والثيم) مصدرها الوحيد docs/assets، وتُخدَم للوحة الإدارة من جذر static/.
+# بلا بادئة: FileSystemFinder يقارن البادئة بـ os.sep فلا يجد "brand/x.css" على Windows
+STATICFILES_DIRS = [PROJECT_ROOT / "docs" / "assets"]
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 SESSION_COOKIE_HTTPONLY = True

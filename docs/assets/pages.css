@@ -1,0 +1,74 @@
+/*
+ * مكوّنات صفحات docs/ المشتركة. يُحمَّل بعد tokens.css؛ ما يخص صفحة واحدة يبقى في صفحتها.
+ */
+* { box-sizing: border-box; }
+html { scroll-padding-top: 72px; }
+body {
+  margin: 0; background: var(--bg); color: var(--fg);
+  font-family: var(--f-body); font-size: 16px; line-height: 1.8;
+  padding-inline: max(16px, env(safe-area-inset-left, 0px));
+  transition: background-color .2s, color .2s;
+}
+h1, h2, h3 { font-family: var(--f-display); font-weight: 700; line-height: 1.35; text-wrap: balance; margin: 0; }
+h1 { font-size: clamp(28px, 5vw, 42px); }
+h2 { font-size: 24px; color: var(--maroon); }
+h3 { font-size: 18px; font-weight: 500; }
+p { margin: 0; }
+a { color: var(--maroon); }
+code, .mono { font-family: var(--f-mono); font-size: 0.86em; direction: ltr; unicode-bidi: isolate; }
+code { background: var(--code-bg); padding: 1px 6px; border-radius: 4px; }
+ul, ol { margin: 0; padding-inline-start: 1.3em; display: grid; gap: 6px; }
+.eyebrow { font-size: 13px; color: var(--muted); letter-spacing: 0.02em; }
+.muted { color: var(--muted); }
+
+/* الشريط العلوي: الهوية والتنقل بين الصفحات ومبدّل الثيم */
+.topbar {
+  position: sticky; top: 0; z-index: 10; margin-inline: calc(-1 * max(16px, env(safe-area-inset-left, 0px)));
+  background: color-mix(in srgb, var(--surface) 92%, transparent); backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--line);
+}
+.topbar .in { max-width: 1040px; margin-inline: auto; padding: 8px 16px; display: flex; align-items: center; gap: 10px 16px; }
+.topbar .mark { display: inline-flex; align-items: center; gap: 8px; font-family: var(--f-display); font-size: 16px; color: var(--fg); text-decoration: none; white-space: nowrap; }
+.topbar .mark::before { content: ""; width: 12px; height: 22px; border-radius: 3px; background: var(--brand); }
+.topbar nav { display: flex; gap: 2px; overflow-x: auto; flex: 1 1 auto; scrollbar-width: thin; }
+.topbar nav a { white-space: nowrap; color: var(--muted); text-decoration: none; font-size: 14px; padding: 4px 10px; border-radius: 8px; }
+.topbar nav a:hover, .topbar nav a[aria-current="page"] { background: var(--maroon-soft); color: var(--maroon); }
+
+.theme-toggle {
+  flex: 0 0 auto; display: inline-flex; align-items: center; gap: 6px; font: inherit; font-size: 13px;
+  padding: 4px 12px; border-radius: 999px; border: 1px solid var(--line); background: var(--bg); color: var(--fg); cursor: pointer;
+}
+.theme-toggle:hover { border-color: var(--maroon); color: var(--maroon); }
+.theme-toggle:focus-visible, .topbar a:focus-visible { outline: 2px solid var(--maroon); outline-offset: 2px; }
+.theme-toggle svg { width: 16px; height: 16px; display: none; }
+.theme-toggle[data-mode="auto"] .i-auto, .theme-toggle[data-mode="light"] .i-light, .theme-toggle[data-mode="dark"] .i-dark { display: block; }
+
+/* الشارات */
+.pill { display: inline-flex; align-items: center; gap: 6px; padding: 1px 10px; border-radius: 999px; font-size: 13px; font-weight: 500; white-space: nowrap; }
+.pill.write, .pill.info { background: var(--maroon-soft); color: var(--maroon); }
+.pill.read { background: var(--slate-soft); color: var(--slate); }
+.pill.prep { background: var(--code-bg); color: var(--muted); }
+.pill.ok { background: var(--ok-soft); color: var(--ok); }
+.pill.warn { background: var(--warn-soft); color: var(--warn); }
+.pill.bad { background: var(--bad-soft); color: var(--bad); }
+
+/* الحاويات */
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px 20px; display: grid; gap: 10px; align-content: start; min-width: 0; }
+.callout { border-inline-start: 4px solid var(--maroon); background: var(--maroon-soft); border-radius: 10px; padding: 12px 16px; }
+.callout.warn { border-color: var(--warn); background: var(--warn-soft); }
+
+.table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
+table { width: 100%; border-collapse: collapse; font-size: 15px; font-variant-numeric: tabular-nums; }
+th, td { text-align: start; padding: 10px 16px; border-bottom: 1px solid var(--line); vertical-align: top; }
+thead th { font-weight: 600; color: var(--muted); font-size: 13px; background: var(--bg); white-space: nowrap; }
+tbody tr:last-child td { border-bottom: 0; }
+
+figure { margin: 0; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
+figure img { display: block; width: 100%; height: auto; }
+figcaption { padding: 10px 16px; font-size: 14px; color: var(--muted); border-top: 1px solid var(--line); }
+figcaption b { color: var(--fg); }
+
+footer.page-foot { color: var(--muted); font-size: 13px; border-top: 1px solid var(--line); padding-top: 18px; }
+
+@media (prefers-reduced-motion: reduce) { body { transition: none; } html { scroll-behavior: auto; } }
+@media print { .topbar { display: none; } }

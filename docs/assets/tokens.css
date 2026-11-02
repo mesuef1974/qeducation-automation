@@ -1,0 +1,55 @@
+/*
+ * هوية المشروع: الألوان والخطوط وتبديل الثيم. المصدر الوحيد لها في المشروع كله.
+ * تستعمله صفحات docs/ مباشرة، ولوحة إدارة Django عبر STATICFILES_DIRS (tokens.css في جذر static/).
+ * الثيم: data-theme على <html> بالقيم auto | light | dark، كما في لوحة إدارة Django.
+ * هذا الملف متغيرات فقط ولا يمس أي عنصر، فيصلح لأي واجهة.
+ */
+@import url("https://fonts.googleapis.com/css2?family=Reem+Kufi:wght@500;700&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap");
+
+:root {
+  /* ثابتة في الثيمين: لون الهوية العنابي وما يُكتب عليه */
+  --brand: #8A1538;
+  --brand-deep: #6E102C;
+  --brand-tint: #F3D7DF;
+  --on-brand: #FFFFFF;
+
+  --bg: #F6F4F5;
+  --surface: #FFFFFF;
+  --fg: #1F1A1C;
+  --muted: #6B6267;
+  --line: #E2DCDF;
+  --maroon: #8A1538;
+  --maroon-soft: #F5E6EB;
+  --slate: #2F5D7C;
+  --slate-soft: #E4EEF5;
+  --ok: #2E7D4F;
+  --ok-soft: #E3F2E8;
+  --warn: #9A6200;
+  --warn-soft: #FBF0DC;
+  --bad: #B3261E;
+  --bad-soft: #FBE7E6;
+  --code-bg: #F1ECEE;
+
+  --f-display: "Reem Kufi", "IBM Plex Sans Arabic", "Segoe UI", Tahoma, sans-serif;
+  --f-body: "IBM Plex Sans Arabic", "Segoe UI", Tahoma, sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+  --radius: 12px;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #161214; --surface: #1F1A1D; --fg: #EFE9EC; --muted: #A99EA4; --line: #362D32;
+    --maroon: #E07A98; --maroon-soft: #3A1A25; --slate: #8CBBDA; --slate-soft: #1B2A35;
+    --ok: #7FCB9C; --ok-soft: #173123; --warn: #E8B860; --warn-soft: #34270F;
+    --bad: #F2938C; --bad-soft: #3A1C1A; --code-bg: #2A2226;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #161214; --surface: #1F1A1D; --fg: #EFE9EC; --muted: #A99EA4; --line: #362D32;
+  --maroon: #E07A98; --maroon-soft: #3A1A25; --slate: #8CBBDA; --slate-soft: #1B2A35;
+  --ok: #7FCB9C; --ok-soft: #173123; --warn: #E8B860; --warn-soft: #34270F;
+  --bad: #F2938C; --bad-soft: #3A1C1A; --code-bg: #2A2226;
+  color-scheme: dark;
+}

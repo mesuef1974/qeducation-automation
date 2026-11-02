@@ -1,0 +1,64 @@
+/*
+ * لوحة إدارة Django بهوية المشروع: تطابق متغيرات Django مع tokens.css ولا تعرّف ألوانًا جديدة.
+ * html:root أعلى تحديدًا من :root في base.css، ويُحمَّل بعد dark_mode.css فيتقدّم على html[data-theme="dark"].
+ * مبدّل الثيم هو مبدّل Django نفسه، بالقيم والمفتاح اللذين يستعملهما theme.js.
+ */
+html:root {
+  --primary: var(--brand);
+  --secondary: var(--brand);
+  --accent: var(--brand-tint);
+  --primary-fg: var(--on-brand);
+
+  --body-fg: var(--fg);
+  --body-bg: var(--surface);
+  --body-quiet-color: var(--muted);
+  --body-medium-color: var(--fg);
+  --body-loud-color: var(--fg);
+
+  --header-color: var(--brand-tint);
+  --header-branding-color: var(--on-brand);
+  --header-bg: var(--brand);
+  --header-link-color: var(--on-brand);
+
+  --breadcrumbs-fg: var(--brand-tint);
+  --breadcrumbs-link-fg: var(--on-brand);
+  --breadcrumbs-bg: var(--brand-deep);
+
+  --link-fg: var(--maroon);
+  --link-hover-color: var(--slate);
+  --link-selected-fg: var(--maroon);
+
+  --hairline-color: var(--line);
+  --border-color: var(--line);
+  --error-fg: var(--bad);
+
+  --message-success-bg: var(--ok-soft);
+  --message-warning-bg: var(--warn-soft);
+  --message-error-bg: var(--bad-soft);
+
+  --darkened-bg: var(--bg);
+  --selected-bg: var(--maroon-soft);
+  --selected-row: var(--warn-soft);
+
+  --button-fg: var(--on-brand);
+  --button-bg: var(--brand);
+  --button-hover-bg: var(--brand-deep);
+  --default-button-bg: var(--brand-deep);
+  --default-button-hover-bg: var(--brand);
+  --close-button-bg: var(--muted);
+  --close-button-hover-bg: var(--fg);
+  --delete-button-bg: #B3261E;
+  --delete-button-hover-bg: #8E1E18;
+
+  --object-tools-fg: var(--on-brand);
+  --object-tools-bg: var(--muted);
+  --object-tools-hover-bg: var(--brand);
+
+  --font-family-primary: var(--f-body);
+  --font-family-monospace: var(--f-mono);
+}
+
+body { line-height: 1.6; }
+#site-name, #content h1, .module h2, .module caption { font-family: var(--f-display); }
+#site-name a { display: inline-flex; align-items: center; gap: 8px; }
+#site-name a::before { content: ""; width: 10px; height: 20px; border-radius: 3px; background: var(--on-brand); opacity: .85; }
