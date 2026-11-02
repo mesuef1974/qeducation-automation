@@ -36,12 +36,13 @@ async function login() {
         </RouterLink>
         <RouterLink to="/lessons">الدروس</RouterLink>
         <RouterLink to="/log">السجل</RouterLink>
+        <RouterLink to="/swot">تحليل SWOT</RouterLink>
         <a href="/admin/">الإدارة</a>
       </nav>
 
       <span v-if="jobs.error" class="pill bad" :title="jobs.error">الخادم لا يستجيب</span>
-      <span v-else-if="jobs.workerSilent" class="pill warn" title="شغّل في الطرفية: python manage.py neo_worker">
-        العامل متوقف؟
+      <span v-else-if="jobs.workerDown" class="pill warn" title="شغّل في الطرفية: cd backend && python manage.py neo_worker">
+        العامل متوقف
       </span>
       <button v-else-if="jobs.session?.expired" class="pill bad as-btn" :disabled="loginQueued" @click="login">
         {{ loginQueued ? "نافذة الدخول مطلوبة" : "انتهت الجلسة · سجّل الدخول" }}

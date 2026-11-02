@@ -264,3 +264,20 @@ class Job(models.Model):
 
     def __str__(self):
         return f"#{self.pk} {self.get_kind_display()} - {self.get_status_display()}"
+
+
+class WorkerHeartbeat(models.Model):
+    """
+    نبض عامل المهام (صف واحد). حالة المهام وحدها لا تكفي: مهمة «قيد التشغيل» يبقى عليها العامل
+    إن أُغلقت طرفيته فجأة، فتظن الواجهة أنه يعمل.
+    """
+
+    seen_at = models.DateTimeField("آخر نبض")
+    pid = models.PositiveIntegerField("رقم العملية")
+
+    class Meta:
+        verbose_name = "نبض العامل"
+        verbose_name_plural = "نبض العامل"
+
+    def __str__(self):
+        return f"العامل {self.pid} - {self.seen_at:%H:%M:%S}"

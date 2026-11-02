@@ -4,19 +4,21 @@
 """
 import json
 from collections.abc import Callable
-from datetime import date
+from datetime import date, timedelta
 
 from django.db import IntegrityError, transaction
 from django.utils import timezone
 
 from neo.infrastructure.client import BrowserBusy, NeoClient, NotLoggedIn, PlatformError
-from neo.models import Job, SyncRun
+from neo.models import Job, SyncRun, WorkerHeartbeat
 from neo.services import pipeline
 from neo.services.sync_service import NoActiveClasses, active_classes
 
 # headless → مصنع عملاء؛ الاختبارات تمرّر مصنعًا وهميًا
 FactoryMaker = Callable[[bool], pipeline.Factory]
 LOGIN_TIMEOUT = 600
+HEARTBEAT_S = 5  # العامل يسجّل نبضه كل 5 ثوانٍ، حتى أثناء مهمة طويلة
+ALIVE_S = 20     # بلا نبض طوال هذه المدة → العامل متوقف
 
 # المعطيات المسموحة لكل نوع: classes = قائمة LMS IDs، run = عملية الاقتراح، approve، limit
 PARAMS = {
@@ -128,13 +130,27 @@ class JobService:
             finished_at=timezone.now()))
 
 
+def beat(pid: int) -> None:
+    WorkerHeartbeat.objects.update_or_create(pk=1, defaults={"seen_at": timezone.now(), "pid": pid})
+
+
+def stop_beat() -> None:
+    WorkerHeartbeat.objects.filter(pk=1).delete()
+
+
+def worker_alive() -> bool:
+    return WorkerHeartbeat.objects.filter(pk=1, seen_at__gte=timezone.now() - timedelta(seconds=ALIVE_S)).exists()
+
+
 def session_state() -> dict:
-    """آخر ما نعرفه عن جلسة المنصة، من آخر مهمة لمست المنصة."""
+    """آخر ما نعرفه عن جلسة المنصة (من آخر مهمة لمست المنصة)، وحال العامل من نبضه."""
     last = Job.objects.exclude(status__in=Job.ACTIVE) \
         .exclude(error_kind__in=[Job.Error.INPUT, Job.Error.BUSY]).order_by("-finished_at").first()
+    alive = worker_alive()
     return {
         "expired": bool(last and last.error_kind == Job.Error.SESSION),
         "checked_at": last.finished_at if last else None,
-        "worker_busy": Job.objects.filter(status=Job.Status.RUNNING).exists(),
+        "worker_alive": alive,
+        "worker_busy": alive and Job.objects.filter(status=Job.Status.RUNNING).exists(),
         "queued": Job.objects.filter(status=Job.Status.QUEUED).count(),
     }

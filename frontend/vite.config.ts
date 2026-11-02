@@ -2,7 +2,7 @@ import { fileURLToPath, URL } from "node:url";
 import vue from "@vitejs/plugin-vue";
 import { defineConfig } from "vite";
 
-// خادم Django المحلي؛ أثناء التطوير يمرَّر إليه /api و/admin و/static
+// خادم Django المحلي؛ أثناء التطوير يمرَّر إليه /api و/admin و/static و/docs
 const BACKEND = "http://127.0.0.1:8765";
 
 export default defineConfig({
@@ -20,7 +20,7 @@ export default defineConfig({
     port: 5173,
     strictPort: true,
     fs: { allow: [".."] },
-    proxy: { "/api": BACKEND, "/admin": BACKEND, "/static": BACKEND },
+    proxy: { "/api": BACKEND, "/admin": BACKEND, "/static": BACKEND, "/docs": BACKEND },
   },
   build: { outDir: "dist", emptyOutDir: true },
 });

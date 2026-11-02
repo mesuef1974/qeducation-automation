@@ -7,7 +7,6 @@ import type { Job, JobKind, JobParams, SessionState } from "@/api/types";
 const ACTIVE = new Set(["queued", "running"]);
 const FAST_MS = 2500;   // ما دامت هناك مهمة نشطة
 const SLOW_MS = 15000;
-const SILENT_MS = 15000; // مهمة منتظرة بلا عامل يعمل طوال هذه المدة → الأرجح أن العامل متوقف
 
 /**
  * المهام وحالة الجلسة. يستطلع الخادم بسرعة أثناء التنفيذ وببطء في غيره،
@@ -22,10 +21,8 @@ export const useJobsStore = defineStore("jobs", () => {
   let timer: number | undefined;
 
   const active = computed(() => jobs.value.filter((j) => ACTIVE.has(j.status)));
-  const workerSilent = computed(
-    () => !session.value?.worker_busy &&
-      active.value.some((j) => j.status === "queued" && Date.now() - Date.parse(j.created_at) > SILENT_MS),
-  );
+  /** العامل بلا نبض حديث (neo_worker متوقف)؛ المهام لن تُنفَّذ حتى يُشغَّل */
+  const workerDown = computed(() => session.value !== null && !session.value.worker_alive);
 
   function schedule() {
     window.clearTimeout(timer);
@@ -79,5 +76,5 @@ export const useJobsStore = defineStore("jobs", () => {
     finished.value = finished.value.filter((j) => j.id !== id);
   }
 
-  return { jobs, session, error, finished, active, workerSilent, refresh, enqueue, cancel, busy, onFinished, dismiss };
+  return { jobs, session, error, finished, active, workerDown, refresh, enqueue, cancel, busy, onFinished, dismiss };
 });

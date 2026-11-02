@@ -1,13 +1,14 @@
 """طابور المهام والواجهة البرمجية للواجهة الأمامية؛ بلا منصة (عميل وهمي)."""
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 
 import pytest
+from django.utils import timezone
 
 from neo.domain.types import ParsedLesson
 from neo.infrastructure.client import BrowserBusy, NotLoggedIn
-from neo.models import Job, PublishProposal, SyncRun
-from neo.services.job_service import JobService, session_state
+from neo.models import Job, PublishProposal, SyncRun, WorkerHeartbeat
+from neo.services.job_service import ALIVE_S, JobService, beat, session_state, stop_beat
 from neo.services.pipeline import PipelineError
 from neo.services.publish_service import PublishService
 from neo.services.sync_service import SyncService
@@ -91,6 +92,20 @@ def test_run_input_error(classes):
     assert job.error_kind == Job.Error.INPUT and "999" in job.error
 
 
+def test_worker_heartbeat(classes):
+    svc = JobService()
+    svc.enqueue(Job.Kind.LOGIN)
+    svc.claim()  # «قيد التشغيل» بلا عامل حي: لا تُعدّ الواجهة العامل مشغولًا
+    assert session_state()["worker_alive"] is False and session_state()["worker_busy"] is False
+    beat(123)
+    assert session_state()["worker_alive"] is True and session_state()["worker_busy"] is True
+    WorkerHeartbeat.objects.update(seen_at=timezone.now() - timedelta(seconds=ALIVE_S + 1))
+    assert session_state()["worker_alive"] is False
+    beat(123)
+    stop_beat()
+    assert session_state()["worker_alive"] is False
+
+
 def test_cancel_only_queued(classes):
     svc = JobService()
     job, _ = svc.enqueue(Job.Kind.LOGIN)
@@ -149,7 +164,7 @@ def test_jobs_api(client, classes):
     assert client.post(f"/api/neo/jobs/{jid}/cancel/").json()["status"] == "failed"
     assert client.post(f"/api/neo/jobs/{jid}/cancel/").status_code == 400
     assert client.get("/api/neo/jobs/").json()["count"] == 1
-    assert client.get("/api/neo/session/").json() == {"expired": False, "checked_at": None,
+    assert client.get("/api/neo/session/").json() == {"expired": False, "checked_at": None, "worker_alive": False,
                                                       "worker_busy": False, "queued": 0}
 
 
@@ -166,3 +181,11 @@ def test_spa(db, client, settings, tmp_path):
     assert b"".join(static.streaming_content) == b"1"
     static.close()
     assert client.get("/app/..%2F..%2Fmanage.py").status_code == 404  # لا خروج من المجلد
+
+
+def test_docs(db, client):
+    r = client.get("/docs/report/platform_report.html")
+    assert r.status_code == 200 and r["X-Frame-Options"] == "SAMEORIGIN"  # يُعرض في إطار الواجهة فقط
+    r.close()
+    assert client.get("/docs/automation_tasks.md").status_code == 404  # صفحات الويب فقط
+    assert client.get("/docs/..%2Fbackend%2Fmanage.py").status_code == 404

@@ -2,11 +2,22 @@
 python manage.py neo_worker          → العامل: ينفّذ مهام الواجهة واحدة تلو الأخرى (Ctrl+C للإيقاف)
 python manage.py neo_worker --once   → ينفّذ المهام المنتظرة الآن ثم يخرج
 """
+import os
+import threading
 import time
 
 from django.core.management.base import BaseCommand
+from django.db import connection
 
-from neo.services.job_service import JobService
+from neo.services.job_service import HEARTBEAT_S, JobService, beat, stop_beat
+
+
+def _pulse(stop: threading.Event) -> None:
+    """نبض في خيط مستقل، فيستمر أثناء مهمة طويلة على المنصة."""
+    pid = os.getpid()
+    while not stop.wait(HEARTBEAT_S):
+        beat(pid)
+    connection.close()
 
 
 class Command(BaseCommand):
@@ -21,6 +32,9 @@ class Command(BaseCommand):
         if n := svc.recover():
             self.stdout.write(self.style.WARNING(f"عُلّمت {n} مهمة متوقفة بالفشل."))
         self.stdout.write("العامل يعمل. (Ctrl+C للإيقاف)" if not once else "تنفيذ المهام المنتظرة...")
+        beat(os.getpid())
+        stop = threading.Event()
+        threading.Thread(target=_pulse, args=(stop,), daemon=True).start()
         try:
             while True:
                 job = svc.claim()
@@ -36,3 +50,6 @@ class Command(BaseCommand):
                                         f"{': ' + job.error if job.error else ''}"))
         except KeyboardInterrupt:
             self.stdout.write("أُوقف العامل.")
+        finally:
+            stop.set()
+            stop_beat()

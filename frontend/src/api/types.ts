@@ -139,6 +139,8 @@ export interface Page<T> {
 export interface SessionState {
   expired: boolean;
   checked_at: string | null;
+  /** للعامل نبض حديث (neo_worker يعمل فعلًا) */
+  worker_alive: boolean;
   worker_busy: boolean;
   queued: number;
 }

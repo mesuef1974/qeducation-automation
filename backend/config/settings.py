@@ -103,6 +103,8 @@ STATIC_URL = "static/"
 STATICFILES_DIRS = [PROJECT_ROOT / "docs" / "assets"]
 # الواجهة الأمامية المبنية، تُخدم على /app/ (core.views.spa)
 FRONTEND_DIST = PROJECT_ROOT / "frontend" / "dist"
+# صفحات docs/ (تقرير SWOT وصفحة الأتمتة) على /docs/، تعرضها الواجهة داخل إطار
+DOCS_DIR = PROJECT_ROOT / "docs"
 # خادم Vite أثناء التطوير (npm run dev) يمرّر الطلبات إلى هنا؛ Origin فيها منفذه
 CSRF_TRUSTED_ORIGINS = ["http://127.0.0.1:5173", "http://localhost:5173"]
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
