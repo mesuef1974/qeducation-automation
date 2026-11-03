@@ -1,9 +1,11 @@
 """
 python manage.py neo_worker          → العامل: ينفّذ مهام الواجهة واحدة تلو الأخرى (Ctrl+C للإيقاف)
 python manage.py neo_worker --once   → ينفّذ المهام المنتظرة الآن ثم يخرج
-يعيد تحميل نفسه عند تغيّر الكود (كخادم التطوير) ما لم يُمرَّر --noreload، وينظّف عند بدئه متصفحًا يتيمًا يقفل ملف الدخول.
+يعيد تشغيل نفسه عند تغيّر الكود وهو خامل بين المهام فقط (لا يقطع مهمة على المنصة) ما لم يُمرَّر --noreload،
+وينظّف عند بدئه متصفحًا يتيمًا يقفل ملف الدخول.
 """
 import os
+import sys
 import threading
 import time
 
@@ -16,6 +18,11 @@ from neo.services import weekly_service
 from neo.services.job_service import HEARTBEAT_S, JobService, beat, stop_beat
 
 SCHEDULE_CHECK_S = 60
+CODE_CHECK_S = 5
+
+
+def _code_snapshot() -> dict:
+    return {f: f.stat().st_mtime for f in autoreload.iter_all_python_module_files() if f.exists()}
 
 
 def _pulse(stop: threading.Event) -> None:
@@ -35,11 +42,6 @@ class Command(BaseCommand):
         parser.add_argument("--noreload", action="store_true", help="بلا إعادة تحميل عند تغيّر الكود")
 
     def handle(self, *args, once, interval, noreload, **opts):
-        if once or noreload:
-            return self.serve(once, interval)
-        autoreload.run_with_reloader(self.serve, once, interval)
-
-    def serve(self, once: bool, interval: float):
         svc = JobService()
         if n := svc.recover():
             self.stdout.write(self.style.WARNING(f"عُلّمت {n} مهمة متوقفة بالفشل."))
@@ -49,9 +51,18 @@ class Command(BaseCommand):
         beat(os.getpid())
         stop = threading.Event()
         threading.Thread(target=_pulse, args=(stop,), daemon=True).start()
-        checked = 0.0
+        checked, code_checked = 0.0, time.monotonic()
+        snapshot = {} if once or noreload else _code_snapshot()
         try:
             while True:
+                if snapshot and time.monotonic() - code_checked >= CODE_CHECK_S:  # الكود تغيّر؟ ونحن خاملون هنا
+                    code_checked = time.monotonic()
+                    if _code_snapshot() != snapshot:
+                        self.stdout.write("تغيّر الكود؛ يُعاد تشغيل العامل.")
+                        stop.set()
+                        stop_beat()
+                        connection.close()
+                        os.execv(sys.executable, [sys.executable, *sys.argv])
                 if time.monotonic() - checked >= SCHEDULE_CHECK_S:  # الدورة الأسبوعية حين يحين موعدها
                     checked = time.monotonic()
                     if due := weekly_service.enqueue_due(timezone.localtime(), svc.enqueue):

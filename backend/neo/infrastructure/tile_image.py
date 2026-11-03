@@ -2,6 +2,7 @@
 رسم صورة بطاقة الدرس (500×375 كما توصي المنصة): لون الوحدة، ورقم الدرس، وعنوانه،
 ورسم بياني يعبّر عن موضوعه (قطع مكافئ بما يميّز الدرس: رأس، محور تناظر، جذور، تقاطع، منطقة متباينة).
 """
+import math
 from pathlib import Path
 
 import arabic_reshaper
@@ -175,6 +176,12 @@ def _tangent(p: _Plot):
     a, b = p.px(x0 - 2.2, f(x0) - 2.2 * m), p.px(x0 + 2.2, f(x0) + 2.2 * m)
     p.d.line((*a, *b), fill=INK, width=3)
     p.dot(x0, f(x0))
+
+
+@_motif("sine")
+def _sine(p: _Plot):
+    _curve(p, lambda x: 2 * math.sin(1.3 * x), -4, 4)
+    p.dot(0, 0, fill=SOFT, r=5)
 
 
 def render(spec: dict, out: Path) -> Path:

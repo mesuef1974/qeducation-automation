@@ -30,6 +30,7 @@ def test_generator_is_deterministic_and_rtl_safe():
     assert gen.tile_spec(ctx) == {"color": gen.UNIT_COLORS[1], "number": 3, "title": "المميزات الأساسية",
                                   "unit": "الوحدة 1: الدوال التربيعية", "motif": "features"}
     assert gen.motif_of("حل المعادلات التربيعية بيانيا 2") == "roots" and gen.motif_of("تهيئة") == "parabola"
+    assert gen.motif_of("نهاية الدوال المثلثية 1") == "sine" and gen.motif_of("مفهوم النهاية 2") == "limit"
     assert gen.description(gen.LessonContext(1, "تهيئة", None, "")) == "في هذا الدرس ستتعلم أن:\n• تهيئة"
 
 
