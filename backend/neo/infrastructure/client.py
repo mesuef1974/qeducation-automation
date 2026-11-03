@@ -3,6 +3,7 @@
 الدخول يتم يدويًا من المعلم مرة واحدة (neo_login)؛ لا تُخزَّن أي كلمة مرور.
 """
 import json
+import re
 import time
 from datetime import date, datetime
 from pathlib import Path
@@ -11,6 +12,8 @@ from django.conf import settings
 from playwright.sync_api import Error as PlaywrightError
 from playwright.sync_api import sync_playwright
 
+from neo.domain.assessment import POINTS, TF, Question
+from neo.domain.quality import ASSESSMENT_KINDS
 from neo.infrastructure.parsers import (
     parse_sections, parse_tiles,
     is_login_page,
@@ -168,6 +171,55 @@ class NeoClient:
             self.page.click("form[action*='/teacher_html_section/save/'] button[type=submit]")
         if "/teacher_html_section/edit/" in self.page.url:
             raise PlatformError("رفضت المنصة حفظ محتوى القسم")
+
+    def has_assessment(self, lms_id: int, lesson_id: int) -> bool:
+        return any(s.kind in ASSESSMENT_KINDS for s in parse_sections(self.lesson_page_html(lms_id, lesson_id)))
+
+    def add_quiz(self, lms_id: int, lesson_id: int, name: str, questions: list[Question]) -> int:
+        """تقييم ذاتي التصحيح باسمه مربوطًا بالدرس (بقية الإعدادات كما تقترحها المنصة)، ثم أسئلته واحدًا واحدًا."""
+        self._throttle()
+        self.page.goto(f"{BASE_URL}/teacher_quiz_assignment/new/{lms_id}?class={lms_id}&lesson_id={lesson_id}")
+        if is_login_url(self.page.url):
+            raise NotLoggedIn("انتهت الجلسة - شغّل: python manage.py neo_login")
+        self.page.fill("#assignment_name", name)
+        self.page.select_option("#lesson_id", str(lesson_id))
+        with self.page.expect_navigation():
+            self.page.click("form[action*='/teacher_quiz_assignment/create'] [name=commit]")
+        # تردّ المنصة بـ JSON فيه رابط الدرس مع معرّف التقييم الجديد، لا بتحويل
+        m = re.search(r"assignment_id=(\d+)", self.page.content())
+        if not m:
+            raise PlatformError(f"لم تُنشئ المنصة التقييم: {self.page.url}")
+        assignment_id = int(m.group(1))
+        # صفحة إضافة الأسئلة تُنشئ بنك أسئلة التقييم الجديد وتعرض روابط الأنواع بمعرّفه
+        html = self.get_html(f"/quiz_question_bank/add_questions?container_id={assignment_id}")
+        bank = re.search(r"/quiz_question_bank/new_question/(\d+)", html)
+        if not bank:
+            raise PlatformError("لم يُعثر على بنك أسئلة التقييم الجديد")
+        for q in questions:
+            self._add_question(int(bank.group(1)), assignment_id, q)
+        html = self.get_html(f"/teacher_quiz_assignment/questions/{assignment_id}")
+        n = len(set(re.findall(r"show_question/\d+\?container_id=\d+&amp;position=(\d+)", html)))
+        if n != len(questions):
+            raise PlatformError(f"أُضيف {n} من {len(questions)} سؤالًا في التقييم {assignment_id}")
+        return assignment_id
+
+    def _add_question(self, bank_id: int, assignment_id: int, q: Question) -> None:
+        self._throttle()
+        kind = "TrueOrFalse" if q.type == TF else "MultipleChoiceOneAnswer"
+        self.page.goto(f"{BASE_URL}/quiz_question_bank/new_question/{bank_id}?container_id={assignment_id}&type={kind}")
+        self.page.fill("#question_description", q.text)
+        self.page.fill("#question_points", str(POINTS))
+        if q.type == TF:
+            radio = "question_true_or_false_true" if q.answer else "question_true_or_false_false"
+        else:
+            for i, choice in enumerate(q.choices, start=1):
+                self.page.fill(f"#text_{i}", choice)
+            radio = f"question_correct_{q.correct + 1}"
+        self.page.evaluate("id => document.getElementById(id).click()", radio)  # الأزرار خارج نافذة العرض
+        with self.page.expect_navigation():  # زر الحفظ رابط JS خارج نافذة العرض: نستدعي دالته
+            self.page.evaluate("submit_new_question('commit')")
+        if "/new_question/" in self.page.url or "/create_question/" in self.page.url:
+            raise PlatformError(f"رفضت المنصة السؤال: {q.text[:40]}")
 
     def tile_is_default(self, lms_id: int, lesson_id: int) -> bool:
         tiles = parse_tiles(self.lesson_list_html(lms_id))

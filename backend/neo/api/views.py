@@ -10,6 +10,7 @@ from rest_framework.pagination import LimitOffsetPagination
 from rest_framework.response import Response
 
 from neo.api import serializers as s
+from neo.domain import assessment
 from neo.models import Job, PlatformClass, PlatformLesson, ProposalStatus, SyncRun
 from neo.services import review_service, scorecard_service, weekly_service
 from neo.services.job_service import JobService, session_state
@@ -130,6 +131,11 @@ class ProposalViewSet(viewsets.ReadOnlyModelViewSet):
         if not body.validated_data or unknown:
             raise ValidationError({"payload": f"الحقول المقبولة: {sorted(prop.payload)}"})
         prop.payload = {**prop.payload, **body.validated_data}
+        if prop.kind == "assessment" and "text" in body.validated_data:
+            try:
+                prop.payload["questions"] = [q.as_dict() for q in assessment.parse_text(prop.payload["text"])]
+            except ValueError as exc:
+                raise ValidationError({"text": str(exc)}) from exc
         prop.save(update_fields=["payload"])
         return Response(self.get_serializer(prop).data)
 

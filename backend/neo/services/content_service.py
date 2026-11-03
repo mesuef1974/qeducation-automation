@@ -11,6 +11,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from curriculum.models import Lesson
+from neo.domain import assessment, question_bank
 from neo.domain import content as gen
 from neo.infrastructure import tile_image
 from neo.infrastructure.client import NeoClient, NotLoggedIn
@@ -19,7 +20,8 @@ from neo.models import ContentProposal, PlatformClass, PlatformLesson, SyncRun
 
 Kind = ContentProposal.Kind
 # ما يُقترح لكل نقص يكشفه التدقيق
-BY_ISSUE = {"no_description": Kind.DESCRIPTION, "generic_image": Kind.IMAGE, "few_sections": Kind.SECTION}
+BY_ISSUE = {"no_description": Kind.DESCRIPTION, "generic_image": Kind.IMAGE, "few_sections": Kind.SECTION,
+            "no_assessment": Kind.ASSESSMENT}
 
 
 def _context(pl: PlatformLesson, outcomes: list[tuple[str, str]], previous: PlatformLesson | None) -> gen.LessonContext:
@@ -62,6 +64,9 @@ class ContentService:
                 if not kind:
                     continue
                 payload = self._payload(kind, ctx, pl)
+                if payload is None:  # لا بنك أسئلة لموضوع الدرس: لا نختلق تقييمًا
+                    counts["بلا بنك أسئلة"] = counts.get("بلا بنك أسئلة", 0) + 1
+                    continue
                 drafts.append(ContentProposal(run=run, lesson=pl, kind=kind, payload=payload))
                 counts[kind.label] = counts.get(kind.label, 0) + 1
         ContentProposal.objects.bulk_create(drafts)
@@ -72,7 +77,13 @@ class ContentService:
         return run
 
     @staticmethod
-    def _payload(kind: str, ctx: gen.LessonContext, pl: PlatformLesson) -> dict:
+    def _payload(kind: str, ctx: gen.LessonContext, pl: PlatformLesson) -> dict | None:
+        if kind == Kind.ASSESSMENT:
+            qs = question_bank.questions_for(pl.title)
+            if not qs:
+                return None
+            return {"name": assessment.quiz_name(pl.position, pl.title), "text": assessment.to_text(qs),
+                    "questions": [q.as_dict() for q in qs]}
         if kind == Kind.DESCRIPTION:
             return {"text": gen.description(ctx)}
         if kind == Kind.SECTION:
@@ -115,6 +126,11 @@ class ContentService:
                             results[p.pk] = (ContentProposal.Status.SKIPPED, "القسم موجود بالفعل")
                             continue
                         client.add_page_section(lms_id, lid, pay["name"], pay["html"])
+                    elif p.kind == Kind.ASSESSMENT:
+                        if client.has_assessment(lms_id, lid):
+                            results[p.pk] = (ContentProposal.Status.SKIPPED, "له تقييم بالفعل")
+                            continue
+                        client.add_quiz(lms_id, lid, pay["name"], assessment.from_dicts(pay["questions"]))
                     else:
                         if not client.tile_is_default(lms_id, lid):
                             results[p.pk] = (ContentProposal.Status.SKIPPED, "له صورة من المحتوى بالفعل")

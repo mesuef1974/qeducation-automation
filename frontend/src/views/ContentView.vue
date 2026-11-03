@@ -10,7 +10,7 @@ import { useClassesStore } from "@/stores/classes";
 import { useJobsStore } from "@/stores/jobs";
 
 /**
- * محرك المحتوى: اقتراحات الإضافة لكل درس ناقص (وصف، وصورة بطاقة، وقسم تهيئة).
+ * محرك المحتوى: اقتراحات الإضافة لكل درس ناقص (وصف، وصورة بطاقة، وقسم تهيئة، وتقييم ذاتي التصحيح).
  * تعدّل النص ثم تعتمد، ويُطبَّق على درس واحد في كل مرة؛ لا يُمس الموجود.
  */
 const route = useRoute();
@@ -55,7 +55,7 @@ const groups = computed<Group[]>(() => {
 const latestRun = computed(() => Math.max(0, ...items.value.map((p) => p.run)));
 const pending = (g: Group) => g.props.filter((p) => p.status === "pending");
 const approved = (g: Group) => g.props.filter((p) => p.status === "approved");
-const field = (p: ContentProposal) => (p.kind === "description" ? "text" : p.kind === "section" ? "html" : "");
+const field = (p: ContentProposal) => (p.kind === "description" || p.kind === "assessment" ? "text" : p.kind === "section" ? "html" : "");
 const text = (p: ContentProposal) => drafts.value[p.id] ?? String(p.payload[field(p)] ?? "");
 
 async function plan() {
@@ -104,6 +104,7 @@ async function apply(g: Group) {
     error.value = (e as Error).message;
   }
 }
+const count = (p: ContentProposal) => (Array.isArray(p.payload.questions) ? p.payload.questions.length : 0);
 const imageUrl = (p: ContentProposal) => `/api/neo/proposals/content/${p.id}/image/?v=${p.applied_at ?? ""}`;
 </script>
 
@@ -111,7 +112,7 @@ const imageUrl = (p: ContentProposal) => `/api/neo/proposals/content/${p.id}/ima
   <header class="page-head">
     <div>
       <h1>محرك المحتوى</h1>
-      <p>لكل درس ناقص: وصف من نتاجاته، وصورة بطاقة بلون وحدته، وقسم تهيئة. عدّل ثم اعتمد، ثم أضف إلى درس واحد.</p>
+      <p>لكل درس ناقص: وصف من نتاجاته، وصورة بطاقة بلون وحدته، وقسم تهيئة، وتقييم من بنك أسئلة موضوعه. عدّل ثم اعتمد، ثم أضف إلى درس واحد.</p>
     </div>
     <button class="btn sm" :disabled="!lms || jobs.busy('content_plan', lms)" @click="plan">
       <i v-if="jobs.busy('content_plan', lms)" class="spinner" /> اقترح للدروس الناقصة
@@ -163,9 +164,13 @@ const imageUrl = (p: ContentProposal) => `/api/neo/proposals/content/${p.id}/ima
           <button v-else-if="p.status === 'approved'" class="btn ghost sm" @click="decide([p.id], 'reset')">أعد للمراجعة</button>
         </div>
         <img v-if="p.kind === 'image'" :src="imageUrl(p)" :alt="`صورة البطاقة: ${p.payload.title}`" class="tile">
-        <textarea v-else :value="text(p)" :readonly="p.status !== 'pending'" :rows="p.kind === 'section' ? 8 : 5"
+        <textarea v-else :value="text(p)" :readonly="p.status !== 'pending'" :rows="p.kind === 'description' ? 5 : p.kind === 'section' ? 8 : 14"
                   dir="rtl" @input="drafts[p.id] = ($event.target as HTMLTextAreaElement).value" />
         <small v-if="p.kind === 'section'" class="muted">القسم يُنشأ باسم «{{ p.payload.name }}» ومحتواه HTML أعلاه.</small>
+        <small v-else-if="p.kind === 'assessment'" class="muted">
+          تقييم ذاتي التصحيح باسم «{{ p.payload.name }}»، {{ count(p) }} أسئلة بدرجة لكل سؤال.
+          الصيغة: «س:» للسؤال، «*» للخيار الصحيح و«-» لغيره، أو «= صح/خطأ». يُحفظ التعديل بعد التحقق من الصيغة.
+        </small>
       </article>
     </div>
   </section>
