@@ -87,3 +87,9 @@ def test_apply_quiz_adds_only(classes, settings, tmp_path):
     svc.apply(run, lambda: client)
     assert client.calls == [("quiz", 1, run.content_proposals.get().payload["name"], qb.PER_QUIZ)]
     assert run.content_proposals.get().status == "applied"
+
+
+def test_goals_when_no_outcomes():
+    assert qb.goals_for("مفهوم النهاية 3") and qb.goals_for("موضوع مجهول") == ()
+    for t, goals in qb.TOPIC_GOALS.items():
+        assert t in qb.BANK and all(g.endswith(".") for g in goals)

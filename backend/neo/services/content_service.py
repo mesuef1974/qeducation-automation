@@ -27,9 +27,11 @@ BY_ISSUE = {"no_description": Kind.DESCRIPTION, "generic_image": Kind.IMAGE, "fe
 def _context(pl: PlatformLesson, outcomes: list[tuple[str, str]], previous: PlatformLesson | None) -> gen.LessonContext:
     plan_lesson = Lesson.objects.filter(plan=pl.klass.plan, code=pl.effective_code).select_related("unit").first()
     unit = plan_lesson.unit if plan_lesson else None
+    # لا نتاجات على المنصة؟ أهداف موضوع الدرس من البنك، بلا رموز نتاجات
+    goals = outcomes or [("", g) for g in question_bank.goals_for(pl.title)]
     return gen.LessonContext(
         position=pl.position, title=pl.title, unit_no=unit.unit_no if unit else None,
-        unit_title=unit.title if unit else "", outcomes=tuple(outcomes),
+        unit_title=unit.title if unit else "", outcomes=tuple(goals),
         previous_title=previous.title if previous and previous.effective_code == pl.effective_code else "",
         sources=tuple(getattr(settings, "NEO_CONTENT_SOURCES", ())),
     )
