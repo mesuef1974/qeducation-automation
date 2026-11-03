@@ -302,6 +302,16 @@ TOPIC_GOALS: dict[str, tuple[str, ...]] = {
 }
 
 
+# رموز نتاجات المنهج (كما على المنصة) لموضوعات تُدرَّس بلا نتاجات مربوطة؛ تُحلّ إلى معرّفات المنصة عند الاقتراح
+TOPIC_OUTCOMES: dict[str, tuple[str, ...]] = {
+    topic_of("حل المعادلات التربيعية بيانيا"): ("10.2.2", "10.3.1"),
+}
+
+
+def outcomes_for(title: str) -> tuple[str, ...]:
+    return TOPIC_OUTCOMES.get(topic_of(title), ())
+
+
 def goals_for(title: str) -> tuple[str, ...]:
     return TOPIC_GOALS.get(topic_of(title), ())
 

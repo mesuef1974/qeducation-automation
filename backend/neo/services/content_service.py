@@ -21,7 +21,7 @@ from neo.models import ContentProposal, PlatformClass, PlatformLesson, SyncRun
 Kind = ContentProposal.Kind
 # ما يُقترح لكل نقص يكشفه التدقيق
 BY_ISSUE = {"no_description": Kind.DESCRIPTION, "generic_image": Kind.IMAGE, "few_sections": Kind.SECTION,
-            "no_assessment": Kind.ASSESSMENT}
+            "no_assessment": Kind.ASSESSMENT, "no_outcomes": Kind.OUTCOMES}
 
 
 def _context(pl: PlatformLesson, outcomes: list[tuple[str, str]], previous: PlatformLesson | None) -> gen.LessonContext:
@@ -45,14 +45,18 @@ class ContentService:
                               .exclude(audit__issues=[]).select_related("audit", "klass__plan").order_by("position"))
                    for k in classes}
         outcomes: dict[int, list[tuple[str, str]]] = {}
+        available: dict[int, list[dict]] = {}  # نتاجات الصف المتاحة للربط، لدرس بلا نتاجات وله رموز في البنك
         with client_factory() as client:  # لا ORM هنا
             for k in classes:
                 for pl in targets[k.pk]:
                     outcomes[pl.lms_lesson_id] = parse_outcomes(client.outcomes_html(k.lms_id, pl.lms_lesson_id))
-        return [self.record_plan(k, targets[k.pk], outcomes) for k in classes]
+                    if not outcomes[pl.lms_lesson_id] and question_bank.outcomes_for(pl.title):
+                        available[pl.lms_lesson_id] = client.available_outcomes(k.lms_id, pl.lms_lesson_id)
+        return [self.record_plan(k, targets[k.pk], outcomes, available) for k in classes]
 
     @transaction.atomic
-    def record_plan(self, klass: PlatformClass, lessons: list[PlatformLesson], outcomes: dict) -> SyncRun:
+    def record_plan(self, klass: PlatformClass, lessons: list[PlatformLesson], outcomes: dict,
+                    available: dict | None = None) -> SyncRun:
         ContentProposal.objects.filter(run__klass=klass, status__in=[
             ContentProposal.Status.PENDING, ContentProposal.Status.APPROVED,
         ]).update(status=ContentProposal.Status.REJECTED, error="استُبدل بعملية اقتراح أحدث")
@@ -65,9 +69,10 @@ class ContentService:
                 kind = BY_ISSUE.get(issue)
                 if not kind or (kind == Kind.SECTION and "صفحة" in pl.audit.sections):  # له صفحة: النقص ليس التهيئة
                     continue
-                payload = self._payload(kind, ctx, pl)
-                if payload is None:  # لا بنك أسئلة لموضوع الدرس: لا نختلق تقييمًا
-                    counts["بلا بنك أسئلة"] = counts.get("بلا بنك أسئلة", 0) + 1
+                payload = self._payload(kind, ctx, pl, (available or {}).get(pl.lms_lesson_id, []))
+                if payload is None:  # لا بنك أسئلة أو نتاجات لموضوع الدرس: لا نختلق شيئًا
+                    key = "بلا نتاجات في البنك" if kind == Kind.OUTCOMES else "بلا بنك أسئلة"
+                    counts[key] = counts.get(key, 0) + 1
                     continue
                 drafts.append(ContentProposal(run=run, lesson=pl, kind=kind, payload=payload))
                 counts[kind.label] = counts.get(kind.label, 0) + 1
@@ -79,7 +84,13 @@ class ContentService:
         return run
 
     @staticmethod
-    def _payload(kind: str, ctx: gen.LessonContext, pl: PlatformLesson) -> dict | None:
+    def _payload(kind: str, ctx: gen.LessonContext, pl: PlatformLesson, available: list[dict] = ()) -> dict | None:
+        if kind == Kind.OUTCOMES:
+            codes = question_bank.outcomes_for(pl.title)
+            chosen = [o for o in available if o["code"] in codes]
+            if not codes or len(chosen) != len(codes):
+                return None
+            return {"outcomes": chosen, "text": "\n".join(f"{o['code']} {o['text']}" for o in chosen)}
         if kind == Kind.ASSESSMENT:
             qs = question_bank.questions_for(pl.title)
             if not qs:
@@ -134,6 +145,11 @@ class ContentService:
                             results[p.pk] = (ContentProposal.Status.SKIPPED, "له تقييم بالفعل")
                             continue
                         client.add_quiz(lms_id, lid, pay["name"], assessment.from_dicts(pay["questions"]))
+                    elif p.kind == Kind.OUTCOMES:
+                        if parse_outcomes(client.outcomes_html(lms_id, lid)):
+                            results[p.pk] = (ContentProposal.Status.SKIPPED, "له نتاجات بالفعل")
+                            continue
+                        client.link_outcomes(lms_id, lid, [o["id"] for o in pay["outcomes"]])
                     else:
                         if not client.tile_is_default(lms_id, lid):
                             results[p.pk] = (ContentProposal.Status.SKIPPED, "له صورة من المحتوى بالفعل")

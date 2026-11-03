@@ -57,7 +57,7 @@ const allPending = computed(() => items.value.filter((p) => p.status === "pendin
 const allApproved = computed(() => items.value.filter((p) => p.status === "approved" && p.run === latestRun.value));
 const pending = (g: Group) => g.props.filter((p) => p.status === "pending");
 const approved = (g: Group) => g.props.filter((p) => p.status === "approved");
-const field = (p: ContentProposal) => (p.kind === "description" || p.kind === "assessment" ? "text" : p.kind === "section" ? "html" : "");
+const field = (p: ContentProposal) => (p.kind === "description" || p.kind === "assessment" || p.kind === "outcomes" ? "text" : p.kind === "section" ? "html" : "");
 const text = (p: ContentProposal) => drafts.value[p.id] ?? String(p.payload[field(p)] ?? "");
 
 async function plan() {
@@ -189,9 +189,10 @@ const imageUrl = (p: ContentProposal) => `/api/neo/proposals/content/${p.id}/ima
           <button v-else-if="p.status === 'approved'" class="btn ghost sm" @click="decide([p.id], 'reset')">أعد للمراجعة</button>
         </div>
         <img v-if="p.kind === 'image'" :src="imageUrl(p)" :alt="`صورة البطاقة: ${p.payload.title}`" class="tile">
-        <textarea v-else :value="text(p)" :readonly="p.status !== 'pending'" :rows="p.kind === 'description' ? 5 : p.kind === 'section' ? 8 : 14"
+        <textarea v-else :value="text(p)" :readonly="p.status !== 'pending'" :rows="p.kind === 'description' ? 5 : p.kind === 'section' ? 8 : p.kind === 'outcomes' ? 3 : 14"
                   dir="rtl" @input="drafts[p.id] = ($event.target as HTMLTextAreaElement).value" />
         <small v-if="p.kind === 'section'" class="muted">القسم يُنشأ باسم «{{ p.payload.name }}» ومحتواه HTML أعلاه.</small>
+        <small v-else-if="p.kind === 'outcomes'" class="muted">تُربط نتاجات المنهج أعلاه بالدرس (درس بلا نتاجات فقط).</small>
         <small v-else-if="p.kind === 'assessment'" class="muted">
           تقييم ذاتي التصحيح باسم «{{ p.payload.name }}»، {{ count(p) }} أسئلة بدرجة لكل سؤال.
           الصيغة: «س:» للسؤال، «*» للخيار الصحيح و«-» لغيره، أو «= صح/خطأ». يُحفظ التعديل بعد التحقق من الصيغة.

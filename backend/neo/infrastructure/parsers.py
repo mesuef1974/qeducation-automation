@@ -103,6 +103,17 @@ def parse_outcomes(html: str) -> list[tuple[str, str]]:
     return out
 
 
+def parse_available_outcomes(html: str) -> list[dict]:
+    """نتاجات الصف المتاحة للربط (صفحة edit_competencies): معرّف المنصة ورمز النتاج ونصه."""
+    out = []
+    for cb in BeautifulSoup(html, "lxml").select("input[name='proficiencies[]']"):
+        a = cb.find_next("a", href=re.compile(rf"proficiency_id={cb['value']}\b"))
+        m = a and re.match(r"\s*([\d.]+?)\.?\s+(.*)", a.get_text(" ", strip=True), re.S)
+        if m:
+            out.append({"id": int(cb["value"]), "code": m.group(1), "text": m.group(2).strip()})
+    return out
+
+
 def parse_assessments(html: str) -> list[ParsedAssessment]:
     soup = BeautifulSoup(html, "lxml")
     out = []

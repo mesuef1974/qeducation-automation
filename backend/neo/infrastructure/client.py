@@ -19,7 +19,9 @@ from neo.domain.quality import ASSESSMENT_KINDS
 from neo.infrastructure.parsers import (
     is_login_page,
     is_login_url,
+    parse_available_outcomes,
     parse_default_visibility,
+    parse_outcomes,
     parse_points_actions,
     parse_points_games,
     parse_question_text,
@@ -139,6 +141,31 @@ class NeoClient:
 
     def outcomes_html(self, lms_id: int, lesson_id: int) -> str:
         return self.get_html(f"/teacher_lesson/show_competencies/{lms_id}?lesson_id={lesson_id}")
+
+    def available_outcomes(self, lms_id: int, lesson_id: int) -> list[dict]:
+        return parse_available_outcomes(
+            self.get_html(f"/teacher_lesson/edit_competencies/{lms_id}?lesson_id={lesson_id}"))
+
+    def link_outcomes(self, lms_id: int, lesson_id: int, ids: list[int]) -> list[tuple[str, str]]:
+        """يعلّم مربعات النتاجات المطلوبة في نموذج الربط ويحفظه، ثم يتحقق من صفحة العرض.
+        النموذج يحفظ الاختيار كاملًا، فيُستدعى لدرس بلا نتاجات فقط (يتحقق المستدعي) كي يبقى إضافةً خالصة."""
+        self._throttle()
+        self.page.goto(f"{BASE_URL}/teacher_lesson/edit_competencies/{lms_id}?lesson_id={lesson_id}")
+        if is_login_url(self.page.url):
+            raise NotLoggedIn("انتهت الجلسة - شغّل: python manage.py neo_login")
+        checked = self.page.evaluate("""(ids) => {
+            let n = 0;
+            for (const cb of document.querySelectorAll("input[name='proficiencies[]']"))
+                if (ids.includes(Number(cb.value))) { cb.checked = true; n++; } else cb.checked = false;
+            return n; }""", ids)
+        if checked != len(ids):
+            raise PlatformError(f"وُجد {checked} من {len(ids)} نتاجًا في نموذج الربط")
+        with self.page.expect_navigation():
+            self.page.evaluate("document.querySelector(\"form[action*='save_competencies']\").submit()")
+        linked = parse_outcomes(self.outcomes_html(lms_id, lesson_id))
+        if len(linked) < len(ids):
+            raise PlatformError(f"بعد الحفظ ظهر {len(linked)} من {len(ids)} نتاجًا")
+        return linked
 
     # ------------------------------------------------------------- المحتوى (المرحلة 8)
 

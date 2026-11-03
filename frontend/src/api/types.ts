@@ -112,7 +112,7 @@ export interface AssignProposal extends ProposalBase {
 
 export interface ContentProposal extends ProposalBase {
   lesson: LessonRef;
-  kind: "description" | "image" | "section" | "assessment";
+  kind: "description" | "image" | "section" | "assessment" | "outcomes";
   kind_label: string;
   payload: Record<string, string | number>;
 }

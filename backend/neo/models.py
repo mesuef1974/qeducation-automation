@@ -222,6 +222,7 @@ class ContentProposal(models.Model):
         IMAGE = "image", "صورة البطاقة"
         SECTION = "section", "قسم تهيئة"
         ASSESSMENT = "assessment", "تقييم ذاتي التصحيح"
+        OUTCOMES = "outcomes", "ربط نتاجات"
 
     Status = ProposalStatus
 
