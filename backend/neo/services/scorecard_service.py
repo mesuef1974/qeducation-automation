@@ -48,7 +48,7 @@ def build(today: date) -> dict:
     goal = sum(t.minutes * LEVELS[t.target][1] for t in TASKS)
     used = sum(1 for c in CAPABILITIES if c.used)
     enabled = sum(1 for c in CAPABILITIES if c.enabled)
-    automated = sum(1 for c in CAPABILITIES if c.automated)
+    auto_caps = sum(1 for c in CAPABILITIES if c.automated)
     gates = sum(1 for _, ok in COMPLIANCE if ok)
 
     criteria = [
@@ -61,7 +61,7 @@ def build(today: date) -> dict:
                    next_step="قِس دقائقك الفعلية لكل مهمة أسبوعًا واحدًا لتصحيح التقدير"),
         _criterion("platform", "شمولية قدرات المنصة", _pct(used, len(CAPABILITIES)), 85,
                    detail=f"مستعملة {used} من {len(CAPABILITIES)} قدرة (26 تبويبًا و5 داخلية)؛ "
-                          f"مفعّلة {enabled}، ومؤتمتة {automated}. الاستعمال بإفادة المعلم",
+                          f"مفعّلة {enabled}، ومؤتمتة {auto_caps}. الاستعمال بإفادة المعلم",
                    next_step="استكشاف إعدادات الشارات وإنجاز الصف وأولياء الأمور (قراءة فقط)"),
         _criterion("engagement", "تفاعل الطالب", None, 80, level=_avg_level("students"), target_level=3,
                    measured=False, detail="لا يُجمع تقدّم الطلاب بعد (الدخول والإنجاز والتسليم)",
