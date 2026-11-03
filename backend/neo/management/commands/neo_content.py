@@ -3,7 +3,8 @@
 python manage.py neo_content status                      → الدروس الناقصة ونواقصها والاقتراحات المنتظرة لكل صف
 python manage.py neo_content plan --class 602598          → مهمة اقتراح (بعد تدقيق الجودة)
 python manage.py neo_content approve --run 89 [--kind assessment] [--lesson 16646650]
-python manage.py neo_content apply --run 89 [--lesson ..] → مهمة إضافة المعتمد ثم تدقيق تلقائي
+python manage.py neo_content apply --run 89 [--lesson ..] [--retry-failed] → مهمة إضافة المعتمد ثم تدقيق تلقائي
+(--retry-failed يعيد ما فشل لعطل تقني إلى «معتمد»؛ التطبيق آمن التكرار فلا يكرر ما أُضيف)
 الاعتماد قرار المعلم: الأمر ينفّذه بطلبه الصريح فقط.
 """
 from django.core.management.base import BaseCommand, CommandError
@@ -22,9 +23,10 @@ class Command(BaseCommand):
         parser.add_argument("--run", type=int)
         parser.add_argument("--kind", choices=[k.value for k in ContentProposal.Kind])
         parser.add_argument("--lesson", type=int, help="lms_lesson_id")
+        parser.add_argument("--retry-failed", action="store_true")
 
-    def handle(self, *args, action, lms, run, kind, lesson, **opts):
-        return getattr(self, action)(lms=lms, run=run, kind=kind, lesson=lesson)
+    def handle(self, *args, action, lms, run, kind, lesson, retry_failed, **opts):
+        return getattr(self, action)(lms=lms, run=run, kind=kind, lesson=lesson, retry=retry_failed)
 
     def status(self, **_):
         for k in PlatformClass.objects.order_by("lms_id"):
@@ -53,8 +55,12 @@ class Command(BaseCommand):
             qs = qs.filter(lesson__lms_lesson_id=lesson)
         self.stdout.write(f"اعتُمد {qs.update(status=ContentProposal.Status.APPROVED)}")
 
-    def apply(self, run, lesson, **_):
+    def apply(self, run, lesson, retry, **_):
         if not run:
             raise CommandError("--run مطلوب")
+        if retry:
+            n = ContentProposal.objects.filter(run_id=run, status=ContentProposal.Status.FAILED).update(
+                status=ContentProposal.Status.APPROVED, error="")
+            self.stdout.write(f"أُعيد {n} فاشلًا إلى معتمد")
         job, created = JobService().enqueue("content_apply", {"run": run, "lesson": lesson})
         self.stdout.write(f"مهمة الإضافة #{job.pk}" + ("" if created else " (كانت في الطابور)"))

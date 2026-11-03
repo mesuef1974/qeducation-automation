@@ -9,14 +9,14 @@ import sys
 import threading
 import time
 
-from django.core.management.base import BaseCommand
+from django.core.management.base import BaseCommand, CommandError
 from django.db import connection
 from django.utils import autoreload, timezone
 
 from neo.infrastructure.client import kill_orphan_browsers
 from neo.models import Job
 from neo.services import weekly_service
-from neo.services.job_service import HEARTBEAT_S, JobService, beat, stop_beat
+from neo.services.job_service import HEARTBEAT_S, JobService, beat, stop_beat, worker_alive
 
 SCHEDULE_CHECK_S = 60
 CODE_CHECK_S = 5
@@ -49,6 +49,9 @@ class Command(BaseCommand):
         parser.add_argument("--noreload", action="store_true", help="بلا إعادة تحميل عند تغيّر الكود")
 
     def handle(self, *args, once, interval, noreload, **opts):
+        if worker_alive() and not os.environ.get("NEO_WORKER_RESTART"):  # عاملان معًا يتنازعان المتصفح والمهام
+            raise CommandError("عامل آخر يعمل الآن (نبضه حديث). أوقفه أولًا.")
+        os.environ.pop("NEO_WORKER_RESTART", None)
         svc = JobService()
         if n := svc.recover():
             self.stdout.write(self.style.WARNING(f"عُلّمت {n} مهمة متوقفة بالفشل."))
@@ -69,6 +72,7 @@ class Command(BaseCommand):
                         stop.set()
                         stop_beat()
                         connection.close()
+                        os.environ["NEO_WORKER_RESTART"] = "1"  # النبض الأخير نبضنا، لا عامل آخر
                         os.execv(sys.executable, [sys.executable, *sys.argv])
                 if time.monotonic() - checked >= SCHEDULE_CHECK_S:  # الدورة الأسبوعية حين يحين موعدها
                     checked = time.monotonic()
