@@ -10,7 +10,7 @@ import threading
 import time
 
 from django.core.management.base import BaseCommand, CommandError
-from django.db import connection
+from django.db import OperationalError, connection
 from django.utils import autoreload, timezone
 
 from neo.infrastructure.client import kill_orphan_browsers
@@ -36,7 +36,10 @@ def _pulse(stop: threading.Event) -> None:
     """نبض في خيط مستقل، فيستمر أثناء مهمة طويلة على المنصة."""
     pid = os.getpid()
     while not stop.wait(HEARTBEAT_S):
-        beat(pid)
+        try:
+            beat(pid)
+        except OperationalError:  # قفل SQLite عابر: نبضة تفوت ولا يموت الخيط
+            connection.close()
     connection.close()
 
 
