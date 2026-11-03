@@ -28,7 +28,8 @@ def test_generator_is_deterministic_and_rtl_safe():
     html = gen.intro_section_html(ctx)
     assert "<h3>أهداف الدرس</h3>" in html and "كتاب الطالب" in html and "10.3.1" in html
     assert gen.tile_spec(ctx) == {"color": gen.UNIT_COLORS[1], "number": 3, "title": "المميزات الأساسية",
-                                  "unit": "الوحدة 1: الدوال التربيعية"}
+                                  "unit": "الوحدة 1: الدوال التربيعية", "motif": "features"}
+    assert gen.motif_of("حل المعادلات التربيعية بيانيا 2") == "roots" and gen.motif_of("تهيئة") == "parabola"
     assert gen.description(gen.LessonContext(1, "تهيئة", None, "")) == "في هذا الدرس ستتعلم أن:\n• تهيئة"
 
 

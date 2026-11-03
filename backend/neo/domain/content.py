@@ -48,7 +48,22 @@ def intro_section_html(ctx: LessonContext) -> str:
     return "".join(parts)
 
 
+# رسم يعبّر عن موضوع الدرس: أول كلمة مفتاحية تُصادف في العنوان تحدده، وإلا قطع مكافئ بسيط
+MOTIFS = (
+    ("بيانيا", "roots"),        # حل المعادلات بيانيًا: الجذور على محور x
+    ("الرأس", "vertex"),        # صيغة الرأس: الرأس بإحداثييه
+    ("القياسية", "intercept"),  # الصيغة القياسية: التقاطع مع محور y
+    ("المميزات", "features"),   # المميزات الأساسية: الرأس ومحور التناظر والجذور
+    ("متباين", "inequality"),   # المتباينات: المنطقة المظللة
+)
+
+
+def motif_of(title: str) -> str:
+    return next((m for key, m in MOTIFS if key in title), "parabola")
+
+
 def tile_spec(ctx: LessonContext) -> dict:
     """ما تحتاجه صورة البطاقة؛ الرسم في طبقة البنية التحتية."""
     return {"color": unit_color(ctx.unit_no), "number": ctx.position, "title": ctx.title,
-            "unit": f"الوحدة {ctx.unit_no}: {ctx.unit_title}" if ctx.unit_no else ctx.unit_title}
+            "unit": f"الوحدة {ctx.unit_no}: {ctx.unit_title}" if ctx.unit_no else ctx.unit_title,
+            "motif": motif_of(ctx.title)}
