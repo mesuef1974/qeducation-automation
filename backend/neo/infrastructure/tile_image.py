@@ -140,6 +140,43 @@ def _inequality(p: _Plot):
     p.parabola(a, h, k)
 
 
+def _curve(p: _Plot, fn, lo: float, hi: float, width: int = 4):
+    pts = [p.px(lo + i * (hi - lo) / 80, fn(lo + i * (hi - lo) / 80)) for i in range(81)]
+    p.d.line([q for q in pts if p.y0 - 20 <= q[1] <= p.y1 + 20], fill=p.color, width=width, joint="curve")
+
+
+@_motif("limit")
+def _limit(p: _Plot):
+    f = lambda x: 0.25 * (x + 1) ** 2 - 1  # noqa: E731
+    _curve(p, f, -4, 0.85)
+    _curve(p, f, 1.15, 3.6)
+    p.dot(1, f(1), fill=SOFT, r=6)  # فجوة عند x = 1
+    p.dashed_vertical(1)
+    for x, dx in ((-0.6, 0.35), (2.6, -0.35)):  # سهما الاقتراب
+        x0, y0 = p.px(x, f(x))
+        x1, y1 = p.px(x + dx, f(x + dx))
+        p.d.line((x0, y0, x1, y1), fill=INK, width=3)
+        p.d.ellipse((x1 - 4, y1 - 4, x1 + 4, y1 + 4), fill=INK)
+
+
+@_motif("continuity")
+def _continuity(p: _Plot):
+    _curve(p, lambda x: 0.5 * x + 1, -4, 0)
+    _curve(p, lambda x: 0.5 * x - 1.5, 0, 3.8)
+    p.dot(0, 1, fill=p.color, r=6)
+    p.dot(0, -1.5, fill=SOFT, r=6)
+
+
+@_motif("tangent")
+def _tangent(p: _Plot):
+    f = lambda x: 0.3 * x ** 2 - 1  # noqa: E731
+    _curve(p, f, -3.6, 3.6)
+    x0, m = 1.5, 0.6 * 1.5  # مماس عند x0 بميل f′(x0)
+    a, b = p.px(x0 - 2.2, f(x0) - 2.2 * m), p.px(x0 + 2.2, f(x0) + 2.2 * m)
+    p.d.line((*a, *b), fill=INK, width=3)
+    p.dot(x0, f(x0))
+
+
 def render(spec: dict, out: Path) -> Path:
     img = Image.new("RGBA", SIZE, spec["color"])
     d = ImageDraw.Draw(img, "RGBA")
