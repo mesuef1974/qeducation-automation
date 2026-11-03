@@ -42,8 +42,8 @@ class QuizClient(Client):
         super().__init__(**kw)
         self.has = has
 
-    def has_assessment(self, lms_id, lesson_id):
-        return self.has
+    def assessment_names(self, lms_id, lesson_id):
+        return ["تقييم آخر للمعلم"] if self.has else []
 
     def add_quiz(self, lms_id, lesson_id, name, questions):
         self.calls.append(("quiz", lesson_id, name, len(questions)))

@@ -3,6 +3,8 @@
 الدخول يتم يدويًا من المعلم مرة واحدة (neo_login)؛ لا تُخزَّن أي كلمة مرور.
 """
 import json
+import subprocess
+import sys
 import re
 import time
 from datetime import date, datetime
@@ -15,12 +17,14 @@ from playwright.sync_api import sync_playwright
 from neo.domain.assessment import POINTS, TF, Question
 from neo.domain.quality import ASSESSMENT_KINDS
 from neo.infrastructure.parsers import (
-    parse_sections, parse_tiles,
     is_login_page,
     is_login_url,
     parse_default_visibility,
     parse_points_actions,
     parse_points_games,
+    parse_question_text,
+    parse_sections,
+    parse_tiles,
 )
 
 BASE_URL = "https://qeducation.edu.gov.qa"
@@ -47,6 +51,24 @@ class PlatformError(RuntimeError):
 
 class BrowserBusy(PlatformError):
     pass
+
+
+def kill_orphan_browsers(profile_dir: Path | None = None) -> int:
+    """يُنهي عمليات المتصفح التي تستعمل ملف تعريف الأتمتة (بقايا عامل انهار) فتقفل الملف على من بعدها.
+    يُستدعى عند بدء العامل فقط، حيث لا يصحّ أن يكون متصفح آخر على الملف نفسه."""
+    profile = str(Path(profile_dir or settings.NEO_PROFILE_DIR)).lower()
+    killed = 0
+    if sys.platform == "win32":
+        script = ("Get-CimInstance Win32_Process -Filter \"Name='msedge.exe' or Name='chrome.exe'\" | "
+                  "Select-Object ProcessId, CommandLine | ConvertTo-Json -Compress")
+        out = subprocess.run(["powershell", "-NoProfile", "-Command", script], capture_output=True, text=True,
+                             encoding="utf-8", errors="replace").stdout.strip()
+        procs = json.loads(out) if out else []
+        for proc in procs if isinstance(procs, list) else [procs]:
+            if profile in (proc.get("CommandLine") or "").lower():
+                subprocess.run(["taskkill", "/PID", str(proc["ProcessId"]), "/F"], capture_output=True)
+                killed += 1
+    return killed
 
 
 class NeoClient:
@@ -172,11 +194,34 @@ class NeoClient:
         if "/teacher_html_section/edit/" in self.page.url:
             raise PlatformError("رفضت المنصة حفظ محتوى القسم")
 
-    def has_assessment(self, lms_id: int, lesson_id: int) -> bool:
-        return any(s.kind in ASSESSMENT_KINDS for s in parse_sections(self.lesson_page_html(lms_id, lesson_id)))
+    def assessment_names(self, lms_id: int, lesson_id: int) -> list[str]:
+        return [s.title for s in parse_sections(self.lesson_page_html(lms_id, lesson_id)) if s.kind in ASSESSMENT_KINDS]
 
     def add_quiz(self, lms_id: int, lesson_id: int, name: str, questions: list[Question]) -> int:
-        """تقييم ذاتي التصحيح باسمه مربوطًا بالدرس (بقية الإعدادات كما تقترحها المنصة)، ثم أسئلته واحدًا واحدًا."""
+        """تقييم ذاتي التصحيح باسمه مربوطًا بالدرس، ثم أسئلته. متكرر التنفيذ بأمان: إن وُجد تقييم بالاسم نفسه
+        (من محاولة انقطعت) استُكمل بما ينقصه من الأسئلة ولم يُنشأ ثانٍ."""
+        assignment_id = self._find_quiz(lms_id, lesson_id, name) or self._create_quiz(lms_id, lesson_id, name)
+        bank_id = self._bank_id(assignment_id)
+        existing = self._question_texts(assignment_id, bank_id)
+        for q in questions:
+            if q.text not in existing:
+                self._add_question(bank_id, assignment_id, q)
+        n = len(self._question_texts(assignment_id, bank_id))
+        if n < len(questions):
+            raise PlatformError(f"في التقييم {assignment_id} {n} من {len(questions)} سؤالًا")
+        return assignment_id
+
+    def _find_quiz(self, lms_id: int, lesson_id: int, name: str) -> int | None:
+        section = next((s for s in parse_sections(self.lesson_page_html(lms_id, lesson_id)) if s.title == name), None)
+        if section is None:
+            return None
+        html = self.get_html(f"/teacher_lesson/show/{lms_id}?lesson_id={lesson_id}&section_id={section.section_id}")
+        ids = set(re.findall(r"teacher_quiz_assignment/\w+/(\d+)", html))
+        if len(ids) != 1:
+            raise PlatformError(f"تعذّر تحديد معرّف التقييم «{name}»: {sorted(ids)}")
+        return int(ids.pop())
+
+    def _create_quiz(self, lms_id: int, lesson_id: int, name: str) -> int:
         self._throttle()
         self.page.goto(f"{BASE_URL}/teacher_quiz_assignment/new/{lms_id}?class={lms_id}&lesson_id={lesson_id}")
         if is_login_url(self.page.url):
@@ -189,19 +234,23 @@ class NeoClient:
         m = re.search(r"assignment_id=(\d+)", self.page.content())
         if not m:
             raise PlatformError(f"لم تُنشئ المنصة التقييم: {self.page.url}")
-        assignment_id = int(m.group(1))
-        # صفحة إضافة الأسئلة تُنشئ بنك أسئلة التقييم الجديد وتعرض روابط الأنواع بمعرّفه
+        return int(m.group(1))
+
+    def _bank_id(self, assignment_id: int) -> int:
+        # صفحة إضافة الأسئلة تُنشئ بنك أسئلة التقييم عند أول فتح وتعرض روابط الأنواع بمعرّفه
         html = self.get_html(f"/quiz_question_bank/add_questions?container_id={assignment_id}")
         bank = re.search(r"/quiz_question_bank/new_question/(\d+)", html)
         if not bank:
-            raise PlatformError("لم يُعثر على بنك أسئلة التقييم الجديد")
-        for q in questions:
-            self._add_question(int(bank.group(1)), assignment_id, q)
+            raise PlatformError(f"لم يُعثر على بنك أسئلة التقييم {assignment_id}")
+        return int(bank.group(1))
+
+    def _question_texts(self, assignment_id: int, bank_id: int) -> list[str]:
         html = self.get_html(f"/teacher_quiz_assignment/questions/{assignment_id}")
-        n = len(set(re.findall(r"show_question/\d+\?container_id=\d+&amp;position=(\d+)", html)))
-        if n != len(questions):
-            raise PlatformError(f"أُضيف {n} من {len(questions)} سؤالًا في التقييم {assignment_id}")
-        return assignment_id
+        texts = []
+        for pos in sorted(set(re.findall(r"show_question/\d+\?container_id=\d+&amp;position=(\d+)", html)), key=int):
+            q = self.get_html(f"/quiz_question_bank/show_question/{bank_id}?container_id={assignment_id}&position={pos}")
+            texts.append(parse_question_text(q))
+        return texts
 
     def _add_question(self, bank_id: int, assignment_id: int, q: Question) -> None:
         self._throttle()

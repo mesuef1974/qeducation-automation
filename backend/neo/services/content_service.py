@@ -61,7 +61,7 @@ class ContentService:
             ctx = _context(pl, outcomes.get(pl.lms_lesson_id, []), all_lessons.get(pl.position - 1))
             for issue in pl.audit.issues:
                 kind = BY_ISSUE.get(issue)
-                if not kind:
+                if not kind or (kind == Kind.SECTION and "صفحة" in pl.audit.sections):  # له صفحة: النقص ليس التهيئة
                     continue
                 payload = self._payload(kind, ctx, pl)
                 if payload is None:  # لا بنك أسئلة لموضوع الدرس: لا نختلق تقييمًا
@@ -127,7 +127,8 @@ class ContentService:
                             continue
                         client.add_page_section(lms_id, lid, pay["name"], pay["html"])
                     elif p.kind == Kind.ASSESSMENT:
-                        if client.has_assessment(lms_id, lid):
+                        others = [n for n in client.assessment_names(lms_id, lid) if n != pay["name"]]
+                        if others:  # تقييم بالاسم نفسه = محاولة سابقة انقطعت، فتُستكمل في add_quiz
                             results[p.pk] = (ContentProposal.Status.SKIPPED, "له تقييم بالفعل")
                             continue
                         client.add_quiz(lms_id, lid, pay["name"], assessment.from_dicts(pay["questions"]))

@@ -176,3 +176,9 @@ def is_login_url(url: str) -> bool:
 
 def is_login_page(html: str) -> bool:
     return 'action="/log_in' in html or "id=\"login_form\"" in html
+
+
+def parse_question_text(html: str) -> str:
+    """نص السؤال من صفحة عرضه في بنك الأسئلة: أول div.materialStyle بعد عنوان النوع، بلا وسوم ولا فراغات زائدة."""
+    node = BeautifulSoup(html, "html.parser").select_one("div.materialStyle")
+    return re.sub(r"\s+", " ", node.get_text(" ")).strip() if node else ""

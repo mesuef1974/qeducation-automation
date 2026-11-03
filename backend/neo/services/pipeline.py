@@ -110,7 +110,8 @@ def content_apply(run_id: int, factory: Factory, approve: str | None = None, les
     if approve:
         svc.approve(run_id, lesson)
     _require_approved(run.content_proposals.all())
-    return [svc.apply(run, factory, lesson)]
+    applied = svc.apply(run, factory, lesson)
+    return [applied, *AuditService().run([run.klass], factory)]  # ما اكتمل يظهر في التدقيق فورًا
 
 
 PROPOSALS = {"date": DateProposal, "assign": AssignProposal, "publish": PublishProposal, "content": ContentProposal}

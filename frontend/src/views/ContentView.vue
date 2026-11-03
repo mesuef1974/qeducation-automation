@@ -53,6 +53,8 @@ const groups = computed<Group[]>(() => {
   return [...by.values()].sort((a, b) => a.lesson.position - b.lesson.position);
 });
 const latestRun = computed(() => Math.max(0, ...items.value.map((p) => p.run)));
+const allPending = computed(() => items.value.filter((p) => p.status === "pending" && p.run === latestRun.value));
+const allApproved = computed(() => items.value.filter((p) => p.status === "approved" && p.run === latestRun.value));
 const pending = (g: Group) => g.props.filter((p) => p.status === "pending");
 const approved = (g: Group) => g.props.filter((p) => p.status === "approved");
 const field = (p: ContentProposal) => (p.kind === "description" || p.kind === "assessment" ? "text" : p.kind === "section" ? "html" : "");
@@ -105,6 +107,21 @@ async function apply(g: Group) {
   }
 }
 const count = (p: ContentProposal) => (Array.isArray(p.payload.questions) ? p.payload.questions.length : 0);
+async function applyAll() {
+  const ok = await confirm({
+    title: "إضافة كل المحتوى المعتمد في الصف",
+    body: `سيضيف العامل ${allApproved.value.length} عنصرًا معتمدًا إلى دروس الصف على منصة قطر للتعليم، درسًا درسًا، `
+      + "ثم يدقّق الجودة تلقائيًا. إضافة فقط: ما هو موجود يُتخطّى.",
+    confirm: "أضف الكل",
+    danger: true,
+  });
+  if (!ok) return;
+  try {
+    await jobs.enqueue("content_apply", { run: latestRun.value });
+  } catch (e) {
+    error.value = (e as Error).message;
+  }
+}
 const imageUrl = (p: ContentProposal) => `/api/neo/proposals/content/${p.id}/image/?v=${p.applied_at ?? ""}`;
 </script>
 
@@ -114,9 +131,17 @@ const imageUrl = (p: ContentProposal) => `/api/neo/proposals/content/${p.id}/ima
       <h1>محرك المحتوى</h1>
       <p>لكل درس ناقص: وصف من نتاجاته، وصورة بطاقة بلون وحدته، وقسم تهيئة، وتقييم من بنك أسئلة موضوعه. عدّل ثم اعتمد، ثم أضف إلى درس واحد.</p>
     </div>
-    <button class="btn sm" :disabled="!lms || jobs.busy('content_plan', lms)" @click="plan">
-      <i v-if="jobs.busy('content_plan', lms)" class="spinner" /> اقترح للدروس الناقصة
-    </button>
+    <div class="actions">
+      <button v-if="allPending.length" class="btn ghost sm" @click="decide(allPending.map((p) => p.id), 'approve')">
+        اعتمد كل المنتظر ({{ allPending.length }})
+      </button>
+      <button v-if="allApproved.length" class="btn sm" :disabled="jobs.busy('content_apply', undefined, latestRun)" @click="applyAll">
+        <i v-if="jobs.busy('content_apply', undefined, latestRun)" class="spinner" /> أضف كل المعتمد ({{ allApproved.length }})
+      </button>
+      <button class="btn sm" :disabled="!lms || jobs.busy('content_plan', lms)" @click="plan">
+        <i v-if="jobs.busy('content_plan', lms)" class="spinner" /> اقترح للدروس الناقصة
+      </button>
+    </div>
   </header>
 
   <nav class="seg" aria-label="الصف">

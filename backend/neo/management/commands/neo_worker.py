@@ -1,6 +1,7 @@
 """
 python manage.py neo_worker          → العامل: ينفّذ مهام الواجهة واحدة تلو الأخرى (Ctrl+C للإيقاف)
 python manage.py neo_worker --once   → ينفّذ المهام المنتظرة الآن ثم يخرج
+يعيد تحميل نفسه عند تغيّر الكود (كخادم التطوير) ما لم يُمرَّر --noreload، وينظّف عند بدئه متصفحًا يتيمًا يقفل ملف الدخول.
 """
 import os
 import threading
@@ -8,8 +9,9 @@ import time
 
 from django.core.management.base import BaseCommand
 from django.db import connection
-from django.utils import timezone
+from django.utils import autoreload, timezone
 
+from neo.infrastructure.client import kill_orphan_browsers
 from neo.services import weekly_service
 from neo.services.job_service import HEARTBEAT_S, JobService, beat, stop_beat
 
@@ -30,11 +32,19 @@ class Command(BaseCommand):
     def add_arguments(self, parser):
         parser.add_argument("--once", action="store_true")
         parser.add_argument("--interval", type=float, default=2.0, help="ثوانٍ بين فحص الطابور")
+        parser.add_argument("--noreload", action="store_true", help="بلا إعادة تحميل عند تغيّر الكود")
 
-    def handle(self, *args, once, interval, **opts):
+    def handle(self, *args, once, interval, noreload, **opts):
+        if once or noreload:
+            return self.serve(once, interval)
+        autoreload.run_with_reloader(self.serve, once, interval)
+
+    def serve(self, once: bool, interval: float):
         svc = JobService()
         if n := svc.recover():
             self.stdout.write(self.style.WARNING(f"عُلّمت {n} مهمة متوقفة بالفشل."))
+        if k := kill_orphan_browsers():
+            self.stdout.write(self.style.WARNING(f"أُنهي {k} متصفحًا يتيمًا كان يقفل ملف الدخول."))
         self.stdout.write("العامل يعمل. (Ctrl+C للإيقاف)" if not once else "تنفيذ المهام المنتظرة...")
         beat(os.getpid())
         stop = threading.Event()
