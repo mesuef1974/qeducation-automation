@@ -14,6 +14,7 @@ from django.db import connection
 from django.utils import autoreload, timezone
 
 from neo.infrastructure.client import kill_orphan_browsers
+from neo.models import Job
 from neo.services import weekly_service
 from neo.services.job_service import HEARTBEAT_S, JobService, beat, stop_beat
 
@@ -23,6 +24,12 @@ CODE_CHECK_S = 5
 
 def _code_snapshot() -> dict:
     return {f: f.stat().st_mtime for f in autoreload.iter_all_python_module_files() if f.exists()}
+
+
+def _code_changed(snapshot: dict) -> bool:
+    """تغيّر ملف كان محمّلًا عند البدء؛ الملفات التي تُستورد لاحقًا لا تُحسب تغييرًا."""
+    current = _code_snapshot()
+    return any(current.get(f, m) != m for f, m in snapshot.items())
 
 
 def _pulse(stop: threading.Event) -> None:
@@ -57,7 +64,7 @@ class Command(BaseCommand):
             while True:
                 if snapshot and time.monotonic() - code_checked >= CODE_CHECK_S:  # الكود تغيّر؟ ونحن خاملون هنا
                     code_checked = time.monotonic()
-                    if _code_snapshot() != snapshot:
+                    if _code_changed(snapshot) and not Job.objects.filter(status=Job.Status.RUNNING).exists():
                         self.stdout.write("تغيّر الكود؛ يُعاد تشغيل العامل.")
                         stop.set()
                         stop_beat()
