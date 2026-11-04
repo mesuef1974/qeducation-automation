@@ -7,8 +7,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     # جداول استهلاك Claude المطبَّعة: مشروع ← جلسة ← خطوة → نموذج، والأدوات عبر UsageTurnTool.
-    # تحل محل الترحيلين الأولين (جدولان غير مطبَّعين ثم حذفهما)، فقاعدة طُبّقا عليها تعدّ هذا مطبّقًا.
-    replaces = [('neo', '0018_usage'), ('neo', '0019_usage_normalized')]
+    # دمجت الترحيلين الأولين (جدولان غير مطبَّعين ثم حذفهما)؛ سجلّاهما القديمان يحذفهما 0019.
 
     dependencies = [
         ('neo', '0017_session_job'),
