@@ -9,6 +9,8 @@ import sys
 import threading
 import time
 
+from django.conf import settings
+from django.core.management import call_command
 from django.core.management.base import BaseCommand, CommandError
 from django.db import OperationalError, connection
 from django.utils import autoreload, timezone
@@ -20,6 +22,8 @@ from neo.services.job_service import HEARTBEAT_S, JobService, beat, stop_beat, w
 
 SCHEDULE_CHECK_S = 60
 CODE_CHECK_S = 5
+SETTLE_S = 10  # إعادة التشغيل بعد ثبات الكود: النسخ (git) يستغرق ثواني، فلا يبدأ العامل على كود نصف منسوخ
+SKIP_DIRS = {".neo_profile", "media", "__pycache__", ".pytest_cache", ".ruff_cache", "node_modules"}
 
 
 def _code_snapshot() -> dict:
@@ -30,6 +34,31 @@ def _code_changed(snapshot: dict) -> bool:
     """تغيّر ملف كان محمّلًا عند البدء؛ الملفات التي تُستورد لاحقًا لا تُحسب تغييرًا."""
     current = _code_snapshot()
     return any(current.get(f, m) != m for f, m in snapshot.items())
+
+
+def _tree_state() -> dict:
+    """mtime لكل ملف .py في المشروع، ومنها الملفات الجديدة التي لم تُحمَّل بعد."""
+    out = {}
+    for root, dirs, files in os.walk(settings.BASE_DIR):
+        dirs[:] = [d for d in dirs if d not in SKIP_DIRS]
+        for f in files:
+            if f.endswith(".py"):
+                path = os.path.join(root, f)
+                try:
+                    out[path] = os.stat(path).st_mtime
+                except OSError:
+                    pass
+    return out
+
+
+def _wait_settled(settle_s: float = SETTLE_S, limit_s: float = 120) -> None:
+    """ينتظر حتى لا يتغيّر أي ملف كود خلال settle_s ثانية (بحد أقصى limit_s)."""
+    last, since, deadline = _tree_state(), time.monotonic(), time.monotonic() + limit_s
+    while time.monotonic() < deadline and time.monotonic() - since < settle_s:
+        time.sleep(1)
+        current = _tree_state()
+        if current != last:
+            last, since = current, time.monotonic()
 
 
 def _pulse(stop: threading.Event) -> None:
@@ -55,6 +84,8 @@ class Command(BaseCommand):
         if worker_alive() and not os.environ.get("NEO_WORKER_RESTART"):  # عاملان معًا يتنازعان المتصفح والمهام
             raise CommandError("عامل آخر يعمل الآن (نبضه حديث). أوقفه أولًا.")
         os.environ.pop("NEO_WORKER_RESTART", None)
+        # قاعدة البيانات محدّثة قبل أي مهمة، ومنها إعادة التشغيل الذاتية بعد تغيّر الكود (start.ps1 يرحّل عند البدء فقط)
+        call_command("migrate", interactive=False, verbosity=0)
         svc = JobService()
         if n := svc.recover():
             self.stdout.write(self.style.WARNING(f"عُلّمت {n} مهمة متوقفة بالفشل."))
@@ -71,7 +102,8 @@ class Command(BaseCommand):
                 if snapshot and time.monotonic() - code_checked >= CODE_CHECK_S:  # الكود تغيّر؟ ونحن خاملون هنا
                     code_checked = time.monotonic()
                     if _code_changed(snapshot) and not Job.objects.filter(status=Job.Status.RUNNING).exists():
-                        self.stdout.write("تغيّر الكود؛ يُعاد تشغيل العامل.")
+                        self.stdout.write("تغيّر الكود؛ يُعاد تشغيل العامل بعد ثبات الملفات.")
+                        _wait_settled()
                         stop.set()
                         stop_beat()
                         connection.close()
