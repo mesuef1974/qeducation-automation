@@ -1,7 +1,8 @@
 """
 المهمة 2: إسناد التقييمات وفق تاريخ الدرس المرتبط بكل تقييم.
 السياسة (settings.NEO_ASSIGN_POLICY): يظهر التقييم صباح يوم الدرس ويستحق بعد N يوم؛
-الدرس الماضي يُعطى المهلة نفسها محسوبة من اليوم. المُسند مسبقًا لا يُمس.
+الدرس الماضي يُعطى المهلة نفسها محسوبة من اليوم. المُسند مسبقًا لا يُمس، ولا مواعيد قائمة على المنصة
+تخالف المعتمد (إضافة فقط، قرار المعلم): تُنبَّه للمراجعة.
 """
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -19,6 +20,13 @@ from neo.services import live, safety
 
 FLAG_PAST_LESSON = "درس ماضٍ - المهلة من اليوم"
 AUTO_GIVE_NOTE = "المواعيد مضبوطة؛ تُسنده المنصة تلقائيًا حين يصير درسه الحالي"
+KEPT_NOTE = "على المنصة مواعيد تخالف المعتمد فلم تُمس؛ راجعها على المنصة"
+
+
+def _window(begin: datetime, end: datetime) -> tuple:
+    """(البداية، الاستحقاق) بتوقيت قطر للمقارنة بما تعرضه المنصة."""
+    b, e = (timezone.localtime(t).replace(tzinfo=None) for t in (begin, end))
+    return stamp(f"{b:%Y-%m-%d %H:%M}"), stamp(f"{e:%Y-%m-%d %H:%M}")
 
 
 @dataclass(frozen=True)
@@ -115,7 +123,8 @@ class AssignService:
         يضبط المواعيد لكل المعتمد، ويُسند يدويًا تقييمات الدروس الماضية فقط. تقييمات اليوم وما بعده
         تُسندها المنصة تلقائيًا حين يصير درسها «الحالي» (auto_give_assignments + set_current_when_started)،
         والمنصة ترفض إسناد تقييم درس بعد الدرس الحالي أصلًا.
-        الخطوة 5: تُقرأ مواعيد كل تقييم قبل الكتابة وبعدها (المضبوط كما اعتُمد لا يُعاد)، ولا يُعدّ «مطبّقًا» إلا إذا
+        الخطوة 5: تُقرأ مواعيد كل تقييم قبل الكتابة وبعدها: المضبوط كما اعتُمد لا يُعاد، والمواعيد القائمة المخالفة للمعتمد
+        (يدوية أو كتبتها الأتمتة سابقًا) لا تُمس وتُنبَّه (إضافة فقط، قرار المعلم). ولا يُعدّ «مطبّقًا» إلا إذا
         طابقت القراءة البعدية المعتمد. أول خطأ غير متوقع يوقف التطبيق كله ولا إسناد بعده، ويوم غير المعتمد
         ولا السابق على المنصة (كتابة خاطئة) يوقف الكتابة كلها بمفتاح الإيقاف الآلي.
         """
@@ -124,6 +133,10 @@ class AssignService:
                      .select_related("assessment").order_by("lesson_date", "pk")[:limit])
         results: dict[int, tuple[str, str]] = {}
         session_error, stop, wrong = None, "", ""
+        ours = {prev.assessment.lms_assignment_id: _window(prev.begin_at, prev.end_at)  # آخر ما كتبته الأتمتة
+                for prev in AssignProposal.objects.filter(run__klass=run.klass, status=AssignProposal.Status.APPLIED)
+                .select_related("assessment").order_by("applied_at")}
+        kept: list[str] = []
         with client_factory() as client:  # لا ORM هنا
             state = {a.lms_assignment_id: a.given for a in parse_assessments(client.assessments_html(lms_id))}
             to_give = []
@@ -134,9 +147,16 @@ class AssignService:
                     results[p.pk] = (AssignProposal.Status.SKIPPED, "مُسند على المنصة")
                     continue
                 begin, end = (timezone.localtime(t).replace(tzinfo=None) for t in (p.begin_at, p.end_at))
-                want = (stamp(f"{begin:%Y-%m-%d %H:%M}"), stamp(f"{end:%Y-%m-%d %H:%M}"))
+                want = _window(p.begin_at, p.end_at)
                 try:
-                    before = tuple(stamp(v) for v in client.assessment_window(aid))
+                    before_raw = client.assessment_window(aid)
+                    before = tuple(stamp(v) for v in before_raw)
+                    if before != want and any(before):  # إضافة فقط: مواعيد قائمة مخالفة لا تُمس
+                        who = "كتبتها الأتمتة سابقًا" if ours.get(aid) == before else "ضُبطت يدويًا"
+                        results[p.pk] = (AssignProposal.Status.SKIPPED,
+                                         f"{KEPT_NOTE} ({who}: {before_raw[0]} ← {before_raw[1]})")
+                        kept.append(f"{p.assessment.title}: {before_raw[0]} ← {before_raw[1]}")
+                        continue
                     if before != want:
                         client.set_assessment_window(aid, begin, end, p.allow_late)
                         shown = client.assessment_window(aid)
@@ -176,7 +196,9 @@ class AssignService:
                     ok = after.get(p.assessment.lms_assignment_id)
                     results[p.pk] = ((AssignProposal.Status.APPLIED, "") if ok else
                                      (AssignProposal.Status.FAILED, give_error or "لم يظهر مُسندًا بعد الإسناد"))
-        log = self._record(run, items, results, session_error, stop)
+        if kept:
+            live.emit("warn", f"مواعيد قائمة على المنصة لم تُمس ({len(kept)}): {kept[0]}")
+        log = self._record(run, items, results, session_error, stop, kept)
         if wrong:
             safety.halt(f"كتابة خاطئة في مواعيد التقييمات · {run.klass}: {wrong}")
         if session_error:
@@ -184,7 +206,7 @@ class AssignService:
         return log
 
     @transaction.atomic
-    def _record(self, run, items, results, session_error, stop: str = "") -> SyncRun:
+    def _record(self, run, items, results, session_error, stop: str = "", kept: list[str] | None = None) -> SyncRun:
         now = timezone.now()
         stats: dict[str, int] = {}
         for p in items:
@@ -202,6 +224,8 @@ class AssignService:
             summary["error"] = "انتهت الجلسة"
         if stop:
             summary.update(stopped=stop, not_attempted=sum(1 for p in items if p.pk not in results))
+        if kept:
+            summary["kept_on_platform"] = kept
         return SyncRun.objects.create(
             klass=run.klass, kind=SyncRun.Kind.ASSIGN_APPLY, summary=summary, finished_at=timezone.now(),
             ok=not session_error and not stats.get(AssignProposal.Status.FAILED))

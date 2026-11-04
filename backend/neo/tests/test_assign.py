@@ -140,3 +140,28 @@ def test_apply_wrong_write_halts(setup):
     p101 = run.assign_proposals.get(assessment__lms_assignment_id=101)
     assert p101.status == "failed" and "غير مطابقة" in p101.error and not log.ok
     assert safety.state().halted
+
+
+def test_apply_keeps_existing_windows(setup, settings):
+    """إضافة فقط (قرار المعلم): مواعيد قائمة على المنصة تخالف المعتمد لا تُمس، وتُنبَّه في الملخص."""
+    svc, k = setup
+    run = svc.plan(k, TODAY)
+    svc.approve(run.pk)
+    client = FakeClient(saved={102: ("2026-11-10 08:00", "2026-11-13 23:59")})  # ضُبطت يدويًا
+    log = svc.apply(run, lambda: client, TODAY)
+    assert [w[0] for w in client.windows] == [101] and log.ok
+    p102 = run.assign_proposals.get(assessment__lms_assignment_id=102)
+    assert p102.status == "skipped" and "يدويًا" in p102.error
+    assert log.summary["kept_on_platform"] == ["تقييم 2: 2026-11-10 08:00 ← 2026-11-13 23:59"]
+    # ما كتبته الأتمتة ثم تغيّر المعتمد (مهلة أطول): لا يُمس أيضًا، ويُذكر أنه منها
+    settings.NEO_ASSIGN_POLICY = {"due_days": 3}
+    first = svc.plan(k, TODAY)
+    svc.approve(first.pk)
+    svc.apply(first, lambda: FakeClient(), TODAY)  # 101 و102 بالمهلة الجديدة
+    done = FakeClient(saved={102: ("2026-11-10 07:00", "2026-11-13 23:59")})
+    settings.NEO_ASSIGN_POLICY = {"due_days": 2}
+    again = svc.plan(k, TODAY)
+    svc.approve(again.pk)
+    svc.apply(again, lambda: done, TODAY)
+    p = again.assign_proposals.get(assessment__lms_assignment_id=102)
+    assert p.status == "skipped" and "الأتمتة" in p.error and 102 not in [w[0] for w in done.windows]
