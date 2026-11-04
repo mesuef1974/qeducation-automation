@@ -7,7 +7,7 @@ import WeeklyCard from "@/components/WeeklyCard.vue";
 import { STAGES, todayIso } from "@/domain";
 import { useClassesStore } from "@/stores/classes";
 import { useJobsStore } from "@/stores/jobs";
-import { ago, fmtDay } from "@/utils/format";
+import { fmtDay, fmtWhen } from "@/utils/format";
 
 const classes = useClassesStore();
 const jobs = useJobsStore();
@@ -57,7 +57,7 @@ const missing = (k: PlatformClass) => (k.overview.last_verify?.summary.missing_p
       <header class="k-head">
         <div>
           <h2>{{ k.name }}</h2>
-          <small class="muted">{{ k.plan_title }} · آخر جلب {{ ago(k.last_fetched_at) }}</small>
+          <small class="muted">{{ k.plan_title }} · آخر جلب {{ fmtWhen(k.last_fetched_at) }}</small>
         </div>
         <span class="mono muted">#{{ k.lms_id }}</span>
       </header>
@@ -91,7 +91,7 @@ const missing = (k: PlatformClass) => (k.overview.last_verify?.summary.missing_p
             {{ k.overview.last_verify.ok ? "الطالب يرى ما يجب" : "دروس ماضية لا يراها الطالب" }}
           </span>
           <span class="muted">
-            يرى {{ seen(k) ?? "-" }} درسًا · {{ ago(k.overview.last_verify.at) }}
+            يرى {{ seen(k) ?? "-" }} درسًا · {{ fmtWhen(k.overview.last_verify.at) }}
             <template v-if="missing(k).length"> · مفقود: {{ missing(k).join("، ") }}</template>
           </span>
         </template>

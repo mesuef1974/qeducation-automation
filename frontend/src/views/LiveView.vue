@@ -3,13 +3,16 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue"
 
 import { neo } from "@/api/neo";
 import type { LiveEvent, LiveFeed, LiveKind } from "@/api/types";
+import AutomationDiagram from "@/components/AutomationDiagram.vue";
+import { useAutomationStatus } from "@/composables/useAutomationStatus";
 import { useJobsStore } from "@/stores/jobs";
-import { ago, fmtStamp } from "@/utils/format";
+import { isNode, KIND_NODE, NODES, type NodeKey, type NodeNote, type Signal } from "@/utils/automation";
+import { fmtClock, fmtShort, fmtSlot, fmtStamp, fmtStampSec, fmtWhen } from "@/utils/format";
 
 /**
  * «مباشر»: ما يفعله العامل الآن على المنصة لحظة بلحظة، من بثّه الحي (media/live/job_<id>.jsonl).
- * المهمة الجارية بمراحلها وتقدّمها وزمنها، وسجل البث، والطابور، وآخر المهام (تُعاد مشاهدتها بالنقر).
- * الصفحة تقرأ فقط؛ لا شيء هنا يكتب على المنصة.
+ * المهمة الجارية بمراحلها وتقدّمها وزمنها، ورسم الأتمتة يتحرك معها (العقدة الجارية، ومسارها، وكل صفحة تعبره)،
+ * وسجل البث، والطابور، وآخر المهام (تُعاد مشاهدتها بالنقر). الصفحة تقرأ فقط؛ لا شيء هنا يكتب على المنصة.
  */
 const jobs = useJobsStore();
 const feed = ref<LiveFeed | null>(null);
@@ -30,6 +33,7 @@ let lastSeq = 0;
 let timer: number | undefined;
 let ticker: number | undefined;
 let alive = true;
+let quiet = true; // أول تحميل أو إعادة مشاهدة: ما سبق من أحداث لا يتحرك في الرسم
 
 async function poll(): Promise<void> {
   window.clearTimeout(timer);
@@ -45,9 +49,11 @@ async function poll(): Promise<void> {
     }
     feed.value = data;
     if (data.events.length) {
+      if (!quiet && !pinned.value) spawn(data.events);
       events.value = [...events.value, ...data.events].slice(-MAX_EVENTS);
       lastSeq = data.events[data.events.length - 1].seq;
     }
+    quiet = false;
     error.value = "";
   } catch (e) {
     error.value = (e as Error).message;
@@ -58,6 +64,8 @@ async function poll(): Promise<void> {
 function watchJob(id: number | null) {
   pinned.value = id;
   jobId = null;
+  quiet = true;
+  signals.value = [];
   void poll();
 }
 
@@ -87,11 +95,28 @@ const beatAge = computed(() => {
   const at = feed.value?.worker.seen_at;
   return at ? Math.max(0, Math.round((serverNow.value - Date.parse(at)) / 1000)) : null;
 });
+/** آخر نبض: بالثواني ما دام حديثًا، وبتاريخه ووقته إن تأخر فلا تكفي الثواني */
+const beatText = computed(() => {
+  const age = beatAge.value, at = feed.value?.worker.seen_at;
+  if (age === null || !at) return "";
+  return age < 60 ? `آخر نبض قبل ${age} ث` : `آخر نبض ${fmtWhen(at)}`;
+});
+const beatTitle = computed(() => {
+  const at = feed.value?.worker.seen_at;
+  return at ? fmtStampSec(at) : "";
+});
 
 const elapsed = computed(() => {
   const j = job.value;
   if (!j?.started_at) return 0;
   return running.value ? Math.max(0, (serverNow.value - Date.parse(j.started_at)) / 1000) : (j.seconds ?? 0);
+});
+/** تحت الساعة: متى بدأت المهمة، أو كيف انتهت ومتى */
+const heroWhen = computed(() => {
+  const j = job.value;
+  if (!j) return "";
+  if (running.value) return j.started_at ? `منذ ${fmtStamp(j.started_at)}` : "منذ البدء";
+  return `${j.status_label} · ${fmtStamp(j.finished_at ?? j.started_at)}`;
 });
 const progress = computed(() => summary.value?.progress ?? null);
 const pct = computed(() => {
@@ -111,6 +136,91 @@ const fileTotal = computed(() => (ops.value.download ?? 0) + (ops.value.cache ??
 const ended = computed(() => summary.value?.end ?? null);
 const tone = computed(() => (running.value ? "run" : ended.value?.status === "failed" || job.value?.status === "failed" ? "bad"
   : job.value ? "ok" : "idle"));
+
+// ------------------------------------------------------------ الرسم الحي
+const { notes: baseNotes, weeklyNote } = useAutomationStatus();
+const signals = ref<Signal[]>([]);
+const BURST = 6; // أقصى إشارات من دفعة واحدة، والباقي يظهر في السجل
+const GAP_MS = 420;
+let signalId = 0;
+
+/** كل صفحة تُقرأ أو تُكتب، وكل ملف، يعبر الرسم إشارةً من حيث جاء إلى حيث ذهب */
+function spawn(batch: LiveEvent[]) {
+  const fallback: NodeKey = job.value ? KIND_NODE[job.value.kind] : "fetch";
+  let n = 0;
+  for (const e of batch) {
+    if (n >= BURST) break;
+    const node = isNode(e.node) ? e.node : fallback;
+    const kind = e.kind === "net" ? (node === "apply" && e.method && e.method !== "GET" ? "write" : "read")
+      : e.kind === "file" ? "file" : null;
+    if (!kind) continue;
+    const s: Signal = { id: ++signalId, node, kind, delay: n++ * GAP_MS };
+    signals.value = [...signals.value, s];
+    window.setTimeout(() => (signals.value = signals.value.filter((x) => x.id !== s.id)), s.delay + 4500);
+  }
+}
+
+const nodeNow = computed<NodeKey | "">(() => {
+  if (!running.value || !job.value) return "";
+  for (let i = events.value.length - 1; i >= 0; i--) {
+    const n = events.value[i].node;
+    if (isNode(n)) return n;
+  }
+  return KIND_NODE[job.value.kind];
+});
+const nodeTitle = computed(() => NODES.find((n) => n.key === nodeNow.value)?.title ?? "");
+/** العقد التي مرت بها المهمة المعروضة؛ المنصة منها إن قُرئ منها شيء */
+const trail = computed<string[] | null>(() => {
+  const j = job.value;
+  if (!j) return null;
+  const seen = (summary.value?.nodes ?? []).filter(isNode);
+  const list: string[] = seen.length ? seen : [KIND_NODE[j.kind]];
+  return [...new Set([...((counts.value.net ?? 0) > 0 ? ["platform"] : []), ...list])];
+});
+const failedNode = computed(() => {
+  const j = job.value;
+  if (!j || running.value || !(ended.value?.status === "failed" || j.status === "failed")) return "";
+  const t = trail.value ?? [];
+  return t[t.length - 1] ?? "";
+});
+const nodeProgress = computed(() => {
+  const p = progress.value;
+  const current = stages.value[stages.value.length - 1]?.text;
+  return running.value && p && p.total && p.stage === current ? p.current / p.total : null;
+});
+const clip = (t: string, n = 27) => (t.length > n ? `${t.slice(0, n - 1)}…` : t);
+const lastOf = (kinds: LiveKind[]) => [...events.value].reverse().find((e) => kinds.includes(e.kind));
+const notes = computed<Record<string, NodeNote>>(() => {
+  const out = { ...baseNotes.value };
+  if (!running.value) return out;
+  const net = lastOf(["net"]);
+  if (net) out.platform = { ok: true, note: clip(`${counts.value.net ?? 0} طلبًا · ${net.text}`) };
+  const k = nodeNow.value;
+  if (k) {
+    const p = progress.value;
+    const e = lastOf(["step", "file", "net", "stage"]);
+    const text = nodeProgress.value !== null && p ? `${p.current}/${p.total} · ${p.text}`
+      : e?.kind === "net" ? `${e.method && e.method !== "GET" ? "يكتب" : "يقرأ"}: ${e.text}` : e?.text ?? "";
+    out[k] = { ok: null, note: clip(text) };
+  }
+  return out;
+});
+
+let folded = false;
+try {
+  folded = localStorage.getItem("live.diagram") === "folded";
+} catch {
+  /* بلا تخزين يبقى الرسم ظاهرًا */
+}
+const showDiagram = ref(!folded);
+function toggleDiagram() {
+  showDiagram.value = !showDiagram.value;
+  try {
+    localStorage.setItem("live.diagram", showDiagram.value ? "open" : "folded");
+  } catch {
+    /* تفضيل للجلسة فقط */
+  }
+}
 
 // ------------------------------------------------------------ سجل البث
 const TAG: Record<LiveKind, string> = {
@@ -134,6 +244,12 @@ function meta(e: LiveEvent): string {
   if (e.kind === "step" && e.total) return `${e.current} / ${e.total}`;
   if (e.kind === "warn" && e.retry) return `انتظار ${e.retry} ث`;
   return "";
+}
+
+/** لحظة بدء المرحلة بتاريخها ووقتها، من حدثها في البث */
+function stageStamp(s: { text: string; t: number }): string {
+  const e = events.value.find((x) => x.kind === "stage" && x.text === s.text && Math.abs(x.t - s.t) < 0.5);
+  return e ? fmtStampSec(e.at) : "";
 }
 
 function fmtDur(sec: number): string {
@@ -178,7 +294,7 @@ const statusTone = (s: string) => (s === "done" ? "ok" : s === "failed" ? "bad" 
       <i class="dot" aria-hidden="true" />
       <div>
         <b>{{ worker.label }}</b>
-        <small v-if="beatAge !== null">آخر نبض قبل {{ beatAge }} ث<template v-if="feed?.worker.pid"> · PID {{ feed.worker.pid }}</template></small>
+        <small v-if="beatAge !== null" :title="beatTitle">{{ beatText }}<template v-if="feed?.worker.pid"> · PID {{ feed.worker.pid }}</template></small>
         <small v-else>لا نبض مسجّل</small>
       </div>
     </div>
@@ -204,7 +320,7 @@ const statusTone = (s: string) => (s === "done" ? "ok" : s === "failed" ? "bad" 
             </div>
             <div class="timer">
               <span class="clock mono">{{ fmtDur(elapsed) }}</span>
-              <small>{{ running ? "منذ البدء" : `${job.status_label} · ${fmtStamp(job.finished_at ?? job.started_at)}` }}</small>
+              <small>{{ heroWhen }}</small>
             </div>
           </div>
 
@@ -223,7 +339,7 @@ const statusTone = (s: string) => (s === "done" ? "ok" : s === "failed" ? "bad" 
           </div>
 
           <ol v-if="stages.length" class="stages" aria-label="المراحل">
-            <li v-for="(s, i) in stages" :key="i" :class="s.state">
+            <li v-for="(s, i) in stages" :key="i" :class="s.state" :title="stageStamp(s)">
               <span class="n">{{ s.state === "done" ? "✓" : i + 1 }}</span>
               <span class="st">{{ s.text }}</span>
               <small class="mono">+{{ fmtDur(s.t) }}</small>
@@ -253,6 +369,24 @@ const statusTone = (s: string) => (s === "done" ? "ok" : s === "failed" ? "bad" 
         <p v-else class="muted">لم تُنفَّذ مهمة بعد. اطلب واحدة من «اليوم» وستظهر هنا لحظة بدئها.</p>
       </article>
 
+      <article class="card flow-card" aria-label="الرسم الحي">
+        <header class="flow-head">
+          <h2>
+            الرسم الحي
+            <small v-if="nodeNow" class="where"><i class="pulse" aria-hidden="true" /> الآن في «{{ nodeTitle }}»</small>
+            <small v-else-if="job" class="muted">مسار آخر مهمة</small>
+          </h2>
+          <div class="legend" aria-label="مفتاح الرسم">
+            <span><i class="sw read" aria-hidden="true" /> قراءة من المنصة</span>
+            <span><i class="sw write" aria-hidden="true" /> كتابة على المنصة</span>
+            <span><i class="sw file" aria-hidden="true" /> ملف</span>
+            <button class="btn ghost sm" :aria-expanded="showDiagram" @click="toggleDiagram">{{ showDiagram ? "طيّ" : "إظهار" }}</button>
+          </div>
+        </header>
+        <AutomationDiagram v-if="showDiagram" :notes="notes" :worker="worker" :weekly-note="weeklyNote" :active="nodeNow"
+                           :trail="trail" :failed="failedNode" :progress="nodeProgress" :signals="signals" />
+      </article>
+
       <article class="card feed" aria-label="سجل البث">
         <header class="feed-head">
           <h2>سجل البث <small class="muted">{{ events.length }} حدثًا</small></h2>
@@ -263,7 +397,10 @@ const statusTone = (s: string) => (s === "done" ? "ok" : s === "failed" ? "bad" 
         </header>
         <ol ref="list" class="log" @scroll="onScroll">
           <li v-for="e in shown" :key="e.seq" :class="['ev', e.kind]">
-            <time class="mono" :title="fmtStamp(e.at)">+{{ fmtDur(e.t) }}</time>
+            <time :title="fmtStampSec(e.at)">
+              <span class="clk mono">{{ fmtClock(e.at) }}</span>
+              <small>{{ fmtShort(e.at) }} · <bdi dir="ltr" class="mono">+{{ fmtDur(e.t) }}</bdi></small>
+            </time>
             <span class="tag">{{ TAG[e.kind] }}</span>
             <span class="txt">{{ e.text }}</span>
             <span class="meta">{{ meta(e) }}</span>
@@ -294,7 +431,7 @@ const statusTone = (s: string) => (s === "done" ? "ok" : s === "failed" ? "bad" 
               <span class="pill" :class="statusTone(r.status)">{{ r.status_label }}</span>
               <span class="what"><b>{{ r.kind_label }}</b><small>{{ r.target }}</small></span>
               <span class="when"><span class="mono">{{ r.seconds !== null ? fmtDur(r.seconds) : "-" }}</span>
-                <small>{{ ago(r.finished_at) }}</small></span>
+                <small :title="fmtWhen(r.finished_at ?? r.started_at)">{{ fmtStamp(r.finished_at ?? r.started_at ?? r.created_at) }}</small></span>
             </button>
           </li>
         </ul>
@@ -305,9 +442,9 @@ const statusTone = (s: string) => (s === "done" ? "ok" : s === "failed" ? "bad" 
         <dl class="kv">
           <dt>الجلسة</dt>
           <dd><span class="pill" :class="feed?.session.expired ? 'bad' : 'ok'">{{ feed?.session.expired ? "منتهية" : "سارية" }}</span></dd>
-          <dt>آخر اتصال</dt><dd>{{ ago(feed?.session.checked_at) }}</dd>
+          <dt>آخر اتصال</dt><dd>{{ fmtWhen(feed?.session.checked_at) }}</dd>
           <dt>الدورة الأسبوعية</dt>
-          <dd>{{ feed?.weekly.enabled ? fmtStamp(feed.weekly.next_at) : "معطّلة" }}</dd>
+          <dd>{{ feed?.weekly.enabled ? `القادمة ${fmtSlot(feed.weekly.next_at)}` : "معطّلة" }}</dd>
           <dt>التمهّل</dt><dd>3–6 ث بين طلبات الحزمة، وإعادة بعد 429</dd>
         </dl>
         <RouterLink to="/automation" class="btn ghost sm">رسم الأتمتة ونضج المراحل</RouterLink>
@@ -384,6 +521,17 @@ const statusTone = (s: string) => (s === "done" ? "ok" : s === "failed" ? "bad" 
 .result.ok { background: var(--ok-soft); }
 .result.bad { background: var(--bad-soft); }
 
+/* الرسم الحي */
+.flow-card { gap: 6px; }
+.flow-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px; }
+.flow-head .where { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; color: var(--maroon); }
+.legend { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; font-size: 12.5px; color: var(--muted); }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.sw { inline-size: 10px; block-size: 10px; border-radius: 50%; }
+.sw.read { background: var(--slate); box-shadow: 0 0 6px var(--slate); }
+.sw.write { background: var(--brand); box-shadow: 0 0 6px var(--brand); }
+.sw.file { border: 2px solid var(--ok); }
+
 /* سجل البث */
 .feed { position: relative; }
 .feed-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px; }
@@ -391,9 +539,10 @@ const statusTone = (s: string) => (s === "done" ? "ok" : s === "failed" ? "bad" 
   list-style: none; margin: 0; padding: 6px 0; block-size: min(56vh, 520px); overflow-y: auto;
   background: var(--bg); border: 1px solid var(--line); border-radius: 10px; font-size: 13.5px;
 }
-.ev { display: grid; grid-template-columns: 58px 74px minmax(0, 1fr) auto; gap: 10px; align-items: baseline; padding: 4px 12px; }
+.ev { display: grid; grid-template-columns: 96px 74px minmax(0, 1fr) auto; gap: 10px; align-items: baseline; padding: 4px 12px; }
 .ev:hover { background: var(--surface); }
-.ev time { color: var(--muted); font-size: 12px; direction: ltr; text-align: end; }
+.ev time { display: grid; color: var(--muted); font-size: 12px; line-height: 1.3; }
+.ev time small { font-size: 11px; opacity: .85; }
 .ev .tag { font-size: 11.5px; padding: 0 8px; border-radius: 999px; text-align: center; background: var(--code-bg); color: var(--muted); }
 .ev .txt { overflow-wrap: anywhere; }
 .ev .meta { color: var(--muted); font-size: 12px; white-space: nowrap; font-variant-numeric: tabular-nums; }
@@ -410,7 +559,7 @@ const statusTone = (s: string) => (s === "done" ? "ok" : s === "failed" ? "bad" 
 .ev.end .txt { font-weight: 700; }
 .ev.empty { display: block; color: var(--muted); text-align: center; padding: 24px; }
 .jump { position: absolute; inset-block-end: 28px; inset-inline-start: 50%; transform: translateX(-50%); box-shadow: 0 4px 16px rgba(0, 0, 0, .15); }
-@media (max-width: 560px) { .ev { grid-template-columns: 50px minmax(0, 1fr); } .ev .tag, .ev .meta { display: none; } }
+@media (max-width: 560px) { .ev { grid-template-columns: 92px minmax(0, 1fr); } .ev .tag, .ev .meta { display: none; } }
 
 /* الجانب */
 .jobs { list-style: none; padding: 0; margin: 0; display: grid; gap: 6px; font-size: 14px; }

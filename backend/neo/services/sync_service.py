@@ -64,7 +64,7 @@ class SyncService:
         # Playwright (sync) يشغّل حلقة أحداث تمنع ORM داخلها؛ نجمع الصفحات أولًا ثم نحفظ بعد الإغلاق
         years = {k.pk: k.plan.academic_year for k in classes}
         pages = {}
-        live.stage("جلب الدروس والجدول من المنصة")
+        live.stage("جلب الدروس والجدول من المنصة", "fetch")
         with client_factory() as client:
             for i, k in enumerate(classes, 1):
                 live.step(f"قراءة {k.name}", i, len(classes))

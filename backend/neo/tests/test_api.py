@@ -237,7 +237,7 @@ def test_live_feed(client, classes):
     job = svc.claim()
     beat(4321)
     live.start(job.pk, job.get_kind_display())
-    live.stage("قراءة الملاحظات والأقسام وتنزيل الملفات")
+    live.stage("قراءة الملاحظات والأقسام وتنزيل الملفات", "prep")
     live.step("الدرس 49", 1, 6)
     live.emit("net", live.page_label("/teacher_lesson/notes/602728?lesson_id=1"), status=200)
     live.emit("file", "نُزّل: خطة درس", size=10)
@@ -246,7 +246,10 @@ def test_live_feed(client, classes):
     assert data["job"]["id"] == job.pk and data["job"]["target"] == "الرياضيات 12/2 · الأسبوع 11"
     assert [e["kind"] for e in data["events"]] == ["start", "stage", "step", "net", "file"]
     assert data["events"][3]["text"] == "ملاحظات المعلم" and data["events"][3]["stage"].startswith("قراءة")
+    # عقدة الرسم: تُضبط مع المرحلة وتلحق كل ما بعدها
+    assert "node" not in data["events"][0] and {e["node"] for e in data["events"][1:]} == {"prep"}
     summ = data["job"]["live"]
+    assert summ["nodes"] == ["prep"] and summ["stages"][0]["node"] == "prep"
     assert summ["progress"] == {"text": "الدرس 49", "current": 1, "total": 6, "stage": summ["stages"][0]["text"]}
     assert summ["counts"]["net"] == 1 and summ["last_seq"] == 5 and summ["end"] is None
     assert [q["id"] for q in data["queue"]] == [queued.pk] and data["queue"][0]["target"] == "الرياضيات 10/3"
@@ -256,6 +259,43 @@ def test_live_feed(client, classes):
     assert client.get("/api/neo/live/?since=5").json()["events"][0]["kind"] == "end"
     live.emit("step", "بعد النهاية لا يُكتب")  # خارج مهمة: لا شيء
     assert client.get(f"/api/neo/live/?job={job.pk}").json()["job"]["live"]["last_seq"] == 6
+
+
+def test_live_nodes_follow_stages(tmp_path):
+    """المهمة تمر بعقد الرسم بترتيبها (جلب ← تحقق)، والعقدة غير المعروفة لا تغيّر الحالية."""
+    from neo.services import live
+    live.start(999, "تحقق")
+    live.stage("جلب الدروس والجدول من المنصة", "fetch")
+    live.emit("net", "قائمة الدروس", status=200)
+    live.stage("التحقق من منظور الطالب", "verify")
+    live.step("عرض 12/2 كطالب عام", 1, 1, node="nowhere")
+    live.end("done", "تمت")
+    events = live.read(999)
+    assert [e.get("node") for e in events] == [None, "fetch", "fetch", "verify", "verify", "verify"]
+    assert live.summary(999)["nodes"] == ["fetch", "verify"]
+
+
+def test_live_marks_writes():
+    """البث يعرض صفحة واحدة لكل تنقّل، ويَسِم الكتابة بطريقة الطلب الذي حوّل إليها."""
+    from types import SimpleNamespace as NS
+
+    from neo.infrastructure.client import BASE_URL, NeoClient
+    from neo.services import live
+
+    def resp(path, status=200, method="GET", came_from=None):
+        req = NS(resource_type="document", method=method, redirected_from=came_from)
+        return NS(request=req, url=BASE_URL + path, status=status)
+
+    live.start(998, "تطبيق")
+    post = NS(resource_type="document", method="POST", redirected_from=None)
+    NeoClient._on_response(resp("/teacher_lesson/save/1", status=302, method="POST"))  # التحويل لا يظهر
+    NeoClient._on_response(resp("/teacher_lesson/show/1?lesson_id=2", came_from=post))
+    NeoClient._on_response(resp("/teacher_lessons/list/602728"))
+    NeoClient._on_response(NS(request=NS(resource_type="image", method="GET", redirected_from=None),
+                              url=BASE_URL + "/x.png", status=200))
+    live.end("done", "تمت")
+    net = [e for e in live.read(998) if e["kind"] == "net"]
+    assert [(e["text"], e.get("method")) for e in net] == [("صفحة الدرس", "POST"), ("قائمة الدروس", None)]
 
 
 def test_page_labels():

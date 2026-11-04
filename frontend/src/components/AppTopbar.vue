@@ -5,7 +5,7 @@ import { useConfirm } from "@/composables/useConfirm";
 import { THEME_LABEL, useTheme } from "@/composables/useTheme";
 import { useClassesStore } from "@/stores/classes";
 import { useJobsStore } from "@/stores/jobs";
-import { ago } from "@/utils/format";
+import { fmtWhen } from "@/utils/format";
 
 const jobs = useJobsStore();
 const classes = useClassesStore();
@@ -53,7 +53,7 @@ async function login() {
         {{ loginQueued ? "نافذة الدخول مطلوبة" : "انتهت الجلسة · سجّل الدخول" }}
       </button>
       <span v-else-if="jobs.session?.worker_busy" class="pill read"><i class="spinner" aria-hidden="true" />العامل يعمل</span>
-      <span v-else class="pill ok" :title="`آخر اتصال بالمنصة: ${ago(jobs.session?.checked_at)}`">الجلسة سليمة</span>
+      <span v-else class="pill ok" :title="`آخر اتصال بالمنصة: ${fmtWhen(jobs.session?.checked_at)}`">الجلسة سليمة</span>
 
       <button class="theme-toggle" type="button" :data-mode="theme" :aria-label="`الثيم: ${THEME_LABEL[theme]}. اضغط للتبديل`"
               @click="next">

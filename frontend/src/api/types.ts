@@ -287,6 +287,10 @@ export interface LiveEvent {
   path?: string;
   retry?: number;
   op?: "download" | "cache" | "edit";
+  /** عقدة رسم الأتمتة التي يجري فيها الحدث (utils/automation: NodeKey) */
+  node?: string;
+  /** طريقة الطلب حين لا تكون GET (كتابة على المنصة) */
+  method?: string;
 }
 
 export interface LiveJob {
@@ -307,7 +311,9 @@ export interface LiveJob {
 export interface LiveSummary {
   counts: Partial<Record<LiveKind, number>>;
   ops: Partial<Record<"download" | "cache" | "edit", number>>;
-  stages: { text: string; t: number }[];
+  stages: { text: string; t: number; node?: string }[];
+  /** العقد التي مرت بها المهمة بترتيبها */
+  nodes?: string[];
   progress: { text: string; current: number; total: number; stage: string } | null;
   end: { status: string; text: string; t: number } | null;
   last_seq: number;

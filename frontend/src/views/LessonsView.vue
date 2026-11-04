@@ -7,7 +7,7 @@ import type { Lesson } from "@/api/types";
 import { todayIso } from "@/domain";
 import { useClassesStore } from "@/stores/classes";
 import { useJobsStore } from "@/stores/jobs";
-import { ago, fmtDay } from "@/utils/format";
+import { fmtDay, fmtWhen } from "@/utils/format";
 
 const route = useRoute();
 const router = useRouter();
@@ -71,7 +71,7 @@ const today = todayIso();
       <h1>الدروس</h1>
       <p>
         كما على المنصة بعد آخر جلب، مع مطابقتها بالخطة الفصلية.
-        <template v-if="audited">الجودة مدقَّقة في {{ audited }} درسًا · {{ ago(lastAudit) }}.</template>
+        <template v-if="audited">الجودة مدقَّقة في {{ audited }} درسًا · {{ fmtWhen(lastAudit) }}.</template>
         <template v-else-if="lessons.length">لم تُدقَّق جودة الدروس بعد.</template>
       </p>
     </div>

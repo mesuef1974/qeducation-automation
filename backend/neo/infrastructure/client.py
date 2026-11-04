@@ -107,10 +107,19 @@ class NeoClient:
 
     @staticmethod
     def _on_response(resp) -> None:
+        """صفحة واحدة لكل تنقّل: التحويلات (3xx) تُتخطى، وتُعرف الكتابة من طلب POST الذي حوّل إلى الصفحة."""
         try:
-            if resp.request.resource_type == "document" and resp.url.startswith(BASE_URL):
-                path = resp.url[len(BASE_URL):]
-                live.emit("net", live.page_label(path), status=resp.status, path=path.split("?")[0])
+            req = resp.request
+            if req.resource_type != "document" or not resp.url.startswith(BASE_URL) or 300 <= resp.status < 400:
+                return
+            method, first = req.method, req
+            while first.redirected_from is not None:
+                first = first.redirected_from
+            if first.method != "GET":
+                method = first.method
+            path = resp.url[len(BASE_URL):]
+            live.emit("net", live.page_label(path), status=resp.status, path=path.split("?")[0],
+                      method=None if method == "GET" else method)
         except Exception:  # noqa: BLE001 - البث لا يوقف العمل
             pass
 
@@ -138,7 +147,7 @@ class NeoClient:
         self._last = time.monotonic()
 
     def login_interactive(self, timeout_s: int = 600) -> None:
-        live.stage("نافذة الدخول مفتوحة: سجّل الدخول فيها بنفسك")
+        live.stage("نافذة الدخول مفتوحة: سجّل الدخول فيها بنفسك", "platform")
         self.page.goto(f"{BASE_URL}/user_dashboard")
         self.page.wait_for_url("**/user_dashboard**", timeout=timeout_s * 1000)
         self._save_cookies()

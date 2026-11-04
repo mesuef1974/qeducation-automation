@@ -40,7 +40,7 @@ def _require_approved(qs) -> None:
 def sync_plan(classes: list[PlatformClass], factory: Factory, today: date, fetch: bool = True) -> list[SyncRun]:
     svc = SyncService()
     runs = svc.fetch(classes, factory) if fetch else []
-    live.stage("اقتراح التواريخ من الخطة")
+    live.stage("اقتراح التواريخ من الخطة", "plan")
     return runs + [svc.plan(k, today) for k in classes]
 
 
@@ -49,7 +49,7 @@ def sync_apply(run_id: int, factory: Factory, today: date, approve: str | None =
     if approve:
         svc.approve(run_id, only_from=None if approve == "all" else today)
     _require_approved(run.proposals)
-    live.stage(f"كتابة التواريخ المعتمدة على المنصة · {run.klass}")
+    live.stage(f"كتابة التواريخ المعتمدة على المنصة · {run.klass}", "apply")
     return [svc.apply(run, factory)]
 
 
@@ -57,9 +57,9 @@ def sync_apply(run_id: int, factory: Factory, today: date, approve: str | None =
 
 def assign_plan(classes: list[PlatformClass], factory: Factory, today: date) -> list[SyncRun]:
     svc = AssignService()
-    live.stage("جلب التقييمات من المنصة")
+    live.stage("جلب التقييمات من المنصة", "fetch")
     svc.fetch(classes, factory)
-    live.stage("اقتراح الإسناد ومواعيده")
+    live.stage("اقتراح الإسناد ومواعيده", "plan")
     return [svc.plan(k, today) for k in classes]
 
 
@@ -69,7 +69,7 @@ def assign_apply(run_id: int, factory: Factory, today: date, approve: str | None
     if approve:
         svc.approve(run_id, None if approve == "all" else today)
     _require_approved(run.assign_proposals.all())
-    live.stage(f"ضبط مواعيد التقييمات وإسنادها · {run.klass}")
+    live.stage(f"ضبط مواعيد التقييمات وإسنادها · {run.klass}", "apply")
     return [svc.apply(run, factory, today, limit)]
 
 
@@ -78,9 +78,9 @@ def assign_apply(run_id: int, factory: Factory, today: date, approve: str | None
 def publish_plan(classes: list[PlatformClass], factory: Factory) -> list[SyncRun]:
     svc = PublishService()
     fetched = SyncService().fetch(classes, factory)
-    live.stage("قراءة رؤية الدروس ونقاطها")
+    live.stage("قراءة رؤية الدروس ونقاطها", "fetch")
     games = svc.fetch(classes, factory)
-    live.stage("اقتراح النشر")
+    live.stage("اقتراح النشر", "plan")
     return fetched + [svc.plan(k, games[k.pk]) for k in classes]
 
 
@@ -91,7 +91,7 @@ def publish_apply(run_id: int, factory: Factory, today: date, approve: str | Non
     if approve:
         svc.approve(run_id)
     _require_approved(run.publish_proposals.all())
-    live.stage(f"إظهار الدروس ومنح النقاط · {run.klass}")
+    live.stage(f"إظهار الدروس ومنح النقاط · {run.klass}", "apply")
     return [svc.apply(run, factory, limit), *verify([run.klass], factory, today)]
 
 
@@ -99,7 +99,7 @@ def publish_apply(run_id: int, factory: Factory, today: date, approve: str | Non
 
 def verify(classes: list[PlatformClass], factory: Factory, today: date) -> list[SyncRun]:
     fetched = SyncService().fetch(classes, factory)
-    live.stage("التحقق من منظور الطالب")
+    live.stage("التحقق من منظور الطالب", "verify")
     return fetched + VerifyService().run(classes, factory, today)
 
 
@@ -107,14 +107,14 @@ def verify(classes: list[PlatformClass], factory: Factory, today: date) -> list[
 
 def audit(classes: list[PlatformClass], factory: Factory) -> list[SyncRun]:
     fetched = SyncService().fetch(classes, factory)
-    live.stage("تدقيق جودة الدروس")
+    live.stage("تدقيق جودة الدروس", "audit")
     return fetched + AuditService().run(classes, factory)
 
 
 # ------------------------------------------------------------- المرحلة 8: المحتوى (إضافة باعتماد)
 
 def content_plan(classes: list[PlatformClass], factory: Factory) -> list[SyncRun]:
-    live.stage("قراءة الدروس الناقصة واقتراح المحتوى")
+    live.stage("قراءة الدروس الناقصة واقتراح المحتوى", "plan")
     return ContentService().plan(classes, factory)
 
 
@@ -123,7 +123,7 @@ def content_apply(run_id: int, factory: Factory, approve: str | None = None, les
     if approve:
         svc.approve(run_id, lesson)
     _require_approved(run.content_proposals.all())
-    live.stage(f"إضافة المحتوى المعتمد · {run.klass}")
+    live.stage(f"إضافة المحتوى المعتمد · {run.klass}", "apply")
     applied = svc.apply(run, factory, lesson)
     return [applied, *audit([run.klass], factory)]  # مزامنة ثم تدقيق: ما اكتمل يظهر فورًا
 

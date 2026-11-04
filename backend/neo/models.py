@@ -320,7 +320,7 @@ class WorkerHeartbeat(models.Model):
         verbose_name_plural = "نبض العامل"
 
     def __str__(self):
-        return f"العامل {self.pid} - {self.seen_at:%H:%M:%S}"
+        return f"العامل {self.pid} - {self.seen_at:%Y-%m-%d %H:%M:%S}"
 
 
 class LessonAudit(models.Model):

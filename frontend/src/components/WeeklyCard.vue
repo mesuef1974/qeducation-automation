@@ -4,7 +4,7 @@ import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import { neo } from "@/api/neo";
 import type { WeeklyReport, WeeklyStage, WeeklyState } from "@/api/types";
 import { useJobsStore } from "@/stores/jobs";
-import { fmtStamp } from "@/utils/format";
+import { fmtSlot, fmtStamp } from "@/utils/format";
 
 /** الدورة الأسبوعية: موعدها، وتقرير آخر دورة (ما طُبّق تلقائيًا وما بقي لمراجعتك ولماذا). */
 const STAGE_LABEL: Record<string, string> = { dates: "التواريخ", assign: "الإسناد", publish: "النشر" };
@@ -58,7 +58,7 @@ onBeforeUnmount(stop);
         <h2>الدورة الأسبوعية</h2>
         <small class="muted">
           التواريخ ثم الإسناد ثم النشر ثم التحقق، تلقائيًا مع تقرير.
-          <template v-if="state?.enabled">القادمة {{ fmtStamp(state.next_at) }}.</template>
+          <template v-if="state?.enabled">القادمة {{ fmtSlot(state.next_at) }}.</template>
           <template v-else-if="state">معطّلة من الإعدادات.</template>
         </small>
       </div>

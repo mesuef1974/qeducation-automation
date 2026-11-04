@@ -5,8 +5,9 @@
 Playwright ومن أي خيط، ولا يزاحم قاعدة البيانات. الخادم يقرأ الملف ويعيد ما بعد آخر رقم تسلسلي رآه المتصفح.
 خارج المهام (أوامر الطرفية) لا يُكتب شيء. أي خطأ في البث يُتجاهل: البث لا يوقف العمل أبدًا.
 
-الحدث: seq، at (UTC)، t (ثوانٍ منذ بدء المهمة)، kind، text، stage، وحسب النوع current/total أو status/ms.
+الحدث: seq، at (UTC)، t (ثوانٍ منذ بدء المهمة)، kind، text، stage، node، وحسب النوع current/total أو status/ms.
 الأنواع: start | stage | step | net | file | warn | error | end
+node: عقدة رسم الأتمتة التي يجري فيها الحدث (NODES)، تُضبط مع المرحلة فيتحرك الرسم في «مباشر» مع العمل.
 """
 import json
 import re
@@ -18,8 +19,9 @@ from pathlib import Path
 from django.conf import settings
 
 KEEP = 300  # ملفات آخر المهام المحفوظة
+NODES = ("platform", "fetch", "audit", "plan", "approve", "apply", "verify", "scorecard", "prep")
 _lock = threading.Lock()
-_state: dict = {"path": None, "seq": 0, "t0": 0.0, "stage": ""}
+_state: dict = {"path": None, "seq": 0, "t0": 0.0, "stage": "", "node": ""}
 
 
 def live_dir() -> Path:
@@ -39,7 +41,7 @@ def start(job_id: int, title: str) -> None:
         live_dir().mkdir(parents=True, exist_ok=True)
         _prune()
         with _lock:
-            _state.update(path=job_path(job_id), seq=0, t0=time.monotonic(), stage="")
+            _state.update(path=job_path(job_id), seq=0, t0=time.monotonic(), stage="", node="")
             _state["path"].write_text("", encoding="utf-8")
     except OSError:
         _state["path"] = None
@@ -47,7 +49,8 @@ def start(job_id: int, title: str) -> None:
     emit("start", title)
 
 
-def emit(kind: str, text: str, **extra) -> None:
+def emit(kind: str, text: str, node: str | None = None, **extra) -> None:
+    """node يغيّر عقدة الرسم الحالية من هذا الحدث فصاعدًا (حتى المرحلة التالية)."""
     if _state["path"] is None:
         return
     with _lock:
@@ -57,8 +60,12 @@ def emit(kind: str, text: str, **extra) -> None:
         _state["seq"] += 1
         if kind == "stage":
             _state["stage"] = text
+        if node in NODES:
+            _state["node"] = node
         ev = {"seq": _state["seq"], "at": datetime.now(timezone.utc).isoformat(timespec="milliseconds"),
               "t": round(time.monotonic() - _state["t0"], 2), "kind": kind, "text": text, "stage": _state["stage"]}
+        if _state["node"]:
+            ev["node"] = _state["node"]
         ev.update({k: v for k, v in extra.items() if v is not None})
         try:
             with path.open("a", encoding="utf-8") as f:
@@ -67,8 +74,8 @@ def emit(kind: str, text: str, **extra) -> None:
             pass
 
 
-def stage(text: str) -> None:
-    emit("stage", text)
+def stage(text: str, node: str | None = None) -> None:
+    emit("stage", text, node=node)
 
 
 def step(text: str, current: int | None = None, total: int | None = None, **extra) -> None:
@@ -141,21 +148,25 @@ def page_label(path: str) -> str:
 
 
 def summary(job_id: int) -> dict:
-    """ملخص المهمة من كل أحداثها: عدّاد كل نوع، والمراحل بترتيبها وزمن بدئها، وآخر تقدّم، والنهاية."""
+    """ملخص المهمة من كل أحداثها: عدّاد كل نوع، والمراحل بترتيبها وزمن بدئها وعقدتها، والعقد التي مرّت بها
+    المهمة بترتيبها، وآخر تقدّم، والنهاية."""
     events = read(job_id, 0, limit=100_000)
     counts: dict[str, int] = {}
     ops: dict[str, int] = {}  # عمليات الملفات: download | cache | edit
     stages: list[dict] = []
+    nodes: list[str] = []
     progress, ended = None, None
     for ev in events:
         counts[ev["kind"]] = counts.get(ev["kind"], 0) + 1
+        if ev.get("node") and (not nodes or nodes[-1] != ev["node"]):
+            nodes.append(ev["node"])
         if ev.get("op"):
             ops[ev["op"]] = ops.get(ev["op"], 0) + 1
         if ev["kind"] == "stage":
-            stages.append({"text": ev["text"], "t": ev["t"]})
+            stages.append({"text": ev["text"], "t": ev["t"], "node": ev.get("node", "")})
         elif ev["kind"] == "step" and ev.get("total"):
             progress = {"text": ev["text"], "current": ev.get("current"), "total": ev["total"], "stage": ev["stage"]}
         elif ev["kind"] == "end":
             ended = {"status": ev.get("status"), "text": ev["text"], "t": ev["t"]}
-    return {"counts": counts, "ops": ops, "stages": stages, "progress": progress, "end": ended,
+    return {"counts": counts, "ops": ops, "stages": stages, "nodes": nodes, "progress": progress, "end": ended,
             "last_seq": events[-1]["seq"] if events else 0, "t": events[-1]["t"] if events else 0}

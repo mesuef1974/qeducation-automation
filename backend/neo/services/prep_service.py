@@ -97,7 +97,7 @@ class PrepService:
             (pages / name).write_text(html, encoding="utf-8")
 
         found = {}
-        live.stage("قراءة الملاحظات والأقسام وتنزيل الملفات")
+        live.stage("قراءة الملاحظات والأقسام وتنزيل الملفات", "prep")
         for i, pl in enumerate(pack, 1):
             live.step(f"الدرس {pl.position}: ملاحظات المعلم وأقسام العرض", i, len(pack))
             f = found[pl.lms_lesson_id] = _Found()
@@ -232,7 +232,7 @@ class PrepService:
 
     def _run(self, run: SyncRun, klass: PlatformClass, week_no: int, factory) -> SyncRun:
         plan = klass.plan
-        live.stage(f"اختيار دروس الأسبوع {week_no} من الخطة · {klass.name}")
+        live.stage(f"اختيار دروس الأسبوع {week_no} من الخطة · {klass.name}", "prep")
         pack, week = self.select(klass, week_no)
         live.step(f"الدروس {pack[0].position}–{pack[-1].position}: {wp.topics_text(pack)}", len(pack), len(pack))
         section = wp.class_section(klass.name)
@@ -251,7 +251,7 @@ class PrepService:
 
         week_dir = root / wp.week_folder(self.policy["folder"], week_no, section)
         lessons, texts, errors, first_of_template = [], [], [], {}
-        live.stage(f"نسخ الملفات وتعديل التحضيرات في {week_dir.name}")
+        live.stage(f"نسخ الملفات وتعديل التحضيرات في {week_dir.name}", "prep")
         for i, pl in enumerate(pack, 1):
             live.step(f"الدرس {pl.position}: {pl.day_name} {pl.date_text} · ح{pl.period}", i, len(pack))
             f = found[pl.lms_lesson_id]
@@ -271,7 +271,7 @@ class PrepService:
                 "downloaded": len(f.downloaded), **done,
             })
 
-        live.stage("صف الرسالة الأسبوعية والتحقق")
+        live.stage("صف الرسالة الأسبوعية والتحقق", "prep")
         pages, unknown_pages = wp.week_pages(book, pack)
         row = wp.message_row(section, pack, pages, wp.homework_text(wp.book_exercises(texts), len(finals)),
                              wp.tests_text(tests))

@@ -14,7 +14,7 @@ from django.conf import settings
 from django.db.models import QuerySet
 
 from neo.models import AssignProposal, DateProposal, Job, PlatformClass, PublishProposal, SyncRun
-from neo.services import pipeline, scorecard_service
+from neo.services import live, pipeline, scorecard_service
 
 APPLY_KINDS = (SyncRun.Kind.APPLY, SyncRun.Kind.ASSIGN_APPLY, SyncRun.Kind.PUBLISH_APPLY)
 Report = dict  # {"classes": {اسم الصف: {المرحلة: {...}}}, "verify": {...}}
@@ -68,8 +68,11 @@ def _auto_approve(qs: QuerySet, eligible: QuerySet, stage: dict) -> int:
     if n > config()["max_per_stage"]:
         stage.update(held=pending.count(), anomaly=f"{n} تغييرًا يتجاوز الحد {config()['max_per_stage']}؛ "
                                                    "لم يُعتمد شيء، راجعها يدويًا")
+        live.emit("warn", f"اعتماد آلي موقوف: {stage['anomaly']}", node="approve")
         return 0
     stage["approved"] = eligible.update(status=DateProposal.Status.APPROVED)
+    if stage["approved"] or stage["held"]:
+        live.step(f"اعتماد آلي ضمن الصمّامات: {stage['approved']}، وبقي للمراجعة {stage['held']}", node="approve")
     return stage["approved"]
 
 
@@ -132,6 +135,7 @@ def run(classes: list[PlatformClass], factory: pipeline.Factory, today: date, re
     report["attention"] = sum(
         bool(s.get("held") or s.get("anomaly") or s.get("failed") or s.get("ok") is False)
         for stages in by_class.values() for s in stages.values())
+    live.stage("لقطة بطاقة الأداء", "scorecard")
     scorecard_service.snapshot(today)  # يظهر أثر الدورة على خط الأساس في بطاقة الأداء وتقرير SWOT
     report["snapshot"] = today.isoformat()
     return runs
