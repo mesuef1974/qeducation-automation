@@ -33,7 +33,7 @@ onMounted(() => load());
 
 const PERIODS: { key: UsagePeriod; label: string }[] = [
   { key: "session", label: "هذه الجلسة" }, { key: "today", label: "اليوم" },
-  { key: "week", label: "آخر 7 أيام" }, { key: "month", label: "هذا الشهر" },
+  { key: "week", label: "آخر 7 أيام" }, { key: "month", label: "آخر 30 يومًا" },
 ];
 const NUM = new Intl.NumberFormat("ar-QA-u-nu-latn");
 const COMPACT = new Intl.NumberFormat("ar-QA-u-nu-latn", { notation: "compact", maximumFractionDigits: 1 });
@@ -58,6 +58,11 @@ const ticks = computed(() => [1, 0.5].map((f) => dailyMax.value * f));
 const inWeek = (day: string) => !!data.value && day >= data.value.week_start;
 const hover = ref<number | null>(null);
 const hovered = computed(() => (hover.value === null ? null : daily.value[hover.value]));
+
+// العدادات الثلاثة الظاهرة دائمًا: الأسبوعي والشهري (بعائلات النماذج)، وFable وحده
+const fam = (p: "week" | "month") => data.value?.families[p] ?? [];
+const fable = (p: "week" | "month") => fam(p).find((f) => f.family === "Fable") ?? { effective: 0, tokens: 0, turns: 0, models: [] };
+const dayRange = (from: string) => `${fmtShort(from)} ← ${fmtShort(data.value?.today)}`;
 
 const shortModel = (m: string) => m.replace(/^claude-/, "").replace(/-(\d+)-(\d+)$/, " $1.$2");
 const shortSession = (s: string) => s.slice(0, 8);
@@ -97,6 +102,40 @@ function projectLabel(p: string): string {
   </p>
 
   <template v-else-if="totals && cur">
+    <!-- العدادات: الأسبوعي والشهري وFable -->
+    <section class="meters" aria-label="عدادات الاستهلاك">
+      <article v-for="p in (['week', 'month'] as const)" :key="p" class="card meter">
+        <header>
+          <h2>{{ p === "week" ? "العداد الأسبوعي" : "العداد الشهري" }}</h2>
+          <small class="muted">{{ p === "week" ? "آخر 7 أيام" : "آخر 30 يومًا" }} · {{ dayRange(p === "week" ? data.week_start : data.month_start) }}</small>
+        </header>
+        <b class="big">{{ c(totals[p].effective) }}</b>
+        <small class="muted">وحدة فعلية · {{ c(totals[p].tokens) }} رمز · {{ n(totals[p].turns) }} خطوة · {{ n(totals[p].sessions) }} جلسة</small>
+        <ul class="hbars">
+          <li v-for="f in fam(p)" :key="f.family" :title="f.models.join('، ')">
+            <span class="lbl">{{ f.family }}</span>
+            <span class="track"><i :class="{ fable: f.family === 'Fable' }" :style="{ inlineSize: `${(f.effective / maxOf(fam(p))) * 100}%` }" /></span>
+            <span class="val">{{ c(f.effective) }} <small class="muted">{{ pct(f.effective, totals[p].effective) }}</small></span>
+          </li>
+        </ul>
+      </article>
+      <article class="card meter fable-card">
+        <header>
+          <h2>عداد Fable</h2>
+          <small class="muted">نماذج Fable وحدها</small>
+        </header>
+        <div class="fable-pair">
+          <div v-for="p in (['week', 'month'] as const)" :key="p">
+            <small class="muted">{{ p === "week" ? "آخر 7 أيام" : "آخر 30 يومًا" }}</small>
+            <b class="big">{{ c(fable(p).effective) }}</b>
+            <small class="muted">{{ pct(fable(p).effective, totals[p].effective) }} من الكل · {{ n(fable(p).turns) }} خطوة</small>
+            <span class="track"><i class="fable" :style="{ inlineSize: `${totals[p].effective ? (fable(p).effective / totals[p].effective) * 100 : 0}%` }" /></span>
+          </div>
+        </div>
+        <small class="muted mono" dir="ltr">{{ fable("month").models.join(", ") || "لم يُستعمل Fable في هذه الفترة" }}</small>
+      </article>
+    </section>
+
     <!-- المؤشرات الأربع -->
     <section class="kpis" aria-label="ملخص الاستهلاك">
       <button v-for="p in PERIODS" :key="p.key" class="card kpi" :class="{ on: period === p.key }"
@@ -180,7 +219,7 @@ function projectLabel(p: string): string {
 
     <!-- المشاريع -->
     <section v-if="data.projects.length" class="card">
-      <h2>المشاريع · هذا الشهر</h2>
+      <h2>المشاريع · آخر 30 يومًا</h2>
       <ul class="hbars">
         <li v-for="p in data.projects" :key="p.project" :title="`${n(p.effective)} وحدة فعلية`">
           <span class="lbl mono" dir="ltr">{{ projectLabel(p.project) }}</span>
@@ -239,6 +278,15 @@ function projectLabel(p: string): string {
 .head-side { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 h2 { font-size: 17px; margin: 0 0 10px; }
 .card { display: grid; gap: 8px; }
+.meters { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); }
+.meter header h2 { margin: 0; }
+.meter .big { font-size: 34px; line-height: 1.15; font-variant-numeric: tabular-nums; }
+.meter .hbars li { grid-template-columns: 64px 1fr auto; }
+.fable-card { border-color: var(--maroon); }
+.fable-pair { display: grid; gap: 14px; grid-template-columns: 1fr 1fr; }
+.fable-pair > div { display: grid; gap: 4px; }
+.fable-pair .track { block-size: 10px; background: var(--code-bg); border-radius: 4px; overflow: hidden; }
+.fable-pair .track i, .hbars .track i.fable { display: block; block-size: 100%; background: var(--maroon); border-radius: 4px; min-inline-size: 2px; }
 .kpis { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 190px), 1fr)); }
 .kpi { text-align: start; cursor: pointer; font: inherit; color: inherit; gap: 2px; border: 1px solid var(--line); }
 .kpi.on { border-color: var(--slate); box-shadow: 0 0 0 2px color-mix(in srgb, var(--slate) 25%, transparent); }

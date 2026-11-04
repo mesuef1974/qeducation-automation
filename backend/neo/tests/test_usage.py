@@ -39,8 +39,10 @@ def test_import_and_periods(logs):
     one = 5 + 0.1 * 1000 + 2 * 100 + 5 * 10
     t = d["totals"]["today"]
     assert (t["effective"], t["tokens"], t["turns"], t["sessions"]) == (round(one), 1115, 1, 1)
-    assert d["totals"]["week"]["turns"] == 2 and d["totals"]["month"]["turns"] == 2 and d["totals"]["session"]["turns"] == 3
+    assert d["totals"]["week"]["turns"] == 2 and d["totals"]["session"]["turns"] == 3
     assert [m["model"] for m in d["models"]["week"]] == ["claude-opus-5-5", "claude-sonnet-5-5"]
+    assert [f["family"] for f in d["families"]["week"]] == ["Opus", "Sonnet", "Fable"]  # Fable ظاهر ولو صفرًا
+    assert d["month_start"] == date(2026, 10, 6) and d["totals"]["month"]["turns"] == 3  # آخر 30 يومًا
     g = {x["name"]: x["effective"] for x in d["groups"]["today"]}
     assert g[usage.CONTEXT_READ] == 105 and g["العمل على الملفات والأوامر"] == 50
     assert len(d["daily"]) == 30 and d["daily"][-1]["day"] == date(2026, 11, 4) and d["daily"][-1]["turns"] == 1

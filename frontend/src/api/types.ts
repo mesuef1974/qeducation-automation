@@ -347,12 +347,15 @@ export interface Usage {
   totals: Record<UsagePeriod, UsageSum>;
   models: Record<UsagePeriod, UsageByModel[]>;
   groups: Record<UsagePeriod, UsageByGroup[]>;
-  /** المشاريع هذا الشهر */
+  /** عائلات النماذج (Fable ظاهر دائمًا ولو صفرًا) */
+  families: Record<UsagePeriod, UsageByFamily[]>;
+  /** المشاريع في آخر 30 يومًا */
   projects: UsageByProject[];
   daily: UsageDay[];
   sessions: UsageSessionRow[];
 }
 export interface UsageByModel extends UsageSum { model: string }
+export interface UsageByFamily { family: string; effective: number; tokens: number; turns: number; models: string[] }
 export interface UsageByGroup { name: string; effective: number }
 export interface UsageByProject { project: string; effective: number; turns: number }
 export interface UsageDay { day: string; effective: number; tokens: number; turns: number }

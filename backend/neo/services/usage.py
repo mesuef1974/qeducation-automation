@@ -7,7 +7,7 @@
 الجداول مطبَّعة: مشروع ← جلسة ← خطوة ← نموذج وأدوات (UsageTurnTool). أرقام فقط، بلا أي نص من المحادثة.
 الرسالة المكررة بمعرّفها تُعدّ مرة، والملف الذي أُعيدت كتابته يُقرأ من أوله، والسطر الناقص ينتظر اكتماله.
 
-التجميع: اليوم والأسبوع (آخر 7 أيام) والشهر (منذ أوله)، وكل يوم، وكل نموذج، وأين ذهب الاستهلاك، وكل جلسة.
+التجميع: اليوم والأسبوع (آخر 7 أيام) والشهر (آخر 30 يومًا)، وعائلات النماذج (Fable وOpus وSonnet وHaiku)، وكل يوم، وكل نموذج، وأين ذهب الاستهلاك، وكل جلسة.
 الاستهلاك الفعلي بوحدة «رمز إدخال عادي»: قراءة سياق محفوظ ×0.1، وحفظ سياق جديد ×2، والمخرجات ×5.
 """
 import hashlib
@@ -229,10 +229,31 @@ def _groups(qs: QuerySet) -> list[dict]:
     return sorted(({"name": k, "effective": round(v)} for k, v in g.items() if v), key=lambda x: -x["effective"])
 
 
+FAMILIES = (("fable", "Fable"), ("mythos", "Mythos"), ("opus", "Opus"), ("sonnet", "Sonnet"), ("haiku", "Haiku"))
+
+
+def family(model: str) -> str:
+    m = model.lower()
+    return next((label for key, label in FAMILIES if key in m), "أخرى")
+
+
+def _families(models: list[dict]) -> list[dict]:
+    """استهلاك كل عائلة نماذج من صفوف _models (Fable ظاهر دائمًا ولو صفرًا)."""
+    by = {"Fable": {"family": "Fable", "effective": 0, "tokens": 0, "turns": 0, "models": []}}
+    for m in models:
+        f = by.setdefault(family(m["model"]), {"family": family(m["model"]), "effective": 0, "tokens": 0, "turns": 0,
+                                                "models": []})
+        f["effective"] += m["effective"]
+        f["tokens"] += m["tokens"]
+        f["turns"] += m["turns"]
+        f["models"].append(m["model"])
+    return sorted(by.values(), key=lambda x: -x["effective"])
+
+
 def build(today: date | None = None, days: int = 30, session: str | None = None) -> dict:
     today = today or timezone.localdate()
     all_ = UsageTurn.objects.all()
-    week_start, month_start = today - timedelta(days=6), today.replace(day=1)
+    week_start, month_start = today - timedelta(days=6), today - timedelta(days=29)
     latest = all_.order_by("-at").values_list("session__session_id", flat=True).first()
     session = session or latest
     periods = {"today": all_.filter(day=today), "week": all_.filter(day__range=(week_start, today)),
@@ -264,7 +285,8 @@ def build(today: date | None = None, days: int = 30, session: str | None = None)
         "imported_at": files.aggregate(m=Max("imported_at"))["m"],
         "first": all_.aggregate(m=Min("at"))["m"],
         "totals": {k: _sum(v) for k, v in periods.items()},
-        "models": {k: _models(v) for k, v in periods.items()},
+        "models": (models := {k: _models(v) for k, v in periods.items()}),
+        "families": {k: _families(v) for k, v in models.items()},
         "groups": {k: _groups(v) for k, v in periods.items()},
         "projects": projects, "daily": series, "sessions": sessions,
     }
