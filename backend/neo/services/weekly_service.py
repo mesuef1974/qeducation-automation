@@ -5,6 +5,7 @@
 - شكل المنصة: الجلب يتوقف إن لم يجد دروسًا أو نقص عددها كثيرًا (SyncService.fetch).
 - النافذة: يُعتمد آليًا ما يقع في الأيام القادمة فقط؛ الماضي وما عليه تنبيه يبقى لمراجعة المعلم.
 - العدد غير المألوف: إن زاد المؤهَّل في مرحلة على الحد، لا يُعتمد منه شيء ويبقى للمراجعة.
+- للمراجعة فقط (auto_approve=False): لا يُعتمد شيء آليًا، وكل المعلّق يبقى لقرار المعلم، فلا يُكتب شيء.
 - التحقق من منظور الطالب في النهاية دائمًا.
 """
 from collections.abc import Callable
@@ -22,7 +23,7 @@ Report = dict  # {"classes": {اسم الصف: {المرحلة: {...}}}, "verify
 
 def config() -> dict:
     return {"enabled": True, "weekday": 3, "hour": 14, "catchup_hours": 66, "window_days": 14,
-            "max_per_stage": 20, **getattr(settings, "NEO_WEEKLY", {})}
+            "max_per_stage": 20, "auto_approve": True, **getattr(settings, "NEO_WEEKLY", {})}
 
 
 # ------------------------------------------------------------- الجدولة
@@ -61,10 +62,15 @@ def due_cycle(now: datetime) -> str | None:
 # ------------------------------------------------------------- الاعتماد الآلي
 
 def _auto_approve(qs: QuerySet, eligible: QuerySet, stage: dict) -> int:
-    """يعتمد المؤهَّل ما لم يتجاوز الحد؛ ويسجّل في التقرير ما بقي للمراجعة ولماذا."""
+    """يعتمد المؤهَّل ما لم يتجاوز الحد أو كان الاعتماد الآلي معطّلًا؛ ويسجّل في التقرير ما بقي للمراجعة ولماذا."""
     pending = qs.filter(status=DateProposal.Status.PENDING)
     n = eligible.count()
     stage.update(proposals=pending.count(), eligible=n, held=pending.count() - n, approved=0)
+    if not config()["auto_approve"]:
+        stage.update(held=pending.count(), review_only=True)
+        if stage["held"]:
+            live.step(f"للمراجعة فقط: {stage['held']} اقتراحًا بانتظار اعتمادك، ولم يُكتب شيء", node="approve")
+        return 0
     if n > config()["max_per_stage"]:
         stage.update(held=pending.count(), anomaly=f"{n} تغييرًا يتجاوز الحد {config()['max_per_stage']}؛ "
                                                    "لم يُعتمد شيء، راجعها يدويًا")

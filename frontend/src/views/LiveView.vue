@@ -444,7 +444,7 @@ const statusTone = (s: string) => (s === "done" ? "ok" : s === "failed" ? "bad" 
           <dd><span class="pill" :class="feed?.session.expired ? 'bad' : 'ok'">{{ feed?.session.expired ? "منتهية" : "سارية" }}</span></dd>
           <dt>آخر اتصال</dt><dd>{{ fmtWhen(feed?.session.checked_at) }}</dd>
           <dt>الدورة الأسبوعية</dt>
-          <dd>{{ feed?.weekly.enabled ? `القادمة ${fmtSlot(feed.weekly.next_at)}` : "معطّلة" }}</dd>
+          <dd>{{ feed?.weekly.enabled ? `القادمة ${fmtSlot(feed.weekly.next_at)}${feed.weekly.auto_approve ? "" : " · للمراجعة فقط"}` : "معطّلة" }}</dd>
           <dt>التمهّل</dt><dd>3–6 ث بين طلبات الحزمة، وإعادة بعد 429</dd>
         </dl>
         <RouterLink to="/automation" class="btn ghost sm">رسم الأتمتة ونضج المراحل</RouterLink>

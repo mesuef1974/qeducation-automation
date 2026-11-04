@@ -63,7 +63,8 @@ def publish_run(classes):
     return PublishService().plan(k)
 
 
-def test_auto_approve(publish_run):
+def test_auto_approve(publish_run, settings):
+    settings.NEO_WEEKLY = {"auto_approve": True}
     qs = publish_run.publish_proposals.all()
     stage = {}
     assert w._auto_approve(qs, qs.filter(lesson__position__lte=2), stage) == 2
@@ -75,6 +76,16 @@ def test_auto_approve_anomaly(publish_run, settings):
     qs = publish_run.publish_proposals.all()
     stage = {}
     assert w._auto_approve(qs, qs, stage) == 0 and "anomaly" in stage and stage["held"] == 3
+    assert not qs.filter(status=PublishProposal.Status.APPROVED).exists()
+
+
+def test_auto_approve_review_only(publish_run, settings):
+    """للمراجعة فقط (قرار المعلم 2026-11-04): لا يُعتمد شيء آليًا ولو كان مؤهَّلًا، وكل المعلّق يبقى للمراجعة."""
+    settings.NEO_WEEKLY = {"auto_approve": False}
+    qs = publish_run.publish_proposals.all()
+    stage = {}
+    assert w._auto_approve(qs, qs, stage) == 0
+    assert stage["held"] == 3 and stage["approved"] == 0 and stage["review_only"] is True and "anomaly" not in stage
     assert not qs.filter(status=PublishProposal.Status.APPROVED).exists()
 
 
@@ -101,11 +112,7 @@ def test_fetch_refuses_shrunk_page(classes):
     assert PlatformLesson.objects.filter(klass=k).count() == 200
 
 
-def test_run_report(publish_run, monkeypatch):
-    """المراحل بالترتيب، والمعتمد آليًا يُطبَّق، والتقرير يبقى في المهمة."""
-    k = publish_run.klass
-    calls = []
-
+def _fake_pipeline(monkeypatch, k, publish_run, calls):
     def run(kind, **summary):
         return SyncRun.objects.create(klass=k, kind=kind, ok=True, summary=summary, finished_at=timezone.now())
 
@@ -117,6 +124,25 @@ def test_run_report(publish_run, monkeypatch):
         run(SyncRun.Kind.PUBLISH_APPLY, applied=3), run(SyncRun.Kind.VERIFY, missing_past=[])])
     monkeypatch.setattr(w.pipeline, "verify", lambda c, f, t: calls.append("verify") or [])
 
+
+def test_run_review_only(publish_run, monkeypatch, settings):
+    """للمراجعة فقط: الدورة تجلب وتقترح وتتحقق، ولا تطبيق (لا كتابة على المنصة)، والتقرير ينبّه لما ينتظر المعلم."""
+    settings.NEO_WEEKLY = {"auto_approve": False}
+    k, calls = publish_run.klass, []
+    _fake_pipeline(monkeypatch, k, publish_run, calls)
+    report = {}
+    w.run([k], None, date(2026, 11, 5), report)
+    assert calls == ["dates", "assign", "publish", "verify"]  # لا apply
+    publish = report["classes"][k.name]["publish"]
+    assert publish["held"] == 3 and publish["review_only"] is True and report["attention"] >= 1
+    assert not publish_run.publish_proposals.filter(status=PublishProposal.Status.APPROVED).exists()
+
+
+def test_run_report(publish_run, monkeypatch, settings):
+    """المراحل بالترتيب، والمعتمد آليًا يُطبَّق، والتقرير يبقى في المهمة."""
+    settings.NEO_WEEKLY = {"auto_approve": True}
+    k, calls = publish_run.klass, []
+    _fake_pipeline(monkeypatch, k, publish_run, calls)
     report = {}
     w.run([k], None, date(2026, 11, 5), report)
     assert calls == ["dates", "assign", "publish", "apply"]  # النشر تحقق، فلا تحقق ثانٍ

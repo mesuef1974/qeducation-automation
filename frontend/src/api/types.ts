@@ -252,6 +252,8 @@ export interface Scorecard {
 export interface WeeklyStage {
   proposals?: number; eligible?: number; held?: number; approved?: number;
   applied?: number; failed?: number; ok?: boolean; anomaly?: string;
+  /** الدورة للمراجعة فقط: لم يُعتمد شيء آليًا */
+  review_only?: boolean;
 }
 export interface WeeklyReport {
   today?: string;
@@ -261,6 +263,8 @@ export interface WeeklyReport {
 }
 export interface WeeklyState {
   enabled: boolean;
+  /** false = للمراجعة فقط: تقترح وتتحقق ولا يُعتمد شيء إلا بموافقة المعلم */
+  auto_approve: boolean;
   next_at: string;
   due: string | null;
   cycle: string;
@@ -328,5 +332,5 @@ export interface LiveFeed {
   events: LiveEvent[];
   queue: LiveJob[];
   recent: LiveJob[];
-  weekly: { enabled: boolean; next_at: string };
+  weekly: { enabled: boolean; auto_approve: boolean; next_at: string };
 }

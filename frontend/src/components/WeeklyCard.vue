@@ -39,6 +39,7 @@ const stages = (c: Record<string, WeeklyStage>) => Object.entries(c).filter(([k]
 
 function line(s: WeeklyStage): string {
   if (s.anomaly) return s.anomaly;
+  if (s.review_only) return s.held ? `للمراجعة فقط · ${s.held} بانتظار اعتمادك` : "للمراجعة فقط · لا جديد";
   const parts = [`طُبّق ${s.applied ?? s.approved ?? 0}`];
   if (s.held) parts.push(`${s.held} للمراجعة`);
   if (s.failed) parts.push(`${s.failed} فشل`);
@@ -57,7 +58,8 @@ onBeforeUnmount(stop);
       <div>
         <h2>الدورة الأسبوعية</h2>
         <small class="muted">
-          التواريخ ثم الإسناد ثم النشر ثم التحقق، تلقائيًا مع تقرير.
+          <template v-if="state && !state.auto_approve">للمراجعة فقط: تجلب وتقترح وتتحقق، ولا يُعتمد شيء إلا بموافقتك.</template>
+          <template v-else>التواريخ ثم الإسناد ثم النشر ثم التحقق، تلقائيًا مع تقرير.</template>
           <template v-if="state?.enabled">القادمة {{ fmtSlot(state.next_at) }}.</template>
           <template v-else-if="state">معطّلة من الإعدادات.</template>
         </small>

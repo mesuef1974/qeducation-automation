@@ -202,7 +202,8 @@ def weekly(request):
     """الدورة الأسبوعية: موعدها القادم وآخر دورة بتقريرها."""
     now = timezone.localtime()
     last = Job.objects.filter(kind=Job.Kind.WEEKLY).order_by("-created_at").first()
-    return Response({"enabled": weekly_service.config()["enabled"], "next_at": weekly_service.next_run(now),
+    cfg = weekly_service.config()
+    return Response({"enabled": cfg["enabled"], "auto_approve": cfg["auto_approve"], "next_at": weekly_service.next_run(now),
                      "due": weekly_service.due_cycle(now), "cycle": weekly_service.cycle_start(now).date(),
                      "last": s.JobSerializer(last).data if last else None})
 
@@ -252,5 +253,6 @@ def live_feed(request):
         "queue": [_job_lite(j, names) for j in Job.objects.filter(status=Job.Status.QUEUED).order_by("created_at")],
         "recent": [_job_lite(j, names) for j in Job.objects.filter(status__in=[Job.Status.DONE, Job.Status.FAILED])
                    .order_by("-finished_at")[:10]],
-        "weekly": {"enabled": weekly_cfg["enabled"], "next_at": weekly_service.next_run(now)},
+        "weekly": {"enabled": weekly_cfg["enabled"], "auto_approve": weekly_cfg["auto_approve"],
+                   "next_at": weekly_service.next_run(now)},
     })

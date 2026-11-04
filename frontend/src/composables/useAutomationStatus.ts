@@ -60,7 +60,8 @@ export function useAutomationStatus() {
   const weeklyTitle = computed(() => {
     const w = weekly.value;
     if (!w) return "الدورة الأسبوعية";
-    return w.enabled ? `الدورة الأسبوعية — القادمة ${fmtSlot(w.next_at)}` : "الدورة الأسبوعية — معطّلة";
+    if (!w.enabled) return "الدورة الأسبوعية — معطّلة";
+    return `الدورة الأسبوعية${w.auto_approve ? "" : " (للمراجعة فقط)"} — القادمة ${fmtSlot(w.next_at)}`;
   });
 
   const weeklyNote = computed(() => {
