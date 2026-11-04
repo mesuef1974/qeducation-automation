@@ -1,7 +1,7 @@
 import { api } from "./client";
 import type {
   ContentProposal,
-  Decision, Job, JobKind, JobParams, Lesson, LiveFeed, Page, PlatformClass, Proposal, ProposalKind, Run, Scorecard, SessionState, Usage, WeeklyState,
+  Decision, Job, JobKind, JobParams, Lesson, LiveFeed, Page, PlatformClass, Proposal, ProposalKind, Run, Scorecard, SessionState, Usage, UsageFilter, WeeklyState,
 } from "./types";
 
 function query(params: Record<string, string | number | undefined | null>): string {
@@ -31,10 +31,11 @@ export const neo = {
   weeklyRead: () => api.post<{ read_at: string }>("neo/weekly/read/"),
   snapshot: () => api.post<void>("neo/scorecard/"),
   cancel: (id: number) => api.post<Job>(`neo/jobs/${id}/cancel/`),
-  /** ملخص الاستهلاك من قاعدة البيانات */
-  usage: (session?: string) => api.get<Usage>(`neo/usage/${query({ session })}`),
-  /** «حدّث الآن»: يستورد الجديد من مجلد Claude بمهلة قصيرة ثم يعيد الملخص */
-  usageImport: (session?: string) => api.post<Usage>(`neo/usage/${query({ session })}`),
+  /** ملخص الاستهلاك بمرشّحات الصفحة؛ refresh = «تحديث فوري» (يستورد الجديد بمهلة قصيرة أولًا) */
+  usage: (f: UsageFilter = {}, refresh = false) => {
+    const q = query({ days: f.from ? undefined : f.days, from: f.from, to: f.to, models: f.models?.join(",") });
+    return refresh ? api.post<Usage>(`neo/usage/${q}`) : api.get<Usage>(`neo/usage/${q}`);
+  },
   live: (p: { since?: number; job?: number }) => api.get<LiveFeed>(`neo/live/${query(p)}`),
   /** تأكيد المطابقة الآلية مرة واحدة لدروس (lms_lesson_id) */
   confirmLessons: (ids: number[]) => api.post<{ changed: number }>("neo/lessons/confirm/", { ids }),

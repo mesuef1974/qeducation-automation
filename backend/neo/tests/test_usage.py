@@ -35,18 +35,25 @@ def test_import_and_periods(logs):
     assert usage.import_all()["new"] == 0  # لم يتغيّر الملف: لا يُقرأ
     assert [t.name for t in UsageTool.objects.all()] == ["Bash"] and UsageTurnTool.objects.get().uses == 1
     assert UsageSession.objects.get().project.name == "proj" and UsageModel.objects.count() == 2
-    d = usage.build(today=date(2026, 11, 4))
+    today = date(2026, 11, 4)
     one = 5 + 0.1 * 1000 + 2 * 100 + 5 * 10
-    t = d["totals"]["today"]
+    d = usage.build(today=today, since=today)
+    t = d["totals"]
     assert (t["effective"], t["tokens"], t["turns"], t["sessions"]) == (round(one), 1115, 1, 1)
-    assert d["totals"]["week"]["turns"] == 2 and d["totals"]["session"]["turns"] == 3
-    assert [m["model"] for m in d["models"]["week"]] == ["claude-opus-5-5", "claude-sonnet-5-5"]
-    assert [f["family"] for f in d["families"]["week"]] == ["Opus", "Sonnet", "Fable"]  # Fable ظاهر ولو صفرًا
-    assert d["month_start"] == date(2026, 10, 6) and d["totals"]["month"]["turns"] == 3  # آخر 30 يومًا
-    g = {x["name"]: x["effective"] for x in d["groups"]["today"]}
+    g = {x["name"]: x["effective"] for x in d["groups"]}
     assert g[usage.CONTEXT_READ] == 105 and g["العمل على الملفات والأوامر"] == 50
-    assert len(d["daily"]) == 30 and d["daily"][-1]["day"] == date(2026, 11, 4) and d["daily"][-1]["turns"] == 1
-    assert d["sessions"][0]["project"] == "proj" and d["sessions"][0]["turns"] == 3
+    d = usage.build(today=today)  # افتراضه آخر 30 يومًا، ولا يبدأ قبل أول يوم في البيانات
+    assert d["filter"]["since"] == date(2026, 10, 20) and len(d["daily"]) == 16 and d["daily"][-1]["turns"] == 1
+    assert d["panel"]["week"]["all"]["turns"] == 2 and d["panel"]["month"]["all"]["turns"] == 3
+    assert d["panel"]["week"]["fable"]["turns"] == 0 and d["session_total"]["turns"] == 3
+    assert [m["model"] for m in d["models"]] == ["claude-opus-5-5", "claude-sonnet-5-5"]
+    assert [f["family"] for f in d["families"]] == ["Opus", "Sonnet", "Fable"]  # Fable ظاهر ولو صفرًا
+    assert [m["model"] for m in d["all_models"]] == ["claude-opus-5-5", "claude-sonnet-5-5"]
+    only = usage.build(today=today, models=["claude-sonnet-5-5"])
+    assert only["totals"]["turns"] == 1 and only["panel"]["week"]["all"]["turns"] == 2  # اللوحة لا يمسها المرشّح
+    m = {x["month"]: x for x in d["monthly"]}
+    assert list(m) == ["2026-10", "2026-11"] and m["2026-10"]["partial"] and m["2026-10"]["days"] == 12
+    assert m["2026-11"]["turns"] == 2 and m["2026-11"]["days"] == 4 and m["2026-11"]["per_day"] == m["2026-11"]["tokens"] // 4
 
 
 @pytest.mark.django_db
@@ -63,8 +70,11 @@ def test_incremental_append_and_partial_line(logs):
 @pytest.mark.django_db
 def test_api(client, logs):
     assert client.get("/api/neo/usage/").json()["imported"] is None  # القراءة لا تستورد
-    r = client.post("/api/neo/usage/").json()
-    assert r["imported"]["new"] == 3 and r["totals"]["session"]["turns"] == 3 and r["projects"][0]["project"] == "proj"
+    r = client.post("/api/neo/usage/?days=all").json()
+    assert r["imported"]["new"] == 3 and r["totals"]["turns"] == 3 and r["session_total"]["turns"] == 3
+    r = client.get("/api/neo/usage/?from=2026-11-02&to=2026-11-04&models=claude-sonnet-5-5").json()
+    assert r["filter"]["days"] == 3 and r["filter"]["models"] == ["claude-sonnet-5-5"]
+    assert client.get("/api/neo/usage/?days=abc").status_code == 400
 
 
 @pytest.mark.django_db

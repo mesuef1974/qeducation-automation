@@ -331,35 +331,39 @@ export interface UsageSum {
   turns: number;
   sessions: number;
 }
-export type UsagePeriod = "session" | "today" | "week" | "month";
+export interface UsageByModel extends UsageSum { model: string }
+export interface UsageByGroup { name: string; effective: number }
+export interface UsageByFamily { family: string; effective: number; tokens: number; turns: number; models: string[] }
+export interface UsageDay { day: string; effective: number; tokens: number; turns: number }
+export interface UsageMonth {
+  month: string; from: string; to: string; days: number; partial: boolean;
+  tokens: number; effective: number; turns: number; per_day: number;
+}
+/** سطر في لوحة الحدود: كل النماذج وFable، بلا مرشّح النماذج */
+export interface UsagePanelRow { since: string; all: UsageSum; fable: UsageSum; families: UsageByFamily[] }
+export interface UsageFilter { days?: "7" | "30" | "90" | "all"; from?: string; to?: string; models?: string[] }
 export interface Usage {
   today: string;
-  week_start: string;
-  month_start: string;
   session: string | null;
   weights: { cache_read: number; cache_write: number; output: number };
   sources: { path: string; found: boolean; files: number }[];
-  /** نتيجة الاستيراد عند «حدّث الآن» (POST)؛ null في القراءة العادية. pending = بقي ما يُستأنف */
+  /** نتيجة الاستيراد عند «تحديث فوري» (POST)؛ null في القراءة العادية. pending = بقي ما يُستأنف */
   imported: { files: number; new: number; pending: boolean } | null;
   imported_at: string | null;
   /** أول خطوة مستوردة؛ null = لا سجلات بعد */
   first: string | null;
-  totals: Record<UsagePeriod, UsageSum>;
-  models: Record<UsagePeriod, UsageByModel[]>;
-  groups: Record<UsagePeriod, UsageByGroup[]>;
-  /** عائلات النماذج (Fable ظاهر دائمًا ولو صفرًا) */
-  families: Record<UsagePeriod, UsageByFamily[]>;
-  /** المشاريع في آخر 30 يومًا */
-  projects: UsageByProject[];
+  filter: { since: string; until: string; days: number; models: string[] };
+  all_models: { model: string; family: string }[];
+  panel: { week: UsagePanelRow; month: UsagePanelRow };
+  session_total: UsageSum;
+  totals: UsageSum;
+  models: UsageByModel[];
+  families: UsageByFamily[];
+  groups: UsageByGroup[];
   daily: UsageDay[];
-  sessions: UsageSessionRow[];
+  /** كل شهر ميلادي (بمرشّح النماذج، لا النطاق) */
+  monthly: UsageMonth[];
 }
-export interface UsageByModel extends UsageSum { model: string }
-export interface UsageByFamily { family: string; effective: number; tokens: number; turns: number; models: string[] }
-export interface UsageByGroup { name: string; effective: number }
-export interface UsageByProject { project: string; effective: number; turns: number }
-export interface UsageDay { day: string; effective: number; tokens: number; turns: number }
-export interface UsageSessionRow extends UsageSum { session: string; project: string; first: string; last: string; models: string[] }
 
 /** تقرير مهمة usage_verify: عدّ مستقل لملفات السجل مقارنًا بقاعدة البيانات (neo/services/usage_verify.py) */
 export interface UsageCheckFields { input: number; cache_read: number; cache_write: number; output: number; turns: number }

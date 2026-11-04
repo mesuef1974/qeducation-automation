@@ -19,7 +19,7 @@ from pathlib import Path
 
 from django.conf import settings
 from django.db.models import Count, F, FloatField, Max, Min, Q, QuerySet, Sum
-from django.db.models.functions import Cast
+from django.db.models.functions import Cast, TruncMonth
 from django.utils import timezone
 
 from neo.models import UsageFile, UsageModel, UsageProject, UsageSession, UsageTool, UsageTurn, UsageTurnTool
@@ -269,43 +269,79 @@ def _families(models: list[dict]) -> list[dict]:
     return sorted(by.values(), key=lambda x: -x["effective"])
 
 
-def build(today: date | None = None, days: int = 30, session: str | None = None) -> dict:
+def _daily(qs: QuerySet, since: date, until: date) -> list[dict]:
+    rows = {r["day"]: r for r in qs.values("day").annotate(
+        eff=Sum(_eff()), n=Count("pk"), t=Sum(F("input_tokens") + F("cache_read") + F("cache_write") + F("output_tokens")))}
+    out, d = [], since
+    while d <= until:
+        r = rows.get(d, {})
+        out.append({"day": d, "effective": round(r.get("eff") or 0), "tokens": r.get("t") or 0, "turns": r.get("n") or 0})
+        d += timedelta(days=1)
+    return out
+
+
+def _monthly(qs: QuerySet, first_day: date | None, today: date) -> list[dict]:
+    """كل شهر ميلادي من أول يوم في البيانات حتى اليوم: الرموز والمعدل اليومي، والشهر الأول والجاري جزئيان."""
+    if not first_day:
+        return []
+    rows = {(r["m"].year, r["m"].month): r for r in qs.annotate(m=TruncMonth("day")).values("m").annotate(
+        eff=Sum(_eff()), n=Count("pk"), t=Sum(F("input_tokens") + F("cache_read") + F("cache_write") + F("output_tokens")))}
+    out, y, m = [], first_day.year, first_day.month
+    while (y, m) <= (today.year, today.month):
+        start = date(y, m, 1)
+        end = (date(y + m // 12, m % 12 + 1, 1) - timedelta(days=1))
+        lo, hi = max(start, first_day), min(end, today)
+        r, days = rows.get((y, m), {}), (hi - lo).days + 1
+        out.append({"month": f"{y}-{m:02d}", "from": lo, "to": hi, "days": days, "partial": lo != start or hi != end,
+                    "tokens": r.get("t") or 0, "effective": round(r.get("eff") or 0), "turns": r.get("n") or 0,
+                    "per_day": round((r.get("t") or 0) / days)})
+        y, m = (y + 1, 1) if m == 12 else (y, m + 1)
+    return out
+
+
+def _panel(qs: QuerySet, since: date, today: date) -> dict:
+    """سطر في لوحة الحدود: كل النماذج وFable وحده، بلا مرشّح النماذج (كما تعدّ الخطة)."""
+    win = qs.filter(day__range=(since, today))
+    fable = win.filter(model__name__icontains="fable")
+    return {"since": since, "all": _sum(win), "fable": _sum(fable), "families": _families(_models(win))}
+
+
+def build(today: date | None = None, since: date | None = None, until: date | None = None,
+          models: list[str] | None = None, session: str | None = None) -> dict:
+    """
+    الملخص بمرشّحات الصفحة: النطاق (since..until، افتراضه آخر 30 يومًا) والنماذج (افتراضه كلها).
+    لوحة الحدود (الأسبوع وآخر 30 يومًا، كل النماذج وFable) لا يمسها المرشّح.
+    """
     today = today or timezone.localdate()
     all_ = UsageTurn.objects.all()
-    week_start, month_start = today - timedelta(days=6), today - timedelta(days=29)
+    first = all_.aggregate(m=Min("at"))["m"]
+    first_day = timezone.localtime(first).date() if first else None
+    until = min(until or today, today)
+    since = since or (today - timedelta(days=29))
+    if first_day and since < first_day:
+        since = first_day
+    picked = all_.filter(model__name__in=models) if models else all_
+    sel = picked.filter(day__range=(since, until))
     latest = all_.order_by("-at").values_list("session__session_id", flat=True).first()
     session = session or latest
-    periods = {"today": all_.filter(day=today), "week": all_.filter(day__range=(week_start, today)),
-               "month": all_.filter(day__range=(month_start, today)), "session": all_.filter(session__session_id=session)}
-    daily = {r["day"]: r for r in all_.filter(day__range=(today - timedelta(days=days - 1), today)).values("day")
-             .annotate(eff=Sum(_eff()), n=Count("pk"),
-                       t=Sum(F("input_tokens") + F("cache_read") + F("cache_write") + F("output_tokens")))}
-    series = []
-    for d in (today - timedelta(days=i) for i in range(days - 1, -1, -1)):
-        r = daily.get(d, {})
-        series.append({"day": d, "effective": round(r.get("eff") or 0), "tokens": r.get("t") or 0,
-                       "turns": r.get("n") or 0})
-    rows = (UsageSession.objects.annotate(first=Min("turns__at"), last=Max("turns__at")).filter(last__isnull=False)
-            .select_related("project").order_by("-last")[:30])
-    sessions = []
-    for s in rows:
-        qs = all_.filter(session=s)
-        sessions.append({"session": s.session_id, "project": s.project.name, "first": s.first, "last": s.last,
-                         "models": sorted(set(qs.values_list("model__name", flat=True))), **_sum(qs)})
-    projects = [{"project": x["session__project__name"], "effective": round(x["eff"] or 0), "turns": x["n"]}
-                for x in periods["month"].values("session__project__name").annotate(eff=Sum(_eff()), n=Count("pk"))
-                .order_by("-eff")[:10]]
+    sess = all_.filter(session__session_id=session)
+    names = list(all_.values("model__name").annotate(last=Max("at")).order_by("-last").values_list("model__name", flat=True))
     files = UsageFile.objects.all()
     return {
-        "today": today, "week_start": week_start, "month_start": month_start, "session": session,
+        "today": today, "session": session,
         "weights": {"cache_read": W_READ, "cache_write": W_WRITE, "output": W_OUT},
         "sources": [{"path": str(d), "found": d.is_dir(), "files": files.filter(path__startswith=str(d)).count()}
                     for d in dirs()],
-        "imported_at": files.aggregate(m=Max("imported_at"))["m"],
-        "first": all_.aggregate(m=Min("at"))["m"],
-        "totals": {k: _sum(v) for k, v in periods.items()},
-        "models": (models := {k: _models(v) for k, v in periods.items()}),
-        "families": {k: _families(v) for k, v in models.items()},
-        "groups": {k: _groups(v) for k, v in periods.items()},
-        "projects": projects, "daily": series, "sessions": sessions,
+        "imported_at": files.aggregate(m=Max("imported_at"))["m"], "first": first,
+        "filter": {"since": since, "until": until, "days": (until - since).days + 1, "models": models or []},
+        "all_models": [{"model": n, "family": family(n)} for n in names],
+        "panel": {"week": _panel(all_, today - timedelta(days=6), today),
+                  "month": _panel(all_, today - timedelta(days=29), today)},
+        "session_total": _sum(sess),
+        "totals": _sum(sel),
+        "models": (ms := _models(sel)),
+        "families": _families(ms),
+        "groups": _groups(sel),
+        "daily": _daily(sel, since, until),
+        "monthly": _monthly(picked, first_day, today),
     }

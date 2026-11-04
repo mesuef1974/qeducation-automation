@@ -1,3 +1,5 @@
+from datetime import date, timedelta
+
 from django.conf import settings
 from django.http import FileResponse
 from django.utils import timezone
@@ -253,11 +255,30 @@ def safety_state(request):
 @api_view(["GET", "POST"])
 def usage_summary(request):
     """
-    تبويب «الاستهلاك» من قاعدة البيانات: الجلسة (?session= وإلا الأخيرة) واليوم والأسبوع والشهر، وكل يوم ونموذج
-    ومشروع وجلسة. العامل يستورد الجديد كل 10 دقائق؛ POST («حدّث الآن») يستورد بمهلة قصيرة ثم يعيد الملخص.
+    تبويب «الاستهلاك» من قاعدة البيانات: ?days=7|30|90|all أو ?from=YYYY-MM-DD&to=، و?models=a,b، و?session=.
+    العامل يستورد الجديد كل 10 دقائق؛ POST («تحديث فوري») يستورد بمهلة قصيرة ثم يعيد الملخص.
     """
+    q = request.query_params
+    today = timezone.localdate()
+
+    def day(name):
+        try:
+            return date.fromisoformat(q[name]) if q.get(name) else None
+        except ValueError as exc:
+            raise ValidationError({name: "تاريخ YYYY-MM-DD"}) from exc
+
+    since, until = day("from"), day("to")
+    if not since and (d := q.get("days")):
+        if d == "all":
+            since = date(2000, 1, 1)
+        elif d.isdigit() and int(d) > 0:
+            since = today - timedelta(days=int(d) - 1)
+        else:
+            raise ValidationError({"days": "7 | 30 | 90 | all"})
+    models = [m for m in (q.get("models") or "").split(",") if m] or None
     imported = usage.import_all() if request.method == "POST" else None
-    return Response({**usage.build(session=request.query_params.get("session") or None), "imported": imported})
+    return Response({**usage.build(today=today, since=since, until=until, models=models, session=q.get("session") or None),
+                     "imported": imported})
 
 
 @api_view(["POST"])
