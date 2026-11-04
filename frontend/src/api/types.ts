@@ -155,6 +155,18 @@ interface ProposalBase {
   status_label: string;
   error: string;
   applied_at: string | null;
+  approved_at: string | null;
+  /** الخطوة 4: قبل/بعد والسبب من الخطة والأثر على الطالب؛ soon = درسه خلال 48 ساعة */
+  evidence: Evidence;
+}
+
+export interface Evidence {
+  before: string;
+  after: string;
+  reason: string;
+  impact: string;
+  lesson_date: string | null;
+  soon: boolean;
 }
 
 export interface DateProposal extends ProposalBase {

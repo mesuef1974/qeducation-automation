@@ -43,10 +43,18 @@ export function fmtClock(iso?: string | null): string {
   return Number.isNaN(d.getTime()) ? "-" : CLOCK_SEC.format(d);
 }
 
+const QA_DAY = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Qatar" });
+/** رقم اليوم في التقويم بتوقيت قطر: «أمس» يعني اليوم السابق في التقويم لا 24–48 ساعة */
+const dayNo = (t: number) => Math.round(Date.parse(QA_DAY.format(t)) / 86_400_000);
+
 export function ago(iso?: string | null): string {
   if (!iso) return "لم يحدث بعد";
-  const sec = Math.round((Date.parse(iso) - Date.now()) / 1000);
-  const steps: [Intl.RelativeTimeFormatUnit, number][] = [["day", 86400], ["hour", 3600], ["minute", 60]];
+  const t = Date.parse(iso);
+  const sec = Math.round((t - Date.now()) / 1000);
+  const days = dayNo(t) - dayNo(Date.now());
+  // قبل ست ساعات فأقل بالساعات والدقائق؛ وما زاد بأيام التقويم («أمس»، «قبل 3 أيام»)
+  if (Math.abs(sec) >= 6 * 3600 && days !== 0) return RELATIVE.format(days, "day");
+  const steps: [Intl.RelativeTimeFormatUnit, number][] = [["hour", 3600], ["minute", 60]];
   for (const [unit, size] of steps) if (Math.abs(sec) >= size) return RELATIVE.format(Math.round(sec / size), unit);
   return "الآن";
 }

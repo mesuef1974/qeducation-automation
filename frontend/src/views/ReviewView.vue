@@ -202,6 +202,7 @@ const asPublish = (p: Proposal) => p as PublishProposal;
             <template v-if="kind === 'date'"><th>التاريخ المقترح</th><th>الحصة</th><th>الأسبوع</th></template>
             <template v-if="kind === 'publish'"><th>إظهار</th><th>نقاط</th></template>
             <th v-if="kind !== 'publish'">تنبيهات</th>
+            <th>قبل ← بعد، والسبب والأثر</th>
             <th>الحالة</th>
           </tr>
         </thead>
@@ -230,6 +231,12 @@ const asPublish = (p: Proposal) => p as PublishProposal;
               <td>{{ asPublish(p).add_points ? "نعم" : "-" }}</td>
             </template>
             <td v-if="kind !== 'publish'" class="muted">{{ asDate(p).flags || "-" }}</td>
+            <td class="ev">
+              <span v-if="p.evidence.soon" class="pill bad">خلال 48 ساعة</span>
+              {{ p.evidence.before }} ← <b>{{ p.evidence.after }}</b>
+              <small class="muted">{{ p.evidence.reason }}</small>
+              <small>{{ p.evidence.impact }}</small>
+            </td>
             <td>
               <span class="pill" :class="TONE[p.status]">{{ p.status_label }}</span>
               <small v-if="p.error" class="err">{{ p.error }}</small>
@@ -248,4 +255,5 @@ const asPublish = (p: Proposal) => p as PublishProposal;
 .check { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; }
 .spacer { flex: 1; }
 .err { display: block; color: var(--bad); }
+.ev small { display: block; }
 </style>

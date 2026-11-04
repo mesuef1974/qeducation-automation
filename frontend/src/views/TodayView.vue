@@ -3,6 +3,7 @@ import { ref } from "vue";
 
 import type { JobKind, PlatformClass } from "@/api/types";
 import PrepPackCard from "@/components/PrepPackCard.vue";
+import SoonCard from "@/components/SoonCard.vue";
 import WeeklyCard from "@/components/WeeklyCard.vue";
 import { STAGES, todayIso } from "@/domain";
 import { useClassesStore } from "@/stores/classes";
@@ -39,6 +40,7 @@ const missing = (k: PlatformClass) => (k.overview.last_verify?.summary.missing_p
   <p v-else-if="classes.loading && !classes.items.length" class="empty"><i class="spinner" /> تحميل...</p>
   <p v-else-if="!classes.items.length" class="empty">لا توجد صفوف مفعّلة. أضف صفًا من لوحة الإدارة.</p>
 
+  <SoonCard />
   <WeeklyCard />
 
   <section v-if="classes.items.length" class="card prep-card" aria-label="حزمة التحضير الأسبوعية">
