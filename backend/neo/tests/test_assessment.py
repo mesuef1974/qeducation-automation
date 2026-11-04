@@ -10,6 +10,7 @@ from neo.domain.types import ParsedLesson
 from neo.models import LessonAudit, SyncRun
 from neo.services.content_service import ContentService
 from neo.services.sync_service import SyncService
+from neo.tests.helpers import confirm_matches
 from neo.tests.test_content import LMS, Client
 
 QS = [a.Question(a.MCQ, "كم 2+2؟", ("4", "3", "5"), 0), a.Question(a.TF, "2 زوجي.", answer=True)]
@@ -57,6 +58,7 @@ def _audited(classes, settings, tmp_path):
         ParsedLesson(1, 1, "المميزات الاساسية للدالة التربيعية 1", "وصف", date(2026, 9, 1), 1),
         ParsedLesson(2, 2, "موضوع بلا بنك", "وصف", date(2026, 9, 2), 1),
     ], [])
+    confirm_matches(k)
     now = timezone.now()
     for pos in (1, 2):
         LessonAudit.objects.create(lesson=k.lessons.get(position=pos), image_default=False, sections=["عرض"],

@@ -3,6 +3,8 @@ import json
 from django.contrib import admin, messages
 from django.utils.html import format_html
 
+from neo.services import safety
+
 from neo.models import (
     AssignProposal,
     DateProposal,
@@ -82,7 +84,10 @@ class ReviewActionsMixin:
         return obj.run.klass
 
     def _transition(self, request, qs, to, allowed):
-        n = qs.filter(status__in=allowed).update(status=to)
+        qs = qs.filter(status__in=allowed)
+        # الاعتماد يسجّل وقته وبصمة الدرس (الخطوة 4)، ولا يُعتمد ما مطابقة درسه غير مؤكدة
+        n = safety.mark_approved(qs) if to == ProposalStatus.APPROVED else qs.update(
+            status=to, approved_at=None, approved_fp="")
         self.message_user(request, f"تم تحديث {n} اقتراح.", messages.SUCCESS)
 
     @admin.action(description="اعتماد المحدد للتطبيق")

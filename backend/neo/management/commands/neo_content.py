@@ -11,6 +11,7 @@ from django.core.management.base import BaseCommand, CommandError
 
 from neo.domain.quality import ISSUES
 from neo.models import ContentProposal, LessonAudit, PlatformClass
+from neo.services import safety
 from neo.services.job_service import JobService
 
 
@@ -53,14 +54,16 @@ class Command(BaseCommand):
             qs = qs.filter(kind=kind)
         if lesson:
             qs = qs.filter(lesson__lms_lesson_id=lesson)
-        self.stdout.write(f"اعتُمد {qs.update(status=ContentProposal.Status.APPROVED)}")
+        self.stdout.write(f"اعتُمد {safety.mark_approved(qs)}")
 
     def apply(self, run, lesson, retry, **_):
         if not run:
             raise CommandError("--run مطلوب")
         if retry:
-            n = ContentProposal.objects.filter(run_id=run, status=ContentProposal.Status.FAILED).update(
-                status=ContentProposal.Status.APPROVED, error="")
+            failed = ContentProposal.objects.filter(run_id=run, status=ContentProposal.Status.FAILED)
+            ids = list(failed.values_list("pk", flat=True))
+            failed.update(status=ContentProposal.Status.PENDING, error="")
+            n = safety.mark_approved(ContentProposal.objects.filter(pk__in=ids))
             self.stdout.write(f"أُعيد {n} فاشلًا إلى معتمد")
         job, created = JobService().enqueue("content_apply", {"run": run, "lesson": lesson})
         self.stdout.write(f"مهمة الإضافة #{job.pk}" + ("" if created else " (كانت في الطابور)"))

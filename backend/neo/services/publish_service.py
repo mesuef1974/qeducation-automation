@@ -16,7 +16,7 @@ from django.utils import timezone
 
 from neo.infrastructure.client import NeoClient, NotLoggedIn
 from neo.models import PlatformClass, PlatformLesson, PublishProposal, SyncRun
-from neo.services import live
+from neo.services import live, safety
 
 ALREADY = "مطبّق على المنصة مسبقًا"
 
@@ -91,12 +91,14 @@ class PublishService:
         ]).update(status=PublishProposal.Status.REJECTED, error="استُبدل بعملية اقتراح أحدث")
         run = SyncRun.objects.create(klass=klass, kind=SyncRun.Kind.PUBLISH_PLAN)
 
-        drafts, hidden_undated = [], []
+        drafts, hidden_undated, unconfirmed = [], [], []
         for lesson in PlatformLesson.objects.filter(klass=klass).order_by("position"):
             show, points = lesson_actions(lesson, p, points_ok=not points_error)
             if lesson.hidden and lesson.date is None:
                 hidden_undated.append(lesson.position)
-            if show or points:
+            if (show or points) and not lesson.match_sure:  # الخطوة 1: يُستبعد وينبَّه عليه
+                unconfirmed.append(safety.unconfirmed_label(lesson))
+            elif show or points:
                 drafts.append(PublishProposal(run=run, lesson=lesson, show=show, add_points=points))
         PublishProposal.objects.bulk_create(drafts)
         run.summary = {
@@ -104,6 +106,7 @@ class PublishService:
             "show": sum(d.show for d in drafts),
             "add_points": sum(d.add_points for d in drafts),
             "hidden_undated": hidden_undated,
+            "unconfirmed_match": unconfirmed,
             "policy": {"show_dated": p.show_dated, "points": p.points, "game": p.game,
                        "notification": p.notification},
         }
@@ -114,8 +117,7 @@ class PublishService:
         return run
 
     def approve(self, run_id: int) -> int:
-        return PublishProposal.objects.filter(run_id=run_id, status=PublishProposal.Status.PENDING) \
-            .update(status=PublishProposal.Status.APPROVED)
+        return safety.mark_approved(PublishProposal.objects.filter(run_id=run_id, status=PublishProposal.Status.PENDING))
 
     # ------------------------------------------------------------- تطبيق
 
@@ -126,7 +128,7 @@ class PublishService:
                      .select_related("lesson").order_by("lesson__position")[:limit])
         results: dict[int, tuple[str, str]] = {}
         state: dict[int, tuple[bool, bool]] = {}  # الدرس ← (ظاهر، يمنح النقاط) بعد التطبيق
-        session_error = None
+        session_error, stop = None, ""
         with client_factory() as client:  # لا ORM هنا
             points_error = ""
             if any(prop.add_points for prop in items):
@@ -142,7 +144,10 @@ class PublishService:
                     break
                 except Exception as exc:  # noqa: BLE001
                     results[prop.pk] = (PublishProposal.Status.FAILED, str(exc)[:400])
-        log = self._record(run, items, results, state, session_error)
+                if results[prop.pk][0] == PublishProposal.Status.FAILED:  # الخطوة 5: يتوقف عند أول خطأ
+                    stop = results[prop.pk][1]
+                    break
+        log = self._record(run, items, results, state, session_error, stop)
         if session_error:
             raise session_error
         return log
@@ -173,7 +178,7 @@ class PublishService:
         return (status, "" if done else ALREADY), (shown, points)
 
     @transaction.atomic
-    def _record(self, run, items, results, state, session_error) -> SyncRun:
+    def _record(self, run, items, results, state, session_error, stop: str = "") -> SyncRun:
         now = timezone.now()
         stats: dict[str, int] = {}
         for prop in items:
@@ -190,6 +195,8 @@ class PublishService:
         summary = {"plan_run": run.pk, **stats}
         if session_error:
             summary["error"] = "انتهت الجلسة"
+        if stop:
+            summary.update(stopped=stop, not_attempted=sum(1 for p in items if p.pk not in results))
         return SyncRun.objects.create(
             klass=run.klass, kind=SyncRun.Kind.PUBLISH_APPLY, summary=summary, finished_at=timezone.now(),
             ok=not session_error and not stats.get(PublishProposal.Status.FAILED))

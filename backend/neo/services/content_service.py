@@ -17,7 +17,7 @@ from neo.infrastructure import tile_image
 from neo.infrastructure.client import NeoClient, NotLoggedIn
 from neo.infrastructure.parsers import parse_outcomes
 from neo.models import ContentProposal, PlatformClass, PlatformLesson, SyncRun
-from neo.services import live
+from neo.services import live, safety
 
 Kind = ContentProposal.Kind
 # ما يُقترح لكل نقص يكشفه التدقيق
@@ -64,8 +64,11 @@ class ContentService:
         ]).update(status=ContentProposal.Status.REJECTED, error="استُبدل بعملية اقتراح أحدث")
         run = SyncRun.objects.create(klass=klass, kind=SyncRun.Kind.CONTENT_PLAN)
         all_lessons = {pl.position: pl for pl in PlatformLesson.objects.filter(klass=klass)}
-        drafts, counts = [], {}
+        drafts, counts, unconfirmed = [], {}, []
         for pl in lessons:
+            if not pl.match_sure:  # الخطوة 1: المحتوى يُبنى على موضوع الخطة، فلا اقتراح بمطابقة غير مؤكدة
+                unconfirmed.append(safety.unconfirmed_label(pl))
+                continue
             ctx = _context(pl, outcomes.get(pl.lms_lesson_id, []), all_lessons.get(pl.position - 1))
             for issue in pl.audit.issues:
                 kind = BY_ISSUE.get(issue)
@@ -80,6 +83,7 @@ class ContentService:
                 counts[kind.label] = counts.get(kind.label, 0) + 1
         ContentProposal.objects.bulk_create(drafts)
         run.summary = {"lessons": len(lessons), "proposals": len(drafts), "by_kind": counts,
+                       "unconfirmed_match": unconfirmed,
                        "without_outcomes": [pl.position for pl in lessons if not outcomes.get(pl.lms_lesson_id)]}
         run.ok, run.finished_at = True, timezone.now()
         run.save()
@@ -114,7 +118,7 @@ class ContentService:
         qs = ContentProposal.objects.filter(run_id=run_id, status=ContentProposal.Status.PENDING)
         if lesson:
             qs = qs.filter(lesson__lms_lesson_id=lesson)
-        return qs.update(status=ContentProposal.Status.APPROVED)
+        return safety.mark_approved(qs)
 
     # ------------------------------------------------------------- تطبيق
 
@@ -126,7 +130,7 @@ class ContentService:
         items = list(qs.order_by("lesson__position", "kind"))
         lms_id = run.klass.lms_id
         results: dict[int, tuple[str, str]] = {}
-        session_error = None
+        session_error, stop = None, ""
         with client_factory() as client:  # لا ORM هنا
             for i, p in enumerate(items, 1):
                 live.step(f"{p.get_kind_display()} · الدرس {p.lesson.position}", i, len(items))
@@ -162,12 +166,14 @@ class ContentService:
                 except NotLoggedIn as exc:
                     session_error = str(exc)
                     break
-                except Exception as exc:  # noqa: BLE001 - يُسجَّل على الاقتراح ويستمر غيره
+                except Exception as exc:  # noqa: BLE001 - الخطوة 5: أول خطأ غير متوقع يوقف التطبيق
                     results[p.pk] = (ContentProposal.Status.FAILED, str(exc)[:500])
-        return self._record_apply(run, items, results, session_error)
+                    stop = results[p.pk][1]
+                    break
+        return self._record_apply(run, items, results, session_error, stop)
 
     @transaction.atomic
-    def _record_apply(self, run, items, results, session_error) -> SyncRun:
+    def _record_apply(self, run, items, results, session_error, stop: str = "") -> SyncRun:
         now, stats = timezone.now(), {}
         for p in items:
             if p.pk not in results:
@@ -180,6 +186,8 @@ class ContentService:
         summary = {"plan_run": run.pk, **stats}
         if session_error:
             summary["error"] = "انتهت الجلسة"
+        if stop:
+            summary.update(stopped=stop, not_attempted=sum(1 for p in items if p.pk not in results))
         run_apply = SyncRun.objects.create(
             klass=run.klass, kind=SyncRun.Kind.CONTENT_APPLY, summary=summary, finished_at=now,
             ok=not session_error and not stats.get(ContentProposal.Status.FAILED))

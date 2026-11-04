@@ -9,6 +9,7 @@ from neo.infrastructure.parsers import parse_available_outcomes
 from neo.models import LessonAudit, SyncRun
 from neo.services.content_service import ContentService
 from neo.services.sync_service import SyncService
+from neo.tests.helpers import confirm_matches
 from neo.tests.test_content import LMS, Client
 
 EDIT_HTML = """
@@ -51,6 +52,7 @@ def _audited(classes, settings, tmp_path, titles):
     settings.MEDIA_ROOT = tmp_path
     k = classes[LMS]
     SyncService().ingest(k, [ParsedLesson(i, i, t, "وصف", date(2026, 9, i), 1) for i, t in enumerate(titles, 1)], [])
+    confirm_matches(k)
     for pl in k.lessons.all():
         LessonAudit.objects.create(lesson=pl, image_default=False, sections=["عرض", "صفحة"], has_outcomes=False,
                                    issues=["no_outcomes"], audited_at=timezone.now())

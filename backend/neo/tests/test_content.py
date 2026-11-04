@@ -11,6 +11,7 @@ from neo.infrastructure.parsers import parse_outcomes
 from neo.models import ContentProposal, LessonAudit, SyncRun
 from neo.services.content_service import ContentService
 from neo.services.sync_service import SyncService
+from neo.tests.helpers import confirm_matches
 
 LMS = 602598
 OUTCOMES = """<span class="proficiencyItem"><a href="/x">10.3.1. يستكشف مواقف من الحياة اليومية.</a></span>
@@ -78,6 +79,7 @@ def _audited(classes, settings, tmp_path):
         ParsedLesson(2, 2, "ناقص الصورة فقط", "له وصف", date(2026, 9, 2), 1),
         ParsedLesson(3, 3, "مستوفٍ", "وصف", date(2026, 9, 3), 1),
     ], [])
+    confirm_matches(k)
     now = timezone.now()
     for pos, issues in ((1, ["generic_image", "no_description", "few_sections", "no_assessment"]),
                         (2, ["generic_image"]), (3, [])):

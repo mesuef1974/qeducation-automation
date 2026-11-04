@@ -98,6 +98,9 @@ export interface PlatformClass {
   points_game: string;
   points: number | null;
   last_fetched_at: string | null;
+  /** نقص في دروس المنصة أوقف المزامنة، بانتظار تأكيد المعلم ({} إن لم يكن) */
+  shrink_pending: { saved?: number; platform?: number; at?: string; missing?: string[] };
+  allow_shrink: boolean;
   overview: Overview;
 }
 
@@ -123,7 +126,11 @@ export interface Lesson {
   match_code: string;
   match_score: number | null;
   override_code: string;
+  /** رمز المطابقة الآلية الذي أكّده المعلم مرة واحدة */
+  confirmed_code: string;
   effective_code: string;
+  /** المطابقة مؤكدة (يدوية، أو آلية تامة، أو أكّدها المعلم): وحدها تدخل الاقتراح والكتابة */
+  match_sure: boolean;
   fetched_at: string;
   audit: LessonAudit | null;
 }
@@ -229,6 +236,10 @@ export interface SessionState {
   worker_alive: boolean;
   worker_busy: boolean;
   queued: number;
+  /** مفتاح الإيقاف الآلي: الكتابة على المنصة موقوفة حتى تعيد تفعيلها */
+  halted: boolean;
+  halt_reason: string;
+  halted_at: string | null;
 }
 
 export interface Criterion {

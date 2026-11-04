@@ -17,7 +17,7 @@ class ClassSerializer(serializers.ModelSerializer):
     class Meta:
         model = PlatformClass
         fields = ["lms_id", "name", "active", "plan", "plan_title", "points_game", "points", "last_fetched_at",
-                  "overview"]
+                  "shrink_pending", "allow_shrink", "overview"]
 
     def get_plan_title(self, obj):
         # «الرياضيات - المستوى 10 - 2026-2027 ف1»: العام بعلامة LRM، وإلا ظهر «2027-2026»
@@ -41,12 +41,14 @@ class LessonAuditSerializer(serializers.ModelSerializer):
 class LessonSerializer(serializers.ModelSerializer):
     lms_id = serializers.IntegerField(source="klass.lms_id", read_only=True)
     effective_code = serializers.CharField(read_only=True)
+    match_sure = serializers.BooleanField(read_only=True)
     audit = LessonAuditSerializer(read_only=True)
 
     class Meta:
         model = PlatformLesson
         fields = ["lms_lesson_id", "lms_id", "position", "title", "description", "date", "period", "hidden",
-                  "awards_points", "match_code", "match_score", "override_code", "effective_code", "fetched_at", "audit"]
+                  "awards_points", "match_code", "match_score", "override_code", "confirmed_code", "effective_code",
+                  "match_sure", "fetched_at", "audit"]
 
 
 class RunSerializer(serializers.ModelSerializer):
@@ -63,7 +65,7 @@ class _ProposalSerializer(serializers.ModelSerializer):
     status_label = serializers.CharField(source="get_status_display", read_only=True)
     lms_id = serializers.IntegerField(source="run.klass.lms_id", read_only=True)
 
-    BASE = ["id", "run", "lms_id", "status", "status_label", "error", "applied_at"]
+    BASE = ["id", "run", "lms_id", "status", "status_label", "error", "applied_at", "approved_at"]
 
     def to_representation(self, instance):
         data = super().to_representation(instance)

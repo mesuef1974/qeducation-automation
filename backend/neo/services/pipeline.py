@@ -5,12 +5,14 @@
 from collections.abc import Callable
 from datetime import date
 
+from django.utils import timezone
+
 from neo.infrastructure.client import NeoClient
 from neo.models import AssignProposal, ContentProposal, DateProposal, PlatformClass, PublishProposal, SyncRun
 from neo.services.assign_service import AssignService
 from neo.services.audit_service import AuditService
 from neo.services.content_service import ContentService
-from neo.services import live
+from neo.services import live, safety
 from neo.services.prep_service import PackStopped, PrepService
 from neo.services.publish_service import PublishService
 from neo.services.sync_service import SyncService, active_classes
@@ -35,6 +37,22 @@ def _require_approved(qs) -> None:
         raise PipelineError("لا توجد اقتراحات معتمدة")
 
 
+def _guard_apply(run: SyncRun, qs, factory: Factory) -> None:
+    """
+    صمّامات ما قبل كل كتابة على المنصة: الإيقاف الآلي، وحداثة المزامنة (لا كتابة على جلب أقدم من ساعة، فيُجلب
+    الصف من جديد)، وصلاحية الاعتماد (48 ساعة، ودرس لم يتغيّر، ومطابقة مؤكدة)؛ ما سقط اعتماده يعود للمراجعة بسببه.
+    """
+    safety.require_writes_allowed()
+    k = run.klass
+    if not k.last_fetched_at or timezone.now() - k.last_fetched_at > safety.FRESH_FOR:
+        live.stage(f"جلب حديث قبل الكتابة: آخر جلب أقدم من ساعة · {k}", "fetch")
+        SyncService().fetch([k], factory)
+    reasons = safety.check_approvals(qs)
+    if reasons and not qs.filter(status=DateProposal.Status.APPROVED).exists():
+        raise PipelineError(f"لا اعتماد صالح للتطبيق: {reasons[0]}")
+    _require_approved(qs)
+
+
 # ------------------------------------------------------------- المرحلة 1: التواريخ
 
 def sync_plan(classes: list[PlatformClass], factory: Factory, today: date, fetch: bool = True) -> list[SyncRun]:
@@ -48,7 +66,7 @@ def sync_apply(run_id: int, factory: Factory, today: date, approve: str | None =
     svc, run = SyncService(), _plan_run(run_id, SyncRun.Kind.PLAN)
     if approve:
         svc.approve(run_id, only_from=None if approve == "all" else today)
-    _require_approved(run.proposals)
+    _guard_apply(run, run.proposals.all(), factory)
     live.stage(f"كتابة التواريخ المعتمدة على المنصة · {run.klass}", "apply")
     return [svc.apply(run, factory)]
 
@@ -68,7 +86,7 @@ def assign_apply(run_id: int, factory: Factory, today: date, approve: str | None
     svc, run = AssignService(), _plan_run(run_id, SyncRun.Kind.ASSIGN_PLAN)
     if approve:
         svc.approve(run_id, None if approve == "all" else today)
-    _require_approved(run.assign_proposals.all())
+    _guard_apply(run, run.assign_proposals.all(), factory)
     live.stage(f"ضبط مواعيد التقييمات وإسنادها · {run.klass}", "apply")
     return [svc.apply(run, factory, today, limit)]
 
@@ -90,7 +108,7 @@ def publish_apply(run_id: int, factory: Factory, today: date, approve: str | Non
     svc, run = PublishService(), _plan_run(run_id, SyncRun.Kind.PUBLISH_PLAN)
     if approve:
         svc.approve(run_id)
-    _require_approved(run.publish_proposals.all())
+    _guard_apply(run, run.publish_proposals.all(), factory)
     live.stage(f"إظهار الدروس ومنح النقاط · {run.klass}", "apply")
     return [svc.apply(run, factory, limit), *verify([run.klass], factory, today)]
 
@@ -122,7 +140,7 @@ def content_apply(run_id: int, factory: Factory, approve: str | None = None, les
     svc, run = ContentService(), _plan_run(run_id, SyncRun.Kind.CONTENT_PLAN)
     if approve:
         svc.approve(run_id, lesson)
-    _require_approved(run.content_proposals.all())
+    _guard_apply(run, run.content_proposals.all(), factory)
     live.stage(f"إضافة المحتوى المعتمد · {run.klass}", "apply")
     applied = svc.apply(run, factory, lesson)
     return [applied, *audit([run.klass], factory)]  # مزامنة ثم تدقيق: ما اكتمل يظهر فورًا

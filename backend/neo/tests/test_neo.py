@@ -8,7 +8,9 @@ from neo.domain.types import ParsedLesson, ParsedSlot
 from neo.infrastructure.parsers import parse_date_label, parse_lessons, parse_timetable
 from neo.models import DateProposal, PlatformLesson
 from neo.services.matching import strip_part
+from neo.services import safety
 from neo.services.sync_service import SyncService, build_targets
+from neo.tests.helpers import confirm_matches
 
 FIX = Path(__file__).parent / "fixtures"
 SNAP = json.loads((FIX / "lessons_snapshot.json").read_text(encoding="utf-8"))
@@ -56,6 +58,8 @@ def loaded(classes):
             lessons.append(ParsedLesson(lms_id * 1000 + i, i, title, "", d, p))
         slots = [ParsedSlot(w, p) for w, p in SNAP["timetables"][str(lms_id)]]
         svc.ingest(k, lessons, slots)
+        svc.match(k)
+        confirm_matches(k)  # المعلم أكّد المطابقة مرة واحدة؛ اختبار الاستبعاد أدناه يلغيها لدرس
     return svc, classes
 
 
@@ -132,7 +136,25 @@ def test_override_code_wins(loaded):
     pl.save()
     run = svc.plan(k, date(2026, 11, 1))
     assert "47. التناسب في المثلثات(ج3)" in run.summary["unmatched"]
-    assert "غير مطابق" in run.proposals.get(lesson=pl).flags
+    assert not run.proposals.filter(lesson=pl).exists()  # الخطوة 1: غير المطابق يُستبعد من الاقتراح
+    assert any(x.startswith("47. ") for x in run.summary["unconfirmed_match"])
+
+
+def test_unconfirmed_match_is_excluded_until_confirmed(loaded):
+    """الخطوة 1: مطابقة دون 100% لم يؤكدها المعلم تُستبعد من الاقتراح وتُذكر؛ تأكيدها مرة واحدة يعيدها."""
+    svc, classes = loaded
+    k = classes[602598]
+    pl = svc.plan(k, date(2026, 11, 1)).proposals.select_related("lesson").order_by("lesson__position").first().lesson
+    # عنوان المنصة صار يختلف قليلًا عن الخطة: المطابقة الآلية دون 100% ولم يؤكدها المعلم بعد
+    PlatformLesson.objects.filter(pk=pl.pk).update(title=f"{pl.title} تمارين إضافية", confirmed_code="")
+    run = svc.plan(k, date(2026, 11, 1))
+    pl.refresh_from_db()
+    assert pl.match_code and pl.match_score < 0.999 and not pl.match_sure
+    assert not run.proposals.filter(lesson=pl).exists()
+    assert any(x.startswith(f"{pl.position}. ") for x in run.summary["unconfirmed_match"])
+    PlatformLesson.objects.filter(pk=pl.pk).update(confirmed_code=pl.match_code)
+    run = svc.plan(k, date(2026, 11, 1))
+    assert run.proposals.filter(lesson=pl).exists() and run.summary["unconfirmed_match"] == []
 
 
 def test_targets_cover_plan(loaded):
@@ -145,8 +167,9 @@ def test_targets_cover_plan(loaded):
 # ---------------------------------------------------------------- تطبيق (عميل وهمي)
 
 class FakeClient:
-    def __init__(self, dated=()):
-        self.dated, self.writes = set(dated), []
+    def __init__(self, dated=(), saved=None):
+        self.dated, self.writes, self.values = set(dated), [], {}
+        self.saved = saved  # ما تعيده القراءة البعدية؛ None = ما كُتب فعلًا
 
     def __enter__(self):
         return self
@@ -159,6 +182,10 @@ class FakeClient:
 
     def set_lesson_date(self, lms_id, lesson_id, d, period):
         self.writes.append((lesson_id, d, period))
+        self.values[lesson_id] = (d.isoformat(), str(period))
+
+    def lesson_date_value(self, lms_id, lesson_id):
+        return self.saved if self.saved is not None else self.values.get(lesson_id, ("", ""))
 
 
 def test_approve_future_only(loaded):
@@ -185,3 +212,21 @@ def test_apply_only_approved_and_skips_dated(loaded):
     client2 = FakeClient()
     svc.apply(run, lambda: client2)
     assert client2.writes == []
+
+
+def test_apply_reads_back_and_stops(loaded):
+    """الخطوة 5: قراءة بعدية لكل درس؛ لم يثبت → يتوقف بلا إيقاف آلي، وقيمة غير المعتمدة → يتوقف ويوقف الكتابة."""
+    svc, classes = loaded
+    run = svc.plan(classes[602598], date(2026, 11, 1))
+    first, second = run.proposals.select_related("lesson").order_by("lesson__position")[:2]
+    DateProposal.objects.filter(pk__in=[first.pk, second.pk]).update(status=DateProposal.Status.APPROVED)
+    log = svc.apply(run, lambda: FakeClient(saved=("", "")))  # الحفظ لم يثبت
+    first.refresh_from_db()
+    second.refresh_from_db()
+    assert (first.status, second.status) == ("failed", "approved") and not log.ok
+    assert log.summary["not_attempted"] == 1 and not safety.state().halted
+    DateProposal.objects.filter(pk=first.pk).update(status=DateProposal.Status.APPROVED)
+    svc.apply(run, lambda: FakeClient(saved=("2027-01-01", "1")))  # المنصة حفظت غير المعتمد
+    first.refresh_from_db()
+    assert first.status == "failed" and "غير مطابقة" in first.error
+    assert safety.state().halted and "كتابة خاطئة" in safety.state().reason

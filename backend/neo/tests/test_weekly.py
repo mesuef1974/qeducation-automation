@@ -13,6 +13,7 @@ from neo.services import weekly_service as w
 from neo.services.job_service import JobService
 from neo.services.publish_service import PublishService
 from neo.services.sync_service import SyncService
+from neo.tests.helpers import confirm_matches
 
 QA = ZoneInfo("Asia/Qatar")
 FIX = Path(__file__).parent / "fixtures"
@@ -58,8 +59,9 @@ def test_disabled(db, settings):
 @pytest.fixture
 def publish_run(classes):
     k = classes[LMS]
-    SyncService().ingest(k, [ParsedLesson(i, i, f"درس {i}", "", date(2026, 11, 1), 1, hidden=True)
+    SyncService().ingest(k, [ParsedLesson(i, i, f"درس {i}", "", date(2026, 11, 6), 1, hidden=True)
                              for i in range(1, 4)], [])
+    confirm_matches(k)
     return PublishService().plan(k)
 
 

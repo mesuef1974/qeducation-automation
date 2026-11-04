@@ -5,6 +5,9 @@
 - شكل المنصة: الجلب يتوقف إن لم يجد دروسًا أو نقص عددها كثيرًا (SyncService.fetch).
 - النافذة: يُعتمد آليًا ما يقع في الأيام القادمة فقط؛ الماضي وما عليه تنبيه يبقى لمراجعة المعلم.
 - العدد غير المألوف: إن زاد المؤهَّل في مرحلة على الحد، لا يُعتمد منه شيء ويبقى للمراجعة.
+- الاعتماد الآلي للروتيني السليم فقط: بلا تنبيه، ومطابقة مؤكدة (الاقتراح يستبعد غيرها)، وضمن نافذة الأيام القادمة؛
+  ويُسجَّل وقته وبصمة الدرس فيسقط بعد 48 ساعة أو إن تغيّر الدرس (safety).
+- مفتاح الإيقاف الآلي: الدورة لا تستحق ولا تعمل والكتابة موقوفة.
 - للمراجعة فقط (auto_approve=False): لا يُعتمد شيء آليًا، وكل المعلّق يبقى لقرار المعلم، فلا يُكتب شيء.
 - التحقق من منظور الطالب في النهاية دائمًا.
 """
@@ -15,7 +18,7 @@ from django.conf import settings
 from django.db.models import QuerySet
 
 from neo.models import AssignProposal, DateProposal, Job, PlatformClass, PublishProposal, SyncRun
-from neo.services import live, pipeline, scorecard_service
+from neo.services import live, pipeline, safety, scorecard_service
 
 APPLY_KINDS = (SyncRun.Kind.APPLY, SyncRun.Kind.ASSIGN_APPLY, SyncRun.Kind.PUBLISH_APPLY)
 Report = dict  # {"classes": {اسم الصف: {المرحلة: {...}}}, "verify": {...}}
@@ -48,7 +51,7 @@ def due_cycle(now: datetime) -> str | None:
     """
     c = config()
     start = cycle_start(now)
-    if not c["enabled"] or now - start > timedelta(hours=c["catchup_hours"]):
+    if not c["enabled"] or safety.state().halted or now - start > timedelta(hours=c["catchup_hours"]):
         return None
     key = start.date().isoformat()
     jobs = Job.objects.filter(kind=Job.Kind.WEEKLY, params__cycle=key)
@@ -76,7 +79,7 @@ def _auto_approve(qs: QuerySet, eligible: QuerySet, stage: dict) -> int:
                                                    "لم يُعتمد شيء، راجعها يدويًا")
         live.emit("warn", f"اعتماد آلي موقوف: {stage['anomaly']}", node="approve")
         return 0
-    stage["approved"] = eligible.update(status=DateProposal.Status.APPROVED)
+    stage["approved"] = safety.mark_approved(eligible)
     if stage["approved"] or stage["held"]:
         live.step(f"اعتماد آلي ضمن الصمّامات: {stage['approved']}، وبقي للمراجعة {stage['held']}", node="approve")
     return stage["approved"]
@@ -91,6 +94,7 @@ def _applied(stage: dict, runs: list[SyncRun]) -> list[SyncRun]:
 
 def run(classes: list[PlatformClass], factory: pipeline.Factory, today: date, report: Report) -> list[SyncRun]:
     """يملأ report أثناء التنفيذ، فيبقى ما تم إن انقطعت الجلسة في منتصف الدورة."""
+    safety.require_writes_allowed()  # الإيقاف الآلي يوقف الدورة كلها حتى يعيد المعلم التفعيل
     horizon = today + timedelta(days=config()["window_days"])
     by_class = report.setdefault("classes", {k.name: {} for k in classes})
     report.update(today=today.isoformat(), horizon=horizon.isoformat())
@@ -124,7 +128,8 @@ def run(classes: list[PlatformClass], factory: pipeline.Factory, today: date, re
         runs.append(plan)
         s = stage(plan.klass, "publish")
         qs = plan.publish_proposals.all()
-        if plan.ok and _auto_approve(qs, qs.filter(status=PublishProposal.Status.PENDING), s):
+        ok = qs.filter(status=PublishProposal.Status.PENDING, lesson__date__range=(today, horizon))
+        if plan.ok and _auto_approve(qs, ok, s):
             runs += _applied(s, pipeline.publish_apply(plan.pk, factory, today))
             verified.add(plan.klass_id)
         elif not plan.ok:

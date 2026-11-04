@@ -7,6 +7,7 @@ from datetime import date
 from django.db.models import Count, Q
 
 from neo.models import PlatformClass, PlatformLesson, ProposalStatus, SyncRun
+from neo.services import safety
 from neo.services.pipeline import PROPOSALS
 
 # القرار ← (الحالات التي يقبلها، الحالة الناتجة)
@@ -21,9 +22,15 @@ PLAN_KIND = {"date": SyncRun.Kind.PLAN, "assign": SyncRun.Kind.ASSIGN_PLAN, "pub
 
 
 def decide(kind: str, ids: list[int], decision: str) -> int:
-    """يغيّر حالة الاقتراحات المسموح بها فقط؛ يعيد عدد ما تغيّر (تكرار الطلب لا يغيّر شيئًا)."""
+    """
+    يغيّر حالة الاقتراحات المسموح بها فقط؛ يعيد عدد ما تغيّر (تكرار الطلب لا يغيّر شيئًا). الاعتماد يسجّل وقته
+    وبصمة الدرس (الخطوة 4)، ولا يُعتمد ما مطابقة درسه غير مؤكدة.
+    """
     accepts, to = DECISIONS[decision]
-    return PROPOSALS[kind].objects.filter(pk__in=ids, status__in=accepts).update(status=to)
+    qs = PROPOSALS[kind].objects.filter(pk__in=ids, status__in=accepts)
+    if to == ProposalStatus.APPROVED:
+        return safety.mark_approved(qs)
+    return qs.update(status=to, approved_at=None, approved_fp="")
 
 
 def _lesson(pl: PlatformLesson) -> dict:

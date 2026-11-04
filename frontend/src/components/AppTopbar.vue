@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from "vue";
 
+import { neo } from "@/api/neo";
 import { useConfirm } from "@/composables/useConfirm";
 import { THEME_LABEL, useTheme } from "@/composables/useTheme";
 import { useClassesStore } from "@/stores/classes";
@@ -14,6 +15,20 @@ const confirm = useConfirm();
 
 const openReview = computed(() => classes.openReview.date + classes.openReview.assign + classes.openReview.publish);
 const loginQueued = computed(() => jobs.busy("login"));
+
+/** مفتاح الإيقاف الآلي: تُعاد الكتابة على المنصة بعد أن يراجع المعلم السبب */
+async function resume() {
+  const ok = await confirm({
+    title: "الكتابة على المنصة موقوفة",
+    body: `${jobs.session?.halt_reason ?? ""} (منذ ${fmtWhen(jobs.session?.halted_at)}). `
+      + "راجع السبب في «السجل» أو على المنصة أولًا. إعادة التفعيل تسمح بالكتابة والدورة الأسبوعية من جديد.",
+    confirm: "أعد تفعيل الكتابة",
+    danger: true,
+  });
+  if (!ok) return;
+  await neo.resumeWrites();
+  await jobs.refresh();
+}
 
 async function login() {
   const ok = await confirm({
@@ -45,6 +60,9 @@ async function login() {
         <a href="/admin/">الإدارة</a>
       </nav>
 
+      <button v-if="jobs.session?.halted" class="pill bad as-btn" :title="jobs.session.halt_reason" @click="resume">
+        الكتابة موقوفة · راجع السبب
+      </button>
       <span v-if="jobs.error" class="pill bad" :title="jobs.error">الخادم لا يستجيب</span>
       <span v-else-if="jobs.workerDown" class="pill warn" title="شغّل في الطرفية: cd backend && python manage.py neo_worker">
         العامل متوقف

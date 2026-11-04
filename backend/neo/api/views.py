@@ -12,7 +12,7 @@ from rest_framework.response import Response
 from neo.api import serializers as s
 from neo.domain import assessment
 from neo.models import Job, PlatformClass, PlatformLesson, ProposalStatus, SyncRun, WorkerHeartbeat
-from neo.services import live, review_service, scorecard_service, weekly_service
+from neo.services import live, review_service, safety, scorecard_service, weekly_service
 from neo.services.job_service import JobService, session_state, worker_alive
 from neo.services.pipeline import PROPOSALS, PipelineError
 
@@ -50,6 +50,16 @@ class ClassViewSet(viewsets.ReadOnlyModelViewSet):
         ctx["overviews"] = {k.pk: review_service.class_overview(k, today) for k in qs}
         return ctx
 
+    @action(detail=True, methods=["post"], url_path="accept-shrink")
+    def accept_shrink(self, request, lms_id=None):
+        """الحذف المقصود (الخطوة 1): يؤكده المعلم مرة واحدة فتقبل المزامنة التالية نقص الدروس، ثم يعود الحارس."""
+        klass = self.get_object()
+        if not klass.shrink_pending:
+            raise ValidationError("لا نقص بانتظار التأكيد لهذا الصف")
+        klass.allow_shrink = True
+        klass.save(update_fields=["allow_shrink"])
+        return Response({"allow_shrink": True, "shrink_pending": klass.shrink_pending})
+
 
 class LessonViewSet(viewsets.ReadOnlyModelViewSet):
     """الدروس: ?class=LMS_ID&hidden=1&dated=0"""
@@ -66,6 +76,23 @@ class LessonViewSet(viewsets.ReadOnlyModelViewSet):
             if raw in ("0", "1"):
                 qs = qs.filter(**{field: (raw == "1") != (flag == "dated")})
         return qs.order_by("klass", "position")
+
+    @action(detail=False, methods=["post"])
+    def confirm(self, request):
+        """
+        تأكيد المطابقة الآلية مرة واحدة (الخطوة 1): POST /api/neo/lessons/confirm/ {"ids": [lms_lesson_id, ...]}
+        الدرس المؤكد يدخل الاقتراح والكتابة ما بقيت مطابقته الآلية نفسها؛ إن تغيّرت عاد غير مؤكد.
+        """
+        ids = request.data.get("ids")
+        if not isinstance(ids, list) or not ids or not all(isinstance(i, int) for i in ids):
+            raise ValidationError({"ids": "قائمة معرّفات الدروس (lms_lesson_id)"})
+        changed = 0
+        for pl in PlatformLesson.objects.filter(lms_lesson_id__in=ids).exclude(match_code=""):
+            if pl.confirmed_code != pl.match_code:
+                pl.confirmed_code = pl.match_code
+                pl.save(update_fields=["confirmed_code"])
+                changed += 1
+        return Response({"changed": changed})
 
 
 class RunViewSet(viewsets.ReadOnlyModelViewSet):
@@ -195,6 +222,19 @@ def scorecard(request):
         _, created = scorecard_service.snapshot(today)
         return Response(status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
     return Response({"current": scorecard_service.build(today), **scorecard_service.history()})
+
+
+@api_view(["GET", "POST"])
+def safety_state(request):
+    """مفتاح الإيقاف الآلي: GET حالته؛ POST {"action": "resume"} يعيد تفعيل الكتابة بعد أن يراجع المعلم السبب."""
+    if request.method == "POST":
+        if request.data.get("action") != "resume":
+            raise ValidationError({"action": "القيمة المقبولة: resume"})
+        st = safety.resume()
+    else:
+        st = safety.state()
+    return Response({"halted": st.halted, "reason": st.reason, "halted_at": st.halted_at,
+                     "resumed_at": st.resumed_at, "verify_failures": st.verify_failures})
 
 
 @api_view(["GET"])

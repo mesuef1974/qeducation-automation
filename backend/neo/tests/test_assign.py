@@ -1,4 +1,4 @@
-from datetime import date, datetime, time
+from datetime import date, datetime, time, timedelta
 from pathlib import Path
 
 import pytest
@@ -8,7 +8,9 @@ from neo.domain.types import ParsedAssessment, ParsedLesson
 from neo.infrastructure.parsers import parse_assessments
 from neo.models import AssignProposal, PlatformAssessment
 from neo.services.assign_service import AssignPolicy, AssignService, plan_window
+from neo.services import safety
 from neo.services.sync_service import SyncService
+from neo.tests.helpers import confirm_matches
 
 FIX = Path(__file__).parent / "fixtures"
 TODAY = date(2026, 11, 2)
@@ -39,6 +41,7 @@ def setup(classes):
         ParsedLesson(2, 2, "حل المعادلات النسبية(2)", "", date(2026, 11, 10), 6),
         ParsedLesson(3, 3, "حل المعادلات النسبية(3)", "", None, None),
     ], [])
+    confirm_matches(k)
     svc = AssignService()
     svc.ingest(k, [
         ParsedAssessment(101, "تقييم 1", 1, False),
@@ -60,8 +63,10 @@ def test_plan(setup):
 
 
 class FakeClient:
-    def __init__(self, given=(), fail_window=()):
+    def __init__(self, given=(), fail_window=(), saved=None, skew=None):
         self.given, self.fail_window, self.windows, self.gives = set(given), set(fail_window), [], []
+        self.saved = dict(saved or {})  # aid → (البداية، الاستحقاق) كما على المنصة
+        self.skew = skew                # المنصة تحفظ غير المرسل (كتابة خاطئة)
 
     def __enter__(self):
         return self
@@ -75,10 +80,16 @@ class FakeClient:
             f'<td>{"<i class=tick></i>" if i in self.given else ""}</td></tr>' for i in (101, 102, 103, 104))
         return f"<table>{rows}</table>"
 
+    def assessment_window(self, aid):
+        return self.saved.get(aid, ("", ""))
+
     def set_assessment_window(self, aid, begin, end, allow_late):
         if aid in self.fail_window:
             raise RuntimeError("boom")
         self.windows.append((aid, begin, end, allow_late))
+        if self.skew:
+            begin, end = begin + self.skew, end + self.skew
+        self.saved[aid] = (f"{begin:%Y-%m-%d %H:%M}", f"{end:%Y-%m-%d %H:%M}")
 
     def give_assessments(self, lms_id, ids):
         self.gives.append(list(ids))
@@ -89,21 +100,43 @@ def test_apply_sets_window_then_gives_and_is_idempotent(setup):
     svc, k = setup
     run = svc.plan(k, TODAY)
     svc.approve(run.pk)
-    client = FakeClient(fail_window={102})
+    client = FakeClient()
     log = svc.apply(run, lambda: client, TODAY)
-    # 101 درسه ماضٍ: مواعيد + إسناد يدوي. 102 فشل ضبط مواعيده فلا يُسند
-    assert [w[0] for w in client.windows] == [101] and client.gives == [[101]]
+    # 101 درسه ماضٍ: مواعيد + إسناد يدوي. 102 مستقبلي: مواعيد فقط، وتُسنده المنصة حين يصير درسه الحالي
+    assert [w[0] for w in client.windows] == [101, 102] and client.gives == [[101]]
     assert client.windows[0][1] == datetime(2026, 11, 2, 7, 0) and client.windows[0][3] is True
     st = dict(run.assign_proposals.values_list("assessment__lms_assignment_id", "status"))
-    assert st == {101: "applied", 102: "failed"}
+    assert st == {101: "applied", 102: "applied"} and log.ok
     assert PlatformAssessment.objects.get(lms_assignment_id=101).given
-    assert log.summary == {"plan_run": run.pk, "applied": 1, "failed": 1}
-    # إعادة التطبيق: المُسند يُتخطّى، والمستقبلي يُضبط ولا يُسند يدويًا (تتولاه المنصة)
-    AssignProposal.objects.filter(run=run).update(status="approved")
-    client2 = FakeClient(given={101})
-    svc.apply(run, lambda: client2, TODAY)
-    assert [w[0] for w in client2.windows] == [102] and client2.gives == []
-    p102 = run.assign_proposals.get(assessment__lms_assignment_id=102)
-    assert p102.status == "applied" and "تلقائيًا" in p102.error
     assert not PlatformAssessment.objects.get(lms_assignment_id=102).given
+    assert "تلقائيًا" in run.assign_proposals.get(assessment__lms_assignment_id=102).error
+    # إعادة التطبيق: المُسند يُتخطّى، والمضبوط كما اعتُمد لا تُعاد كتابته
+    AssignProposal.objects.filter(run=run).update(status="approved")
+    client2 = FakeClient(given={101}, saved=client.saved)
+    svc.apply(run, lambda: client2, TODAY)
+    assert client2.windows == [] and client2.gives == []
     assert run.assign_proposals.get(assessment__lms_assignment_id=101).status == "skipped"
+
+
+def test_apply_stops_at_first_error(setup):
+    """الخطوة 5: أول خطأ غير متوقع يوقف التطبيق كله ولا إسناد بعده؛ ما لم يُجرَّب يبقى معتمدًا."""
+    svc, k = setup
+    run = svc.plan(k, TODAY)
+    svc.approve(run.pk)
+    client = FakeClient(fail_window={101})
+    log = svc.apply(run, lambda: client, TODAY)
+    assert client.windows == [] and client.gives == []
+    st = dict(run.assign_proposals.values_list("assessment__lms_assignment_id", "status"))
+    assert st == {101: "failed", 102: "approved"}
+    assert not log.ok and log.summary["not_attempted"] == 1 and not safety.state().halted
+
+
+def test_apply_wrong_write_halts(setup):
+    """يوم غير المعتمد على المنصة بعد الحفظ = كتابة خاطئة: يتوقف ويوقف الكتابة كلها."""
+    svc, k = setup
+    run = svc.plan(k, TODAY)
+    svc.approve(run.pk)
+    log = svc.apply(run, lambda: FakeClient(skew=timedelta(days=1)), TODAY)
+    p101 = run.assign_proposals.get(assessment__lms_assignment_id=101)
+    assert p101.status == "failed" and "غير مطابقة" in p101.error and not log.ok
+    assert safety.state().halted

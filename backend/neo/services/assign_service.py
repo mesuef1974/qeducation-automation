@@ -12,10 +12,10 @@ from django.db import transaction
 from django.utils import timezone
 
 from neo.domain.types import ParsedAssessment
-from neo.infrastructure.client import NeoClient, NotLoggedIn
+from neo.infrastructure.client import NeoClient, NotLoggedIn, stamp
 from neo.infrastructure.parsers import parse_assessments
 from neo.models import AssignProposal, PlatformAssessment, PlatformClass, PlatformLesson, SyncRun
-from neo.services import live
+from neo.services import live, safety
 
 FLAG_PAST_LESSON = "درس ماضٍ - المهلة من اليوم"
 AUTO_GIVE_NOTE = "المواعيد مضبوطة؛ تُسنده المنصة تلقائيًا حين يصير درسه الحالي"
@@ -74,13 +74,15 @@ class AssignService:
         run = SyncRun.objects.create(klass=klass, kind=SyncRun.Kind.ASSIGN_PLAN)
 
         lessons = {pl.lms_lesson_id: pl for pl in PlatformLesson.objects.filter(klass=klass)}
-        given, undated, drafts = [], [], []
+        given, undated, unconfirmed, drafts = [], [], [], []
         for a in PlatformAssessment.objects.filter(klass=klass):
             lesson = lessons.get(a.lms_lesson_id)
             if a.given:
                 given.append(a.title)
             elif not lesson or not lesson.date:
                 undated.append(a.title)
+            elif not lesson.match_sure:  # الخطوة 1: مطابقة درسه غير مؤكدة، فيُستبعد وينبَّه عليه
+                unconfirmed.append(f"{a.title} ← {safety.unconfirmed_label(lesson)}")
             else:
                 begin, end, flags = plan_window(lesson.date, today, p)
                 drafts.append(AssignProposal(run=run, assessment=a, lesson_date=lesson.date, begin_at=begin,
@@ -91,6 +93,7 @@ class AssignService:
             "past_lessons": sum(1 for d in drafts if d.flags),
             "already_given": given,
             "no_lesson_date": undated,
+            "unconfirmed_match": unconfirmed,
             "policy": {"begin": p.begin_time.isoformat("minutes"), "due_days": p.due_days,
                        "due": p.due_time.isoformat("minutes"), "allow_late": p.allow_late},
         }
@@ -102,7 +105,7 @@ class AssignService:
         qs = AssignProposal.objects.filter(run_id=run_id, status=AssignProposal.Status.PENDING)
         if only_lesson_from:
             qs = qs.filter(lesson_date__gte=only_lesson_from)
-        return qs.update(status=AssignProposal.Status.APPROVED)
+        return safety.mark_approved(qs)
 
     # ------------------------------------------------------------- تطبيق
 
@@ -112,12 +115,15 @@ class AssignService:
         يضبط المواعيد لكل المعتمد، ويُسند يدويًا تقييمات الدروس الماضية فقط. تقييمات اليوم وما بعده
         تُسندها المنصة تلقائيًا حين يصير درسها «الحالي» (auto_give_assignments + set_current_when_started)،
         والمنصة ترفض إسناد تقييم درس بعد الدرس الحالي أصلًا.
+        الخطوة 5: تُقرأ مواعيد كل تقييم قبل الكتابة وبعدها (المضبوط كما اعتُمد لا يُعاد)، ولا يُعدّ «مطبّقًا» إلا إذا
+        طابقت القراءة البعدية المعتمد. أول خطأ غير متوقع يوقف التطبيق كله ولا إسناد بعده، ويوم غير المعتمد
+        ولا السابق على المنصة (كتابة خاطئة) يوقف الكتابة كلها بمفتاح الإيقاف الآلي.
         """
         lms_id = run.klass.lms_id
         items = list(run.assign_proposals.filter(status=AssignProposal.Status.APPROVED)
                      .select_related("assessment").order_by("lesson_date", "pk")[:limit])
         results: dict[int, tuple[str, str]] = {}
-        session_error = None
+        session_error, stop, wrong = None, "", ""
         with client_factory() as client:  # لا ORM هنا
             state = {a.lms_assignment_id: a.given for a in parse_assessments(client.assessments_html(lms_id))}
             to_give = []
@@ -127,19 +133,38 @@ class AssignService:
                 if state.get(aid):
                     results[p.pk] = (AssignProposal.Status.SKIPPED, "مُسند على المنصة")
                     continue
+                begin, end = (timezone.localtime(t).replace(tzinfo=None) for t in (p.begin_at, p.end_at))
+                want = (stamp(f"{begin:%Y-%m-%d %H:%M}"), stamp(f"{end:%Y-%m-%d %H:%M}"))
                 try:
-                    client.set_assessment_window(aid, timezone.localtime(p.begin_at).replace(tzinfo=None),
-                                                 timezone.localtime(p.end_at).replace(tzinfo=None), p.allow_late)
+                    before = tuple(stamp(v) for v in client.assessment_window(aid))
+                    if before != want:
+                        client.set_assessment_window(aid, begin, end, p.allow_late)
+                        shown = client.assessment_window(aid)
+                        after = tuple(stamp(v) for v in shown)
+                        if after != want:
+                            if after == before:
+                                results[p.pk] = (AssignProposal.Status.FAILED,
+                                                 "لم تثبت المواعيد بعد الحفظ (القراءة البعدية كما قبلها)")
+                            else:
+                                diff = (f"{p.assessment.title}: المعتمد {begin:%Y-%m-%d %H:%M} ← {end:%Y-%m-%d %H:%M}، "
+                                        f"والمنصة {shown[0]} ← {shown[1]}")
+                                results[p.pk] = (AssignProposal.Status.FAILED, f"كتابة غير مطابقة: {diff}")
+                                if [x and x[:3] for x in after] != [x and x[:3] for x in want]:  # يوم غير المعتمد
+                                    wrong = diff
+                            stop = results[p.pk][1]
+                            break
                     to_give.append(p)
                 except NotLoggedIn as exc:
                     session_error = exc
                     break
-                except Exception as exc:  # noqa: BLE001
+                except Exception as exc:  # noqa: BLE001 - أول خطأ غير متوقع يوقف التطبيق
                     results[p.pk] = (AssignProposal.Status.FAILED, f"ضبط المواعيد: {str(exc)[:400]}")
+                    stop = results[p.pk][1]
+                    break
             for p in [p for p in to_give if p.lesson_date >= today]:
                 results[p.pk] = (AssignProposal.Status.APPLIED, AUTO_GIVE_NOTE)
             to_give = [p for p in to_give if p.lesson_date < today]
-            if to_give and not session_error:
+            if to_give and not session_error and not stop:
                 try:
                     client.give_assessments(lms_id, [p.assessment.lms_assignment_id for p in to_give])
                 except Exception as exc:  # noqa: BLE001 - نتحقق من الحالة الفعلية أدناه
@@ -151,13 +176,15 @@ class AssignService:
                     ok = after.get(p.assessment.lms_assignment_id)
                     results[p.pk] = ((AssignProposal.Status.APPLIED, "") if ok else
                                      (AssignProposal.Status.FAILED, give_error or "لم يظهر مُسندًا بعد الإسناد"))
-        log = self._record(run, items, results, session_error)
+        log = self._record(run, items, results, session_error, stop)
+        if wrong:
+            safety.halt(f"كتابة خاطئة في مواعيد التقييمات · {run.klass}: {wrong}")
         if session_error:
             raise session_error
         return log
 
     @transaction.atomic
-    def _record(self, run, items, results, session_error) -> SyncRun:
+    def _record(self, run, items, results, session_error, stop: str = "") -> SyncRun:
         now = timezone.now()
         stats: dict[str, int] = {}
         for p in items:
@@ -173,6 +200,8 @@ class AssignService:
         summary = {"plan_run": run.pk, **stats}
         if session_error:
             summary["error"] = "انتهت الجلسة"
+        if stop:
+            summary.update(stopped=stop, not_attempted=sum(1 for p in items if p.pk not in results))
         return SyncRun.objects.create(
             klass=run.klass, kind=SyncRun.Kind.ASSIGN_APPLY, summary=summary, finished_at=timezone.now(),
             ok=not session_error and not stats.get(AssignProposal.Status.FAILED))

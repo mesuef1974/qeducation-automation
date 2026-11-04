@@ -13,7 +13,7 @@ from django.utils import timezone
 from neo.domain.redact import scrub
 from neo.infrastructure.client import BrowserBusy, NeoClient, NotLoggedIn, PlatformError
 from neo.models import Job, SyncRun, WorkerHeartbeat
-from neo.services import live, pipeline, weekly_service
+from neo.services import live, pipeline, safety, weekly_service
 from neo.services.sync_service import NoActiveClasses, active_classes
 
 # headless → مصنع عملاء؛ الاختبارات تمرّر مصنعًا وهميًا
@@ -78,6 +78,8 @@ def _execute(job: Job, make: FactoryMaker, today: date) -> list[SyncRun]:
 
 
 def _classify(exc: Exception) -> str:
+    if isinstance(exc, safety.WritesHalted):
+        return Job.Error.HALTED
     if isinstance(exc, NotLoggedIn):
         return Job.Error.SESSION
     if isinstance(exc, BrowserBusy):
@@ -180,10 +182,13 @@ def session_state() -> dict:
     last = Job.objects.filter(Q(status=Job.Status.DONE) | Q(error_kind__in=[Job.Error.SESSION, Job.Error.PLATFORM])) \
         .order_by("-finished_at").first()
     alive = worker_alive()
+    halt = safety.state()
     return {
         "expired": bool(last and last.error_kind == Job.Error.SESSION),
         "checked_at": last.finished_at if last else None,
         "worker_alive": alive,
         "worker_busy": alive and Job.objects.filter(status=Job.Status.RUNNING).exists(),
         "queued": Job.objects.filter(status=Job.Status.QUEUED).count(),
+        # مفتاح الإيقاف الآلي: الكتابة على المنصة موقوفة حتى يعيد المعلم التفعيل
+        "halted": halt.halted, "halt_reason": halt.reason, "halted_at": halt.halted_at,
     }

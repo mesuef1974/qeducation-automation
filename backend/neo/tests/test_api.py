@@ -12,6 +12,7 @@ from neo.services.job_service import ALIVE_S, JobService, beat, session_state, s
 from neo.services.pipeline import PipelineError
 from neo.services.publish_service import PublishService
 from neo.services.sync_service import SyncService
+from neo.tests.helpers import confirm_matches
 
 FIX = Path(__file__).parent / "fixtures"
 LMS = 602598
@@ -121,6 +122,7 @@ def publish_run(classes):
         ParsedLesson(1, 1, "ظاهر بلا نقاط", "", date(2026, 9, 15), 7),
         ParsedLesson(2, 2, "مخفي مؤرخ", "", date.today(), 6, hidden=True),
     ], [])
+    confirm_matches(k)
     return PublishService().plan(k)
 
 
@@ -165,7 +167,8 @@ def test_jobs_api(client, classes):
     assert client.post(f"/api/neo/jobs/{jid}/cancel/").status_code == 400
     assert client.get("/api/neo/jobs/").json()["count"] == 1
     assert client.get("/api/neo/session/").json() == {"expired": False, "checked_at": None, "worker_alive": False,
-                                                      "worker_busy": False, "queued": 0}
+                                                      "worker_busy": False, "queued": 0,
+                                                      "halted": False, "halt_reason": "", "halted_at": None}
 
 
 # ------------------------------------------------------------- خدمة الواجهة المبنية على /app/

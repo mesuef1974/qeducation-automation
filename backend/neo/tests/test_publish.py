@@ -14,6 +14,7 @@ from neo.infrastructure.parsers import (
 from neo.models import PlatformLesson, PublishProposal
 from neo.services.publish_service import ALREADY, PublishService, policy
 from neo.services.sync_service import SyncService
+from neo.tests.helpers import confirm_matches
 
 FIX = Path(__file__).parent / "fixtures"
 
@@ -46,6 +47,7 @@ def setup(classes):
         ParsedLesson(3, 3, "مخفي مؤرخ", "", date(2026, 11, 2), 6, hidden=True),
         ParsedLesson(4, 4, "مخفي بلا تاريخ", "", None, None, hidden=True, awards_points=True),
     ], [])
+    confirm_matches(k)
     return PublishService(), k
 
 
@@ -158,8 +160,9 @@ def test_apply_game_missing(setup):
     svc.approve(run.pk)
     fake = FakeClient({2: [True, 0], 3: [False, 0]}, games=["تحدي التحمل"])
     svc.apply(run, lambda: fake)
-    assert fake.writes == [("show", 3)]
-    assert {p.status for p in run.publish_proposals.all()} == {PublishProposal.Status.FAILED}
+    assert fake.writes == []  # الخطوة 5: يتوقف عند أول خطأ (اللعبة غير موجودة) قبل أي كتابة
+    st = {p.lesson.lms_lesson_id: p.status for p in run.publish_proposals.select_related("lesson")}
+    assert st == {2: PublishProposal.Status.FAILED, 3: PublishProposal.Status.APPROVED}
 
 
 def test_fetch_visibility_from_tab(setup):

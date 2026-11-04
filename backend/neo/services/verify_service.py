@@ -15,7 +15,7 @@ from django.utils import timezone
 from neo.infrastructure.client import NeoClient
 from neo.infrastructure.parsers import parse_student_lessons
 from neo.models import PlatformClass, PlatformLesson, SyncRun
-from neo.services import live
+from neo.services import live, safety
 
 
 @dataclass
@@ -60,7 +60,9 @@ class VerifyService:
             for i, k in enumerate(classes, 1):
                 live.step(f"عرض {k.name} كطالب عام", i, len(classes))
                 pages[k.pk] = client.student_view_html(k.lms_id)
-        return [self.record(k, *parse_student_lessons(pages[k.pk]), today) for k in classes]
+        runs = [self.record(k, *parse_student_lessons(pages[k.pk]), today) for k in classes]
+        safety.record_verify(all(r.ok for r in runs))  # تحققان فاشلان متتاليان يوقفان الكتابة
+        return runs
 
     @transaction.atomic
     def record(self, klass: PlatformClass, tiles: set[int], today_ids: set[int], today: date) -> SyncRun:

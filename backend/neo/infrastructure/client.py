@@ -47,6 +47,12 @@ def _dt_fields(dt: datetime) -> dict:
     }
 
 
+def stamp(text: str) -> tuple[int, ...] | None:
+    """قيمة حقل تاريخ/وقت كما تعرضه المنصة → (سنة، شهر، يوم[، ساعة، دقيقة]) للمقارنة؛ None إن كان فارغًا."""
+    nums = [int(n) for n in re.findall(r"\d+", text or "")]
+    return tuple(nums[:5]) if len(nums) >= 3 else None
+
+
 class NotLoggedIn(RuntimeError):
     pass
 
@@ -153,10 +159,18 @@ class NeoClient:
         self._save_cookies()
 
     def get_html(self, path: str) -> str:
-        self._throttle()
-        started = time.monotonic()
-        resp = self.context.request.get(f"{BASE_URL}{path}")
-        self._net(path, resp.status, started)
+        for wait in (*self.RETRY_WAITS, None):  # الخطوة 1: ثانية على الأقل بين الطلبات، وإعادة بعد 429
+            self._throttle()
+            started = time.monotonic()
+            resp = self.context.request.get(f"{BASE_URL}{path}")
+            self._net(path, resp.status, started)
+            if resp.status != 429:
+                break
+            if wait is None:
+                raise PlatformError(f"المنصة تردّ 429 (طلبات كثيرة) على {path.split('?')[0]} "
+                                    f"بعد {len(self.RETRY_WAITS)} محاولات")
+            live.emit("warn", f"المنصة طلبت التمهّل (429)؛ انتظار {wait} ث ثم إعادة المحاولة", retry=wait)
+            time.sleep(wait)
         html = resp.text()
         if is_login_url(resp.url) or is_login_page(html):
             raise NotLoggedIn("انتهت الجلسة - شغّل: python manage.py neo_login")
@@ -364,6 +378,13 @@ class NeoClient:
         self.page.goto(f"{BASE_URL}/teacher_lesson/edit/{lms_id}?lesson_id={lesson_id}")
         self._assert_form()
         return bool(self.page.input_value("#lesson_period_date_alt"))
+
+    def lesson_date_value(self, lms_id: int, lesson_id: int) -> tuple[str, str]:
+        """قراءة بعدية (الخطوة 5): (التاريخ، الحصة) كما حفظتهما المنصة في نموذج تعديل الدرس."""
+        self._throttle()
+        self.page.goto(f"{BASE_URL}/teacher_lesson/edit/{lms_id}?lesson_id={lesson_id}")
+        self._assert_form()
+        return self.page.input_value("#lesson_period_date_alt"), self.page.input_value("#lesson_period_number")
 
     def set_lesson_date(self, lms_id: int, lesson_id: int, d: date, period: int) -> None:
         """يفتح نموذج تعديل الدرس، يضبط التاريخ والحصة فقط، ثم يحفظ. بقية الحقول تبقى كما هي."""

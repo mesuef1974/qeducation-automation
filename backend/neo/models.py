@@ -2,6 +2,8 @@ from django.db import models
 
 from curriculum.models import Plan
 
+FULL_MATCH = 0.999  # درجة المطابقة الآلية التامة (عنوان المنصة = عنوان الخطة بلا رقم الجزء)
+
 
 class ActiveClassQuerySet(models.QuerySet):
     def active(self):
@@ -21,6 +23,11 @@ class PlatformClass(models.Model):
                                    help_text="اسم اللعبة كما في المنصة، مثل «نجوم الرياضيات»")
     points = models.PositiveSmallIntegerField("نقاط الإنجاز", null=True, blank=True, help_text="0 = بلا نقاط")
     last_fetched_at = models.DateTimeField("آخر جلب", null=True, blank=True)
+    # الخطوة 1: أي نقص في عدد الدروس عن المحفوظ يوقف المزامنة ولا يحفظ شيئًا؛ الحذف المقصود يؤكده المعلم مرة واحدة
+    shrink_pending = models.JSONField("نقص بانتظار التأكيد", default=dict, blank=True,
+                                      help_text="آخر نقص أوقف المزامنة: المحفوظ، وما على المنصة، والدروس الغائبة")
+    allow_shrink = models.BooleanField("قبول النقص مرة واحدة", default=False,
+                                       help_text="أكّده المعلم: المزامنة التالية تقبل النقص ثم يعود الحارس")
 
     objects = ActiveClassQuerySet.as_manager()
 
@@ -65,6 +72,8 @@ class PlatformLesson(models.Model):
     match_score = models.FloatField("درجة المطابقة", null=True, blank=True)
     override_code = models.CharField("مطابقة يدوية", max_length=60, blank=True,
                                      help_text="تتقدّم على الآلية. ضع '-' لاعتبار الدرس خارج الخطة.")
+    confirmed_code = models.CharField("مطابقة مؤكدة", max_length=60, blank=True,
+                                      help_text="رمز المطابقة الآلية الذي أكّده المعلم مرة واحدة (ما دون 100%)")
     fetched_at = models.DateTimeField("وقت الجلب")
 
     class Meta:
@@ -78,6 +87,14 @@ class PlatformLesson(models.Model):
     @property
     def effective_code(self) -> str:
         return self.override_code or self.match_code
+
+    @property
+    def match_sure(self) -> bool:
+        """الخطوة 1 (المطابقة 100% لما سيُكتب عليه): يدوية، أو آلية تامة، أو آلية أكّدها المعلم مرة واحدة."""
+        if self.override_code:
+            return self.override_code != "-"
+        return bool(self.match_code) and ((self.match_score or 0) >= FULL_MATCH
+                                          or self.confirmed_code == self.match_code)
 
 
 class SyncRun(models.Model):
@@ -132,6 +149,9 @@ class DateProposal(models.Model):
     status = models.CharField("الحالة", max_length=10, choices=Status.choices, default=Status.PENDING, db_index=True)
     error = models.TextField("الخطأ", blank=True)
     applied_at = models.DateTimeField("وقت التطبيق", null=True, blank=True)
+    # الخطوة 4: يسقط الاعتماد بعد 48 ساعة أو إن تغيّر الدرس على المنصة بعده (البصمة)، ويعود للمراجعة
+    approved_at = models.DateTimeField("وقت الاعتماد", null=True, blank=True)
+    approved_fp = models.CharField("بصمة الدرس عند الاعتماد", max_length=40, blank=True)
 
     class Meta:
         verbose_name = "اقتراح تاريخ"
@@ -178,6 +198,9 @@ class AssignProposal(models.Model):
     status = models.CharField("الحالة", max_length=10, choices=Status.choices, default=Status.PENDING, db_index=True)
     error = models.TextField("الخطأ", blank=True)
     applied_at = models.DateTimeField("وقت التطبيق", null=True, blank=True)
+    # الخطوة 4: يسقط الاعتماد بعد 48 ساعة أو إن تغيّر الدرس على المنصة بعده (البصمة)، ويعود للمراجعة
+    approved_at = models.DateTimeField("وقت الاعتماد", null=True, blank=True)
+    approved_fp = models.CharField("بصمة الدرس عند الاعتماد", max_length=40, blank=True)
 
     class Meta:
         verbose_name = "اقتراح إسناد"
@@ -203,6 +226,9 @@ class PublishProposal(models.Model):
     status = models.CharField("الحالة", max_length=10, choices=Status.choices, default=Status.PENDING, db_index=True)
     error = models.TextField("الخطأ", blank=True)
     applied_at = models.DateTimeField("وقت التطبيق", null=True, blank=True)
+    # الخطوة 4: يسقط الاعتماد بعد 48 ساعة أو إن تغيّر الدرس على المنصة بعده (البصمة)، ويعود للمراجعة
+    approved_at = models.DateTimeField("وقت الاعتماد", null=True, blank=True)
+    approved_fp = models.CharField("بصمة الدرس عند الاعتماد", max_length=40, blank=True)
 
     class Meta:
         verbose_name = "اقتراح نشر"
@@ -235,6 +261,9 @@ class ContentProposal(models.Model):
     status = models.CharField("الحالة", max_length=10, choices=Status.choices, default=Status.PENDING, db_index=True)
     error = models.TextField("الخطأ", blank=True)
     applied_at = models.DateTimeField("وقت التطبيق", null=True, blank=True)
+    # الخطوة 4: يسقط الاعتماد بعد 48 ساعة أو إن تغيّر الدرس على المنصة بعده (البصمة)، ويعود للمراجعة
+    approved_at = models.DateTimeField("وقت الاعتماد", null=True, blank=True)
+    approved_fp = models.CharField("بصمة الدرس عند الاعتماد", max_length=40, blank=True)
 
     class Meta:
         verbose_name = "اقتراح محتوى"
@@ -279,6 +308,7 @@ class Job(models.Model):
         INPUT = "input", "طلب غير صالح"
         PLATFORM = "platform", "خطأ من المنصة"
         UNEXPECTED = "unexpected", "خطأ غير متوقع"
+        HALTED = "halted", "الكتابة موقوفة"
 
     ACTIVE = (Status.QUEUED, Status.RUNNING)
 
@@ -358,3 +388,23 @@ class ScorecardSnapshot(models.Model):
 
     def __str__(self):
         return f"بطاقة الأداء {self.day}"
+
+
+class SafetyState(models.Model):
+    """
+    مفتاح الإيقاف الآلي (صف واحد): كتابة خاطئة واحدة، أو تحققان فاشلان متتاليان من منظور الطالب، يوقفان الدورة
+    الأسبوعية وكل كتابة على المنصة حتى يعيد المعلم التفعيل بعد مراجعة السبب. القراءة والتحضير يستمران.
+    """
+
+    halted = models.BooleanField("موقوف", default=False)
+    reason = models.TextField("السبب", blank=True)
+    halted_at = models.DateTimeField("وقت الإيقاف", null=True, blank=True)
+    resumed_at = models.DateTimeField("آخر إعادة تفعيل", null=True, blank=True)
+    verify_failures = models.PositiveSmallIntegerField("تحققات فاشلة متتالية", default=0)
+
+    class Meta:
+        verbose_name = "مفتاح الإيقاف الآلي"
+        verbose_name_plural = "مفتاح الإيقاف الآلي"
+
+    def __str__(self):
+        return "الكتابة موقوفة" if self.halted else "الكتابة مفعّلة"

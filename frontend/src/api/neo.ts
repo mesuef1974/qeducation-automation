@@ -30,4 +30,10 @@ export const neo = {
   snapshot: () => api.post<void>("neo/scorecard/"),
   cancel: (id: number) => api.post<Job>(`neo/jobs/${id}/cancel/`),
   live: (p: { since?: number; job?: number }) => api.get<LiveFeed>(`neo/live/${query(p)}`),
+  /** تأكيد المطابقة الآلية مرة واحدة لدروس (lms_lesson_id) */
+  confirmLessons: (ids: number[]) => api.post<{ changed: number }>("neo/lessons/confirm/", { ids }),
+  /** الحذف المقصود: المزامنة التالية تقبل نقص دروس الصف مرة واحدة */
+  acceptShrink: (lms: number) => api.post<{ allow_shrink: boolean }>(`neo/classes/${lms}/accept-shrink/`),
+  /** إعادة تفعيل الكتابة بعد الإيقاف الآلي */
+  resumeWrites: () => api.post<{ halted: boolean }>("neo/safety/", { action: "resume" }),
 };
