@@ -4,7 +4,7 @@ import { computed, onMounted, onUnmounted, ref } from "vue";
 import { neo } from "@/api/neo";
 import type { Job, Usage, UsagePeriod, UsageVerify } from "@/api/types";
 import { useJobsStore } from "@/stores/jobs";
-import { fmtShort, fmtStamp, fmtWhen } from "@/utils/format";
+import { fmtShort, fmtWhen } from "@/utils/format";
 
 /**
  * استهلاك Claude: الجلسة واليوم والأسبوع والشهر، وكل يوم، والنماذج، وأين ذهب الاستهلاك، والجلسات.
@@ -89,18 +89,6 @@ const fable = (p: "week" | "month") => fam(p).find((f) => f.family === "Fable") 
 const dayRange = (from: string) => `${fmtShort(from)} ← ${fmtShort(data.value?.today)}`;
 
 const shortModel = (m: string) => m.replace(/^claude-/, "").replace(/-(\d+)-(\d+)$/, " $1.$2");
-const shortSession = (s: string) => s.slice(0, 8);
-/**
- * اسم مجلد Claude Code للمشروع بصيغة مقروءة: Claude يكتب المسار بشرطات (C--Users-x-work)، فيُختصر المجلد الشخصي
- * إلى ~، ونسخ التطوير (worktrees) تُعلَّم، وجذر المجلد للجلسات المُصدَّرة.
- */
-function projectLabel(p: string): string {
-  if (!p) return "(الجذر)";
-  const dev = /--claude-worktrees-|-wt-runner-|--probe$/.test(p);
-  const base = p.replace(/--claude-worktrees-.*|-wt-runner-.*|-tmp--probe$/, "")
-    .replace(/^[A-Za-z]--Users-[^-]+-/, "~\\").replace(/^([A-Za-z])--/, "$1:\\");
-  return dev ? `${base} · نسخة تطوير` : base;
-}
 </script>
 
 <template>
@@ -301,18 +289,6 @@ function projectLabel(p: string): string {
       </section>
     </div>
 
-    <!-- المشاريع -->
-    <section v-if="data.projects.length" class="card">
-      <h2>المشاريع · آخر 30 يومًا</h2>
-      <ul class="hbars">
-        <li v-for="p in data.projects" :key="p.project" :title="`${n(p.effective)} وحدة فعلية`">
-          <span class="lbl mono" dir="ltr">{{ projectLabel(p.project) }}</span>
-          <span class="track"><i :style="{ inlineSize: `${(p.effective / maxOf(data.projects)) * 100}%` }" /></span>
-          <span class="val">{{ c(p.effective) }} <small class="muted">{{ pct(p.effective, totals.month.effective) }}</small></span>
-        </li>
-      </ul>
-    </section>
-
     <!-- تفكيك الرموز -->
     <section class="card">
       <h2>تفكيك الرموز · {{ PERIODS.find((p) => p.key === period)?.label }}</h2>
@@ -330,25 +306,7 @@ function projectLabel(p: string): string {
       </div>
     </section>
 
-    <!-- الجلسات -->
     <section class="card">
-      <h2>الجلسات</h2>
-      <div class="table-wrap">
-        <table>
-          <thead><tr><th>الجلسة</th><th>المشروع</th><th>من ← إلى</th><th>النماذج</th><th>خطوات</th><th>وحدة فعلية</th></tr></thead>
-          <tbody>
-            <tr v-for="s in data.sessions" :key="s.session" :class="{ sel: s.session === data.session }"
-                class="click" @click="period = 'session'; load(s.session)">
-              <td class="mono">{{ shortSession(s.session) }}</td>
-              <td class="mono" dir="ltr">{{ projectLabel(s.project) }}</td>
-              <td class="muted">{{ fmtStamp(s.first) }} ← {{ fmtStamp(s.last) }}</td>
-              <td class="mono" dir="ltr">{{ s.models.map(shortModel).join("، ") }}</td>
-              <td class="num">{{ n(s.turns) }}</td>
-              <td class="num">{{ n(s.effective) }}</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
       <small class="muted">
         الوحدة الفعلية بقيمة رمز إدخال عادي: قراءة سياق محفوظ ×{{ data.weights.cache_read }}، وحفظ سياق جديد ×{{ data.weights.cache_write }}،
         والمخرجات ×{{ data.weights.output }}. الجلسة المضغوطة يبدأ سجلها من آخر ضغط.
@@ -410,7 +368,5 @@ h2 { font-size: 17px; margin: 0 0 10px; }
 .part { display: grid; gap: 2px; padding: 8px 12px; border: 1px solid var(--line); border-radius: 10px; }
 .part b { font-size: 20px; font-variant-numeric: tabular-nums; }
 .num { font-variant-numeric: tabular-nums; }
-tr.click { cursor: pointer; }
-tr.sel td { background: var(--slate-soft); }
 .mono { font-family: var(--f-mono, ui-monospace, monospace); font-size: 13px; }
 </style>
