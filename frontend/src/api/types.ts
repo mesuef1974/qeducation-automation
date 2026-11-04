@@ -24,6 +24,69 @@ export interface Overview {
   upcoming: LessonRef[];
   review: Record<ProposalKind, ReviewCount>;
   last_verify: { id: number; ok: boolean; at: string | null; summary: Record<string, unknown> } | null;
+  prep: PrepOverview;
+}
+
+/** حزمة التحضير الأسبوعية (قراءة فقط من المنصة) */
+export interface PrepFile {
+  name: string;
+  role: "prep" | "worksheet" | "presentation" | "section";
+  source: string;
+  note?: string;
+}
+
+export interface PrepLesson {
+  position: number;
+  title: string;
+  part: string;
+  folder: string;
+  day: string;
+  date: string;
+  period: number;
+  platform_date: string | null;
+  platform_period: number | null;
+  platform_differs: boolean;
+  files: PrepFile[];
+  missing: string[];
+  extra: string[];
+}
+
+export interface PrepCheck {
+  template: string;
+  file: string;
+  ok: boolean | null;
+  problems?: string[];
+  note?: string;
+  pdf?: string;
+  years_seen?: string[];
+}
+
+export interface PrepRun {
+  id: number;
+  ok: boolean;
+  at: string;
+  week: number;
+  week_range?: [string, string];
+  folder?: string;
+  section?: string;
+  lessons?: PrepLesson[];
+  message?: { header: string[]; row: string[]; file: string };
+  pages_unknown?: string[];
+  downloads?: number;
+  files?: number;
+  stale_years?: Record<string, string[]>;
+  word_check?: PrepCheck[];
+  same_as_previous?: boolean | null;
+  platform_differs?: number[];
+  errors?: string[];
+  teacher_missing?: boolean;
+  error?: string;
+}
+
+export interface PrepOverview {
+  weeks: { week_no: number; start_date: string; end_date: string }[];
+  next_week: number | null;
+  last: PrepRun | null;
 }
 
 export interface PlatformClass {
@@ -121,7 +184,7 @@ export type Proposal = DateProposal | PublishProposal | AssignProposal | Content
 
 export type JobKind =
   | "login" | "sync_plan" | "sync_apply" | "assign_plan" | "assign_apply" | "publish_plan" | "publish_apply" | "verify"
-  | "weekly" | "audit" | "content_plan" | "content_apply";
+  | "weekly" | "audit" | "content_plan" | "content_apply" | "prep_pack";
 export type JobStatus = "queued" | "running" | "done" | "failed";
 
 export interface JobParams {
@@ -131,6 +194,8 @@ export interface JobParams {
   limit?: number;
   cycle?: string;
   lesson?: number;
+  class?: number;
+  week?: number;
 }
 
 export interface Job {
@@ -200,4 +265,62 @@ export interface WeeklyState {
   due: string | null;
   cycle: string;
   last: Job | null;
+}
+
+/** تبويب «مباشر»: البث الحي من العامل */
+export type LiveKind = "start" | "stage" | "step" | "net" | "file" | "warn" | "error" | "end";
+
+export interface LiveEvent {
+  seq: number;
+  at: string;
+  t: number;
+  kind: LiveKind;
+  text: string;
+  stage: string;
+  current?: number;
+  total?: number;
+  status?: number | string;
+  ms?: number;
+  size?: number;
+  cached?: boolean;
+  lesson?: number;
+  path?: string;
+  retry?: number;
+  op?: "download" | "cache" | "edit";
+}
+
+export interface LiveJob {
+  id: number;
+  kind: JobKind;
+  kind_label: string;
+  target: string;
+  status: JobStatus;
+  status_label: string;
+  created_at: string;
+  started_at: string | null;
+  finished_at: string | null;
+  error: string;
+  error_label: string;
+  seconds: number | null;
+}
+
+export interface LiveSummary {
+  counts: Partial<Record<LiveKind, number>>;
+  ops: Partial<Record<"download" | "cache" | "edit", number>>;
+  stages: { text: string; t: number }[];
+  progress: { text: string; current: number; total: number; stage: string } | null;
+  end: { status: string; text: string; t: number } | null;
+  last_seq: number;
+  t: number;
+}
+
+export interface LiveFeed {
+  now: string;
+  worker: { alive: boolean; pid: number | null; seen_at: string | null };
+  session: SessionState;
+  job: (LiveJob & { live: LiveSummary }) | null;
+  events: LiveEvent[];
+  queue: LiveJob[];
+  recent: LiveJob[];
+  weekly: { enabled: boolean; next_at: string };
 }

@@ -213,3 +213,53 @@ def test_scorecard(client, publish_run):
     assert client.post("/api/neo/scorecard/").status_code == 200  # لقطة واحدة لليوم
     data = client.get("/api/neo/scorecard/").json()
     assert data["baseline"]["day"] == data["current"]["day"] and len(data["series"]) == 1
+
+
+def test_prep_pack_job_api(client, classes):
+    ok = client.post("/api/neo/jobs/", {"kind": "prep_pack", "params": {"class": 602728, "week": 11}},
+                     "application/json")
+    assert ok.status_code == 201 and ok.json()["kind_label"] == "حزمة التحضير الأسبوعية"
+    bad = [{"kind": "prep_pack", "params": {"class": 602728}}, {"kind": "prep_pack", "params": {"week": 11}},
+           {"kind": "prep_pack", "params": {"class": 602728, "week": "11"}},
+           {"kind": "prep_pack", "params": {"class": 602728, "week": 11, "run": 1}}]
+    assert {client.post("/api/neo/jobs/", b, "application/json").status_code for b in bad} == {400}
+
+
+def test_live_feed(client, classes):
+    """تبويب «مباشر»: أحداث المهمة الجارية بعد رقم تسلسلي، وملخصها، والطابور، وآخر المهام."""
+    from neo.services import live
+    from neo.services.job_service import JobService, beat
+
+    assert client.get("/api/neo/live/").json()["job"] is None
+    svc = JobService()
+    job, _ = svc.enqueue(Job.Kind.PREP_PACK, {"class": 602728, "week": 11})
+    queued, _ = svc.enqueue(Job.Kind.VERIFY, {"classes": [602598]})
+    job = svc.claim()
+    beat(4321)
+    live.start(job.pk, job.get_kind_display())
+    live.stage("قراءة الملاحظات والأقسام وتنزيل الملفات")
+    live.step("الدرس 49", 1, 6)
+    live.emit("net", live.page_label("/teacher_lesson/notes/602728?lesson_id=1"), status=200)
+    live.emit("file", "نُزّل: خطة درس", size=10)
+    data = client.get("/api/neo/live/").json()
+    assert data["worker"] == {"alive": True, "pid": 4321, "seen_at": data["worker"]["seen_at"]}
+    assert data["job"]["id"] == job.pk and data["job"]["target"] == "الرياضيات 12/2 · الأسبوع 11"
+    assert [e["kind"] for e in data["events"]] == ["start", "stage", "step", "net", "file"]
+    assert data["events"][3]["text"] == "ملاحظات المعلم" and data["events"][3]["stage"].startswith("قراءة")
+    summ = data["job"]["live"]
+    assert summ["progress"] == {"text": "الدرس 49", "current": 1, "total": 6, "stage": summ["stages"][0]["text"]}
+    assert summ["counts"]["net"] == 1 and summ["last_seq"] == 5 and summ["end"] is None
+    assert [q["id"] for q in data["queue"]] == [queued.pk] and data["queue"][0]["target"] == "الرياضيات 10/3"
+    more = client.get("/api/neo/live/?since=5").json()
+    assert more["events"] == []
+    live.end("done", "تمت")
+    assert client.get("/api/neo/live/?since=5").json()["events"][0]["kind"] == "end"
+    live.emit("step", "بعد النهاية لا يُكتب")  # خارج مهمة: لا شيء
+    assert client.get(f"/api/neo/live/?job={job.pk}").json()["job"]["live"]["last_seq"] == 6
+
+
+def test_page_labels():
+    from neo.services.live import page_label
+    assert page_label("/teacher_lesson/show/1?lesson_id=2&section_id=3") == "قسم في الدرس"
+    assert page_label("https://qeducation.edu.gov.qa/teacher_lesson/show/1?lesson_id=2") == "صفحة الدرس"
+    assert page_label("/files/455212/x.docx?lmsauth=ab") == "ملف" and page_label("/x/y?z=1") == "/x/y"

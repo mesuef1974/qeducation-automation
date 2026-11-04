@@ -10,7 +10,7 @@ import { ago, fmtStamp } from "@/utils/format";
 /**
  * صفحة الأتمتة: رسم لعملية الأتمتة كما تعمل فعلًا، بحالة حيّة لكل مرحلة من آخر عملياتها.
  * القراءة من المنصة (مزامنة وتدقيق) → اقتراح → اعتماد المعلم (البوابة البشرية) → تطبيق → تحقق → بطاقة الأداء،
- * والعامل والدورة الأسبوعية في الأسفل. لا شيء هنا يكتب على المنصة.
+ * وحزمة التحضير فرع قراءة فقط إلى سطح المكتب، والعامل والدورة الأسبوعية في الأسفل. لا شيء هنا يكتب على المنصة.
  */
 const jobs = useJobsStore();
 const classes = useClassesStore();
@@ -48,6 +48,7 @@ const STAGES: StageSpec[] = [
   { key: "apply", title: "تطبيق", sub: "إضافة فقط · آمن التكرار", kinds: ["apply", "assign_apply", "publish_apply", "content_apply"], x: 408, y: 250 },
   { key: "verify", title: "تحقق", sub: "منظور الطالب وتدقيق بعدي", kinds: ["verify", "audit"], x: 612, y: 250 },
   { key: "scorecard", title: "بطاقة الأداء", sub: "8 معايير · لقطة يومية", kinds: [], x: 816, y: 250 },
+  { key: "prep", title: "حزمة التحضير", sub: "سطح المكتب · قراءة فقط", kinds: ["prep"], x: 16, y: 60 },
 ];
 const byKey = (k: string) => STAGES.find((s) => s.key === k)!;
 
@@ -74,6 +75,7 @@ const activeKey = computed(() => {
   if (j.kind === "audit") return "audit";
   if (j.kind === "verify") return "verify";
   if (j.kind === "weekly") return "apply";
+  if (j.kind === "prep_pack") return "prep";
   return j.kind.endsWith("_plan") ? "plan" : j.kind.endsWith("_apply") ? "apply" : "fetch";
 });
 
@@ -139,6 +141,11 @@ const SAFEGUARDS = [
       <path :d="`M${byKey('apply').x + BW / 2},${byKey('apply').y} C ${byKey('apply').x + BW / 2},190 ${byKey('platform').x + BW / 2},200 ${byKey('platform').x + BW / 2},${byKey('platform').y + BH}`"
             class="flow back" marker-end="url(#arr)" />
       <text :x="byKey('verify').x + 40" y="200" class="hint">كتابة على المنصة بعد اعتمادك</text>
+      <!-- حزمة التحضير: فرع قراءة فقط من المنصة إلى سطح المكتب، لا يمر بالاعتماد ولا يكتب على المنصة -->
+      <path :d="`M${byKey('platform').x + BW / 2},${byKey('platform').y} L${byKey('platform').x + BW / 2},8 L${byKey('prep').x + BW / 2},8 L${byKey('prep').x + BW / 2},${byKey('prep').y}`"
+            class="flow side" marker-end="url(#arr)" />
+      <text :x="byKey('prep').x + 6" :y="byKey('prep').y + BH + 18" class="hint">التحضير والعروض وورقة العمل</text>
+      <text :x="byKey('prep').x + 6" :y="byKey('prep').y + BH + 34" class="hint">معدّلة + صف الرسالة الأسبوعية</text>
 
       <g v-for="s in STAGES" :key="s.key" :class="['node', tone(s.key), { human: s.human }]" :transform="`translate(${s.x},${s.y})`">
         <rect :width="BW" :height="BH" rx="14" />
@@ -205,6 +212,7 @@ svg { inline-size: 100%; block-size: auto; display: block; font-family: inherit;
 .hint { font-size: 12px; fill: var(--muted); text-anchor: start; }
 .flow { fill: none; stroke: var(--line); stroke-width: 2.5; }
 .flow.back { stroke-dasharray: 6 6; stroke: var(--brand); opacity: .7; }
+.flow.side { stroke-dasharray: 3 5; stroke: var(--muted); }
 .arrow-head { fill: var(--line); }
 .node rect { fill: var(--surface); stroke: var(--line); stroke-width: 1.5; }
 .node.ok rect { stroke: var(--brand); }

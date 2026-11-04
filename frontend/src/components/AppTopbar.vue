@@ -36,6 +36,9 @@ async function login() {
         </RouterLink>
         <RouterLink to="/lessons">الدروس</RouterLink>
         <RouterLink to="/content">المحتوى</RouterLink>
+        <RouterLink to="/live" class="live-link">
+          <i class="live-dot" :class="{ on: jobs.session?.worker_busy, off: jobs.workerDown }" aria-hidden="true" />مباشر
+        </RouterLink>
         <RouterLink to="/log">السجل</RouterLink>
         <RouterLink to="/automation">الأتمتة</RouterLink>
         <RouterLink to="/swot">SWOT والأداء</RouterLink>
@@ -78,5 +81,12 @@ async function login() {
   border-radius: 999px; background: var(--brand); color: var(--on-brand); font-size: 12px; margin-inline-start: 4px;
 }
 .as-btn { border: 0; cursor: pointer; font: inherit; font-size: 13px; }
+.live-link { display: inline-flex; align-items: center; gap: 6px; }
+.live-dot { inline-size: 8px; block-size: 8px; border-radius: 50%; background: var(--ok); }
+.live-dot.on { background: var(--brand); box-shadow: 0 0 0 0 var(--brand); animation: live-ping 1.4s infinite; }
+.live-dot.off { background: var(--bad); }
+@keyframes live-ping { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--brand) 60%, transparent); }
+  100% { box-shadow: 0 0 0 8px transparent; } }
+@media (prefers-reduced-motion: reduce) { .live-dot.on { animation: none; } }
 .as-btn:disabled { cursor: default; opacity: .8; }
 </style>

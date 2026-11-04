@@ -16,6 +16,7 @@ from django.utils import timezone
 
 from neo.infrastructure.client import NeoClient, NotLoggedIn
 from neo.models import PlatformClass, PlatformLesson, PublishProposal, SyncRun
+from neo.services import live
 
 ALREADY = "مطبّق على المنصة مسبقًا"
 
@@ -69,7 +70,8 @@ class PublishService:
         shown, games = {}, {}
         with client_factory() as client:  # لا ORM هنا
             for k in classes:
-                for pk, lid in dated[k.pk]:
+                for i, (pk, lid) in enumerate(dated[k.pk], 1):
+                    live.step(f"رؤية الدروس · {k.name}", i, len(dated[k.pk]))
                     shown[pk] = client.lesson_shown(k.lms_id, lid)
                 games[k.pk] = client.points_games(k.lms_id, any_lesson[k.pk]) if any_lesson[k.pk] else []
         with transaction.atomic():
@@ -129,7 +131,8 @@ class PublishService:
             points_error = ""
             if any(prop.add_points for prop in items):
                 points_error = game_error(p, client.points_games(lms_id, items[0].lesson.lms_lesson_id))
-            for prop in items:
+            for i, prop in enumerate(items, 1):
+                live.step(f"الدرس {prop.lesson.position}. {prop.lesson.title}", i, len(items))
                 lid = prop.lesson.lms_lesson_id
                 try:
                     results[prop.pk], state[prop.lesson_id] = self._apply_one(client, lms_id, lid, prop, p,

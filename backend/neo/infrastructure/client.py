@@ -3,6 +3,7 @@
 الدخول يتم يدويًا من المعلم مرة واحدة (neo_login)؛ لا تُخزَّن أي كلمة مرور.
 """
 import json
+import random
 import subprocess
 import sys
 import re
@@ -16,11 +17,14 @@ from playwright.sync_api import sync_playwright
 
 from neo.domain.assessment import POINTS, TF, Question
 from neo.domain.quality import ASSESSMENT_KINDS
+from neo.domain.types import FileLink, ParsedSection
+from neo.services import live
 from neo.infrastructure.parsers import (
     is_login_page,
     is_login_url,
     parse_available_outcomes,
     parse_default_visibility,
+    parse_file_links,
     parse_outcomes,
     parse_points_actions,
     parse_points_games,
@@ -98,7 +102,22 @@ class NeoClient:
         if self.cookies_path.exists():
             self.context.add_cookies(json.loads(self.cookies_path.read_text(encoding="utf-8")))
         self.page = self.context.pages[0] if self.context.pages else self.context.new_page()
+        self.page.on("response", self._on_response)  # التنقل في الصفحات يظهر في البث الحي
         return self
+
+    @staticmethod
+    def _on_response(resp) -> None:
+        try:
+            if resp.request.resource_type == "document" and resp.url.startswith(BASE_URL):
+                path = resp.url[len(BASE_URL):]
+                live.emit("net", live.page_label(path), status=resp.status, path=path.split("?")[0])
+        except Exception:  # noqa: BLE001 - البث لا يوقف العمل
+            pass
+
+    @staticmethod
+    def _net(path: str, status: int, started: float) -> None:
+        live.emit("net", live.page_label(path), status=status, path=path.split("?")[0],
+                  ms=round((time.monotonic() - started) * 1000))
 
     @property
     def cookies_path(self) -> Path:
@@ -119,13 +138,16 @@ class NeoClient:
         self._last = time.monotonic()
 
     def login_interactive(self, timeout_s: int = 600) -> None:
+        live.stage("نافذة الدخول مفتوحة: سجّل الدخول فيها بنفسك")
         self.page.goto(f"{BASE_URL}/user_dashboard")
         self.page.wait_for_url("**/user_dashboard**", timeout=timeout_s * 1000)
         self._save_cookies()
 
     def get_html(self, path: str) -> str:
         self._throttle()
+        started = time.monotonic()
         resp = self.context.request.get(f"{BASE_URL}{path}")
+        self._net(path, resp.status, started)
         html = resp.text()
         if is_login_url(resp.url) or is_login_page(html):
             raise NotLoggedIn("انتهت الجلسة - شغّل: python manage.py neo_login")
@@ -487,6 +509,67 @@ class NeoClient:
             self._save_cookies()
             if "/teacher_" not in self.page.url:
                 raise PlatformError(f"لم تتم العودة إلى عرض المعلم: {self.page.url}")
+
+    # ------------------------------------------------------------- حزمة التحضير (قراءة فقط)
+
+    PREP_DELAY = (3.0, 6.0)    # ثوانٍ بين طلبات الحزمة: المنصة تردّ 429 عند السرعة
+    RETRY_WAITS = (5, 20, 35)  # انتظار متزايد بعد كل 429
+
+    def _polite_get(self, path: str):
+        """GET داخل الجلسة بتمهّل 3–6 ث قبل كل طلب، وإعادة المحاولة عند 429 بانتظار 5 ثم 20 ثم 35 ث."""
+        for wait in (*self.RETRY_WAITS, None):
+            time.sleep(random.uniform(*self.PREP_DELAY))
+            self._last = time.monotonic()
+            resp = self.context.request.get(f"{BASE_URL}{path}", timeout=180_000)
+            self._net(path, resp.status, self._last)
+            if resp.status != 429:
+                return resp
+            if wait is None:
+                raise PlatformError(f"المنصة تردّ 429 (طلبات كثيرة) على {path.split('?')[0]} بعد {len(self.RETRY_WAITS)} محاولات")
+            live.emit("warn", f"المنصة طلبت التمهّل (429)؛ انتظار {wait} ث ثم إعادة المحاولة", retry=wait)
+            time.sleep(wait)
+
+    def _polite_html(self, path: str) -> str:
+        resp = self._polite_get(path)
+        html = resp.text()
+        if is_login_url(resp.url) or is_login_page(html):
+            raise NotLoggedIn("انتهت الجلسة - شغّل: python manage.py neo_login")
+        if not resp.ok:
+            raise PlatformError(f"GET {path} -> {resp.status}")
+        return html
+
+    def lesson_notes_files(self, lms_id: int, lesson_id: int) -> tuple[list[FileLink], str]:
+        """ملفات «ملاحظات المعلم»: التحضير والعرض وورقة العمل (والصفحة نفسها للتشخيص)."""
+        html = self._polite_html(f"/teacher_lesson/notes/{lms_id}?lesson_id={lesson_id}")
+        return parse_file_links(html), html
+
+    def section_files(self, lms_id: int, lesson_id: int, keep=None) -> list[tuple[ParsedSection, list[FileLink]]]:
+        """أقسام الدرس من نوع العرض (powerpoint) بترتيبها، ولكل منها ملفات العرض التي فيه.
+        keep(name, html): لحفظ الصفحات للتشخيص."""
+        sections = parse_sections(self._polite_html(f"/teacher_lesson/show/{lms_id}?lesson_id={lesson_id}"))
+        out = []
+        for sec in (s for s in sections if s.kind == "powerpoint"):
+            html = self._polite_html(f"/teacher_lesson/show/{lms_id}?lesson_id={lesson_id}&section_id={sec.section_id}")
+            if keep:
+                keep(f"section_{lesson_id}_{sec.section_id}.html", html)
+            out.append((sec, [f for f in parse_file_links(html) if f.ext in ("pptx", "ppt")]))
+        return out
+
+    def download(self, url: str, path: Path) -> int:
+        """ينزّل الملف داخل الجلسة إلى path (عبر ملف مؤقت ثم إعادة تسمية)؛ يعيد حجمه."""
+        resp = self._polite_get(url)
+        if is_login_url(resp.url):
+            raise NotLoggedIn("انتهت الجلسة - شغّل: python manage.py neo_login")
+        if not resp.ok:
+            raise PlatformError(f"تنزيل {url.split('?')[0]} -> {resp.status}")
+        body = resp.body()
+        if path.suffix.lower() in (".docx", ".pptx", ".xlsx") and body[:2] != b"PK":
+            raise PlatformError(f"لم يصل ملف صالح من {url.split('?')[0]} ({resp.headers.get('content-type', '?')})")
+        path.parent.mkdir(parents=True, exist_ok=True)
+        tmp = path.with_name(path.name + ".part")
+        tmp.write_bytes(body)
+        tmp.replace(path)
+        return len(body)
 
     def _assert_form(self):
         if is_login_url(self.page.url):

@@ -78,3 +78,18 @@ class ProposalDraft:
     lesson_id: int
     slot: Slot
     flags: list[str] = field(default_factory=list)
+
+
+@dataclass(frozen=True)
+class FileLink:
+    """رابط ملف في صفحة المنصة: /files/<file_id>/<stem>.<ext>?lmsauth=..."""
+    file_id: int
+    url: str    # المسار مع الاستعلام، يُطلب كما هو داخل الجلسة
+    name: str   # نص الرابط: اسم العرض كما يراه المعلم
+    stem: str   # الاسم المرمّز في المسار
+    ext: str    # docx | pptx | pdf ...
+
+    @property
+    def key(self) -> str:
+        """هوية الملف: الرقم مجلد على المنصة يتشاركه تحضير الدرس وعرضه، فالهوية الرقم مع الاسم."""
+        return f"{self.file_id}/{self.stem}.{self.ext}"

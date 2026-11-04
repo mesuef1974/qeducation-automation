@@ -12,7 +12,7 @@ from django.utils import timezone
 
 from neo.infrastructure.client import BrowserBusy, NeoClient, NotLoggedIn, PlatformError
 from neo.models import Job, SyncRun, WorkerHeartbeat
-from neo.services import pipeline, weekly_service
+from neo.services import live, pipeline, weekly_service
 from neo.services.sync_service import NoActiveClasses, active_classes
 
 # headless → مصنع عملاء؛ الاختبارات تمرّر مصنعًا وهميًا
@@ -35,6 +35,7 @@ PARAMS = {
     Job.Kind.SYNC_APPLY: {"run", "approve"},
     Job.Kind.ASSIGN_APPLY: {"run", "approve", "limit"},
     Job.Kind.PUBLISH_APPLY: {"run", "approve", "limit"},
+    Job.Kind.PREP_PACK: {"class", "week"},
 }
 
 
@@ -55,6 +56,8 @@ def _execute(job: Job, make: FactoryMaker, today: date) -> list[SyncRun]:
     factory = make(True)
     if job.kind == k.WEEKLY:
         return weekly_service.run(active_classes(p.get("classes")), factory, today, job.report)
+    if job.kind == k.PREP_PACK:
+        return pipeline.prep_pack(p["class"], p["week"], factory)
     if job.kind == k.CONTENT_APPLY:
         return pipeline.content_apply(p["run"], factory, p.get("approve"), p.get("lesson"))
     if job.kind in (k.SYNC_PLAN, k.ASSIGN_PLAN, k.PUBLISH_PLAN, k.VERIFY, k.AUDIT, k.CONTENT_PLAN):
@@ -116,11 +119,15 @@ class JobService:
 
     def run(self, job: Job, make: FactoryMaker = default_factory, today: date | None = None) -> Job:
         job.started_at = job.started_at or timezone.now()
+        live.start(job.pk, job.get_kind_display())
         try:
             runs = _execute(job, make, today or timezone.localdate())
             job.status, job.error_kind, job.error = Job.Status.DONE, Job.Error.NONE, ""
+            bad = sum(1 for r in runs if not r.ok)
+            live.end("done", f"تمت · {len(runs)} عملية" + (f"، {bad} تحتاج نظرك" if bad else " سليمة"))
         except Exception as exc:  # noqa: BLE001 - كل إخفاق يُسجَّل في المهمة ولا يوقف العامل
             job.status, job.error_kind, job.error = Job.Status.FAILED, _classify(exc), str(exc)[:1000]
+            live.end("failed", f"{job.get_error_kind_display()}: {str(exc)[:300]}")
             # المراحل تسجّل ما طُبّق قبل انقطاع الجلسة ثم ترفع الاستثناء؛ عامل واحد، فكل عملية منذ البداية لهذه المهمة
             runs = list(SyncRun.objects.filter(started_at__gte=job.started_at))
         job.finished_at = timezone.now()

@@ -44,10 +44,28 @@ def class_overview(klass: PlatformClass, today: date) -> dict:
                         "latest_run": latest}
     verify = klass.runs.filter(kind=SyncRun.Kind.VERIFY).first()
     return {
+        "prep": prep_overview(klass, today),
         "lessons": counts,
         "today": [_lesson(pl) for pl in lessons.filter(date=today).order_by("period")],
         "upcoming": [_lesson(pl) for pl in lessons.filter(date__gt=today).order_by("date", "period")[:3]],
         "review": review,
         "last_verify": verify and {"id": verify.pk, "ok": verify.ok, "at": verify.finished_at,
                                    "summary": verify.summary},
+    }
+
+
+PREP_KEYS = ("week", "week_range", "folder", "section", "lessons", "message", "pages_unknown", "downloads", "files",
+             "stale_years", "word_check", "same_as_previous", "platform_differs", "errors", "teacher_missing", "error")
+
+
+def prep_overview(klass: PlatformClass, today: date) -> dict:
+    """حزمة التحضير: أسابيع التدريس في الخطة (القادم أولًا للاختيار) وآخر حزمة بُنيت للصف."""
+    weeks = list(klass.plan.weeks.filter(week_type="تدريس").order_by("week_no")
+                 .values("week_no", "start_date", "end_date"))
+    upcoming = next((w["week_no"] for w in weeks if w["start_date"] > today), weeks[-1]["week_no"] if weeks else None)
+    last = klass.runs.filter(kind=SyncRun.Kind.PREP).first()
+    return {
+        "weeks": weeks, "next_week": upcoming,
+        "last": last and {"id": last.pk, "ok": last.ok, "at": last.finished_at or last.started_at,
+                          **{k: last.summary[k] for k in PREP_KEYS if k in last.summary}},
     }

@@ -1,6 +1,7 @@
 """
 إعدادات المشروع - تشغيل محلي فقط (loopback) بلا تسجيل دخول.
 """
+import json
 import os
 import secrets
 from pathlib import Path
@@ -92,6 +93,25 @@ NEO_WEEKLY = {"enabled": True, "weekday": 3, "hour": 14, "catchup_hours": 66, "w
 MEDIA_ROOT = BASE_DIR / "media"
 NEO_CONTENT_SOURCES = ("كتاب الطالب", "الكتاب التفاعلي")
 # الصفوف وربطها بالخطط في قاعدة البيانات (PlatformClass) لا هنا
+
+
+def _local_config() -> dict:
+    """إعدادات خاصة بهذا الجهاز خارج المستودع (config/local.json): أسماء لا تُحفظ في git."""
+    try:
+        return json.loads((BASE_DIR / "config" / "local.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+
+
+LOCAL_CONFIG = _local_config()
+# حزمة التحضير الأسبوعية (قراءة فقط من المنصة): مجلد للأسبوع على سطح المكتب فيه ملفات كل درس معدّلة
+NEO_PREP = {
+    "teacher": os.environ.get("NEO_TEACHER_NAME") or LOCAL_CONFIG.get("teacher_name", ""),
+    "folder": "W{week:03d} - {section}",              # مجلد الأسبوع؛ {section} مثل 12-2، فلا يتداخل صفّان
+    "dest_dir": os.environ.get("NEO_PREP_DEST", ""),  # فارغ = سطح المكتب الفعلي ([Environment]::GetFolderPath)
+    "cache_dir": BASE_DIR / "media" / "prep_cache",   # الأصول كما نُزّلت؛ التعديل دائمًا على نسخة منها
+    "word_check": True,                               # فتح ملف من كل قالب في Word وتصديره PDF للتحقق
+}
 
 # دخول تلقائي كمدير - يعمل فقط لطلبات loopback
 LOCAL_AUTO_LOGIN = True

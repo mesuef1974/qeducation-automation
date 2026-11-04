@@ -17,6 +17,7 @@ from neo.infrastructure import tile_image
 from neo.infrastructure.client import NeoClient, NotLoggedIn
 from neo.infrastructure.parsers import parse_outcomes
 from neo.models import ContentProposal, PlatformClass, PlatformLesson, SyncRun
+from neo.services import live
 
 Kind = ContentProposal.Kind
 # ما يُقترح لكل نقص يكشفه التدقيق
@@ -48,7 +49,8 @@ class ContentService:
         available: dict[int, list[dict]] = {}  # نتاجات الصف المتاحة للربط، لدرس بلا نتاجات وله رموز في البنك
         with client_factory() as client:  # لا ORM هنا
             for k in classes:
-                for pl in targets[k.pk]:
+                for i, pl in enumerate(targets[k.pk], 1):
+                    live.step(f"الدرس {pl.position}. {pl.title}", i, len(targets[k.pk]))
                     outcomes[pl.lms_lesson_id] = parse_outcomes(client.outcomes_html(k.lms_id, pl.lms_lesson_id))
                     if not outcomes[pl.lms_lesson_id] and question_bank.outcomes_for(pl.title):
                         available[pl.lms_lesson_id] = client.available_outcomes(k.lms_id, pl.lms_lesson_id)
@@ -126,7 +128,8 @@ class ContentService:
         results: dict[int, tuple[str, str]] = {}
         session_error = None
         with client_factory() as client:  # لا ORM هنا
-            for p in items:
+            for i, p in enumerate(items, 1):
+                live.step(f"{p.get_kind_display()} · الدرس {p.lesson.position}", i, len(items))
                 lid, pay = p.lesson.lms_lesson_id, p.payload
                 try:
                     if p.kind == Kind.DESCRIPTION:

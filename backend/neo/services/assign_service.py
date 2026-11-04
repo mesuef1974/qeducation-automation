@@ -15,6 +15,7 @@ from neo.domain.types import ParsedAssessment
 from neo.infrastructure.client import NeoClient, NotLoggedIn
 from neo.infrastructure.parsers import parse_assessments
 from neo.models import AssignProposal, PlatformAssessment, PlatformClass, PlatformLesson, SyncRun
+from neo.services import live
 
 FLAG_PAST_LESSON = "درس ماضٍ - المهلة من اليوم"
 AUTO_GIVE_NOTE = "المواعيد مضبوطة؛ تُسنده المنصة تلقائيًا حين يصير درسه الحالي"
@@ -120,7 +121,8 @@ class AssignService:
         with client_factory() as client:  # لا ORM هنا
             state = {a.lms_assignment_id: a.given for a in parse_assessments(client.assessments_html(lms_id))}
             to_give = []
-            for p in items:
+            for i, p in enumerate(items, 1):
+                live.step(f"مواعيد: {p.assessment.title}", i, len(items))
                 aid = p.assessment.lms_assignment_id
                 if state.get(aid):
                     results[p.pk] = (AssignProposal.Status.SKIPPED, "مُسند على المنصة")

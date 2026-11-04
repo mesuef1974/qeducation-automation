@@ -1,7 +1,7 @@
 import { api } from "./client";
 import type {
   ContentProposal,
-  Decision, Job, JobKind, JobParams, Lesson, Page, PlatformClass, Proposal, ProposalKind, Run, Scorecard, SessionState, WeeklyState,
+  Decision, Job, JobKind, JobParams, Lesson, LiveFeed, Page, PlatformClass, Proposal, ProposalKind, Run, Scorecard, SessionState, WeeklyState,
 } from "./types";
 
 function query(params: Record<string, string | number | undefined | null>): string {
@@ -29,4 +29,5 @@ export const neo = {
   weekly: () => api.get<WeeklyState>("neo/weekly/"),
   snapshot: () => api.post<void>("neo/scorecard/"),
   cancel: (id: number) => api.post<Job>(`neo/jobs/${id}/cancel/`),
+  live: (p: { since?: number; job?: number }) => api.get<LiveFeed>(`neo/live/${query(p)}`),
 };

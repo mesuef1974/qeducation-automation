@@ -15,6 +15,7 @@ from django.utils import timezone
 from neo.infrastructure.client import NeoClient
 from neo.infrastructure.parsers import parse_student_lessons
 from neo.models import PlatformClass, PlatformLesson, SyncRun
+from neo.services import live
 
 
 @dataclass
@@ -55,7 +56,10 @@ class VerifyService:
     def run(self, classes: list[PlatformClass], client_factory: Callable[[], NeoClient],
             today: date) -> list[SyncRun]:
         with client_factory() as client:  # لا ORM هنا
-            pages = {k.pk: client.student_view_html(k.lms_id) for k in classes}
+            pages = {}
+            for i, k in enumerate(classes, 1):
+                live.step(f"عرض {k.name} كطالب عام", i, len(classes))
+                pages[k.pk] = client.student_view_html(k.lms_id)
         return [self.record(k, *parse_student_lessons(pages[k.pk]), today) for k in classes]
 
     @transaction.atomic

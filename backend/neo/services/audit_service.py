@@ -13,6 +13,7 @@ from neo.domain.types import ParsedSection, ParsedTile
 from neo.infrastructure.client import NeoClient
 from neo.infrastructure.parsers import parse_sections, parse_tiles
 from neo.models import LessonAudit, PlatformClass, PlatformLesson, SyncRun
+from neo.services import live
 
 
 class AuditService:
@@ -22,8 +23,10 @@ class AuditService:
         with client_factory() as client:  # لا ORM هنا
             for k in classes:
                 tiles = parse_tiles(client.lesson_list_html(k.lms_id))
-                sections = {pl.lms_lesson_id: parse_sections(client.lesson_page_html(k.lms_id, pl.lms_lesson_id))
-                            for pl in lessons[k.pk]}
+                sections = {}
+                for i, pl in enumerate(lessons[k.pk], 1):
+                    live.step(f"أقسام الدروس · {k.name}", i, len(lessons[k.pk]))
+                    sections[pl.lms_lesson_id] = parse_sections(client.lesson_page_html(k.lms_id, pl.lms_lesson_id))
                 pages[k.pk] = (tiles, sections)
         return [self.record(k, lessons[k.pk], *pages[k.pk]) for k in classes]
 

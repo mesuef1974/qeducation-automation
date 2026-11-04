@@ -11,9 +11,9 @@ from rest_framework.response import Response
 
 from neo.api import serializers as s
 from neo.domain import assessment
-from neo.models import Job, PlatformClass, PlatformLesson, ProposalStatus, SyncRun
-from neo.services import review_service, scorecard_service, weekly_service
-from neo.services.job_service import JobService, session_state
+from neo.models import Job, PlatformClass, PlatformLesson, ProposalStatus, SyncRun, WorkerHeartbeat
+from neo.services import live, review_service, scorecard_service, weekly_service
+from neo.services.job_service import JobService, session_state, worker_alive
 from neo.services.pipeline import PROPOSALS, PipelineError
 
 
@@ -205,3 +205,52 @@ def weekly(request):
     return Response({"enabled": weekly_service.config()["enabled"], "next_at": weekly_service.next_run(now),
                      "due": weekly_service.due_cycle(now), "cycle": weekly_service.cycle_start(now).date(),
                      "last": s.JobSerializer(last).data if last else None})
+
+
+def _target(job: Job, names: dict[int, str]) -> str:
+    p = job.params
+    if p.get("class"):
+        return f"{names.get(p['class'], p['class'])}" + (f" · الأسبوع {p['week']}" if p.get("week") else "")
+    if p.get("classes"):
+        return "، ".join(names.get(c, str(c)) for c in p["classes"])
+    if p.get("run"):
+        return f"الاقتراح #{p['run']}" + (f" · أول {p['limit']}" if p.get("limit") else "")
+    return "كل الصفوف المفعّلة" if job.kind not in (Job.Kind.LOGIN,) else ""
+
+
+def _job_lite(job: Job, names: dict[int, str]) -> dict:
+    end = job.finished_at or timezone.now()
+    return {"id": job.pk, "kind": job.kind, "kind_label": job.get_kind_display(), "target": _target(job, names),
+            "status": job.status, "status_label": job.get_status_display(), "created_at": job.created_at,
+            "started_at": job.started_at, "finished_at": job.finished_at, "error": job.error,
+            "error_label": job.get_error_kind_display() if job.error_kind else "",
+            "seconds": round((end - job.started_at).total_seconds()) if job.started_at else None}
+
+
+@api_view(["GET"])
+def live_feed(request):
+    """
+    تبويب «مباشر»: /api/neo/live/?since=SEQ[&job=ID]
+    العامل ونبضه، والجلسة، والمهمة الجارية (أو آخر مهمة) بملخصها وأحداثها بعد since، والطابور، وآخر المهام.
+    """
+    since, job_id = _int_param(request, "since") or 0, _int_param(request, "job")
+    names = dict(PlatformClass.objects.values_list("lms_id", "name"))
+    running = Job.objects.filter(status=Job.Status.RUNNING).first()
+    if job_id:
+        focus = Job.objects.filter(pk=job_id).first()
+    else:
+        focus = running or Job.objects.filter(started_at__isnull=False).order_by("-started_at").first()
+    beat = WorkerHeartbeat.objects.filter(pk=1).first()
+    now = timezone.localtime()
+    weekly_cfg = weekly_service.config()
+    return Response({
+        "now": timezone.now(),
+        "worker": {"alive": worker_alive(), "pid": beat.pid if beat else None, "seen_at": beat.seen_at if beat else None},
+        "session": session_state(),
+        "job": focus and {**_job_lite(focus, names), "live": live.summary(focus.pk)},
+        "events": live.read(focus.pk, since) if focus else [],
+        "queue": [_job_lite(j, names) for j in Job.objects.filter(status=Job.Status.QUEUED).order_by("created_at")],
+        "recent": [_job_lite(j, names) for j in Job.objects.filter(status__in=[Job.Status.DONE, Job.Status.FAILED])
+                   .order_by("-finished_at")[:10]],
+        "weekly": {"enabled": weekly_cfg["enabled"], "next_at": weekly_service.next_run(now)},
+    })

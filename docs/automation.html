@@ -201,6 +201,15 @@ td.num { text-align: center; }
           <dt>متى</dt><dd>تلقائيًا بعد تطبيق النشر، أو وحدها في أي وقت.</dd>
         </dl>
       </article>
+      <article class="stage readonly" data-n="٥">
+        <div class="stage-head"><h3>حزمة التحضير الأسبوعية</h3><span class="pill read">قراءة فقط</span><code>neo_prep</code></div>
+        <dl>
+          <dt>ما تفعله</dt><dd>لصف وأسبوع من الخطة: مجلد على سطح المكتب فيه لكل درس التحضير والعرض وورقة العمل من «ملاحظات المعلم» وعروض أقسامه، وصف الرسالة الأسبوعية.</dd>
+          <dt>دروس الأسبوع</dt><dd>من الخطة لا من تواريخ المنصة: حصص بنود الأسبوع بعد طرح ما استهلكته الأسابيع السابقة، موزعة على حصص الجدول. إن اختلف العددان تتوقف وتطلب قرارك.</dd>
+          <dt>التعديل</dt><dd>العام الدراسي في كل الأجزاء (ومنها مربعات النص وخصائص الغلاف)، واسم المعلم، واليوم والتاريخ، وجدول المتابعة، وتاريخ ورقة العمل. المحتوى لا يُمس.</dd>
+          <dt>التحقق</dt><dd>لا يبقى 2024 ولا 2025، وملف من كل قالب يُفتح في Word ويُصدَّر PDF، والتشغيل الثاني يطابق الأول بايتًا ببايت.</dd>
+        </dl>
+      </article>
     </div>
   </section>
 
@@ -271,6 +280,7 @@ td.num { text-align: center; }
       <div class="cmd"><span class="what">اقتراح النشر</span><pre id="c4">python backend/manage.py neo_publish</pre><button type="button" data-copy="c4">نسخ</button></div>
       <div class="cmd"><span class="what">تطبيق اقتراح معتمد</span><pre id="c5">python backend/manage.py neo_publish --apply RUN --approve all</pre><button type="button" data-copy="c5">نسخ</button></div>
       <div class="cmd"><span class="what">التحقق كطالب</span><pre id="c6">python backend/manage.py neo_verify</pre><button type="button" data-copy="c6">نسخ</button></div>
+      <div class="cmd"><span class="what">حزمة التحضير</span><pre id="c7">python backend/manage.py neo_prep --class 602728 --week 11</pre><button type="button" data-copy="c7">نسخ</button></div>
     </div>
     <p class="eyebrow">لا يعمل أمران معًا؛ الثاني يرفض برسالة «المتصفح مشغول». ولحصر أي أمر في صف واحد أضف <code>--class LMS_ID</code>.</p>
   </section>

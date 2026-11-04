@@ -2,6 +2,7 @@
 import { ref } from "vue";
 
 import type { JobKind, PlatformClass } from "@/api/types";
+import PrepPackCard from "@/components/PrepPackCard.vue";
 import WeeklyCard from "@/components/WeeklyCard.vue";
 import { STAGES, todayIso } from "@/domain";
 import { useClassesStore } from "@/stores/classes";
@@ -39,6 +40,17 @@ const missing = (k: PlatformClass) => (k.overview.last_verify?.summary.missing_p
   <p v-else-if="!classes.items.length" class="empty">لا توجد صفوف مفعّلة. أضف صفًا من لوحة الإدارة.</p>
 
   <WeeklyCard />
+
+  <section v-if="classes.items.length" class="card prep-card" aria-label="حزمة التحضير الأسبوعية">
+    <header>
+      <h2>حزمة التحضير الأسبوعية</h2>
+      <small class="muted">
+        مجلد للأسبوع على سطح المكتب: التحضير والعرض وورقة العمل وعروض الأقسام لكل درس، والتحضيرات معدّلة
+        (العام واسم المعلم واليوم والتاريخ والحصة)، وصف الرسالة الأسبوعية. دروس الأسبوع من الخطة، والقراءة فقط من المنصة.
+      </small>
+    </header>
+    <PrepPackCard v-for="k in classes.items" :key="k.lms_id" :klass="k" />
+  </section>
 
   <section class="cards">
     <article v-for="k in classes.items" :key="k.lms_id" class="card klass">
@@ -115,6 +127,8 @@ const missing = (k: PlatformClass) => (k.overview.last_verify?.summary.missing_p
 </template>
 
 <style scoped>
+.prep-card { gap: 18px; }
+.prep-card h2 { font-size: 20px; margin: 0; }
 .klass { gap: 16px; }
 .k-head { display: flex; justify-content: space-between; align-items: start; gap: 12px; }
 .k-head h2 { font-size: 22px; }

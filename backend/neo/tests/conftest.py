@@ -14,3 +14,10 @@ def classes(db) -> dict[int, PlatformClass]:
     PlanImportService(settings.PLANS_DIR).run()
     return {lms: PlatformClass.objects.create(lms_id=lms, name=name, plan=Plan.objects.get(grade_level=g))
             for lms, (g, name) in CLASSES.items()}
+
+
+@pytest.fixture(autouse=True)
+def live_dir(settings, tmp_path):
+    """البث الحي يكتب في مجلد مؤقت أثناء الاختبارات، لا في media/ الحقيقي."""
+    settings.NEO_LIVE_DIR = tmp_path / "live"
+    return settings.NEO_LIVE_DIR

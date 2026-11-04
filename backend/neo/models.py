@@ -93,6 +93,7 @@ class SyncRun(models.Model):
         AUDIT = "audit", "تدقيق جودة الدروس"
         CONTENT_PLAN = "content_plan", "اقتراح محتوى"
         CONTENT_APPLY = "content_apply", "تطبيق محتوى"
+        PREP = "prep", "حزمة التحضير"
 
     klass = models.ForeignKey(PlatformClass, on_delete=models.CASCADE, related_name="runs", verbose_name="الصف")
     kind = models.CharField("النوع", max_length=20, choices=Kind.choices)
@@ -263,6 +264,7 @@ class Job(models.Model):
         AUDIT = "audit", "تدقيق جودة الدروس"
         CONTENT_PLAN = "content_plan", "اقتراح المحتوى"
         CONTENT_APPLY = "content_apply", "إضافة المحتوى المعتمد"
+        PREP_PACK = "prep_pack", "حزمة التحضير الأسبوعية"
 
     class Status(models.TextChoices):
         QUEUED = "queued", "في الانتظار"

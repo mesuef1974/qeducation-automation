@@ -15,6 +15,7 @@ from neo.domain.types import ParsedLesson, ParsedSlot, Target
 from neo.infrastructure.client import NeoClient, NotLoggedIn, PlatformError
 from neo.infrastructure.parsers import parse_lessons, parse_timetable
 from neo.models import DateProposal, PlatformClass, PlatformLesson, SyncRun, TimetableSlot
+from neo.services import live
 from neo.services.matching import match_sequence
 from neo.services.scheduling import LessonState, WeekSpan, build_slots, propose_dates
 
@@ -63,8 +64,10 @@ class SyncService:
         # Playwright (sync) يشغّل حلقة أحداث تمنع ORM داخلها؛ نجمع الصفحات أولًا ثم نحفظ بعد الإغلاق
         years = {k.pk: k.plan.academic_year for k in classes}
         pages = {}
+        live.stage("جلب الدروس والجدول من المنصة")
         with client_factory() as client:
-            for k in classes:
+            for i, k in enumerate(classes, 1):
+                live.step(f"قراءة {k.name}", i, len(classes))
                 pages[k.pk] = (client.lesson_list_html(k.lms_id), client.timetable_html(k.lms_id))
         parsed = {k.pk: (parse_lessons(pages[k.pk][0], years[k.pk]), parse_timetable(pages[k.pk][1])) for k in classes}
         empty = [k.name for k in classes if not parsed[k.pk][0]]
@@ -95,6 +98,7 @@ class SyncService:
                                                for s in set(slots)])
         klass.last_fetched_at = now
         klass.save(update_fields=["last_fetched_at"])
+        live.step(f"حُفظ {klass.name}: {len(lessons)} درسًا، {sum(1 for p in lessons if p.date)} مؤرخ")
         return SyncRun.objects.create(
             klass=klass, kind=SyncRun.Kind.FETCH, ok=True, finished_at=timezone.now(),
             summary={"lessons": len(lessons), "dated": sum(1 for p in lessons if p.date),

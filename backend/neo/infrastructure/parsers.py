@@ -4,7 +4,7 @@ from datetime import date
 
 from bs4 import BeautifulSoup
 
-from neo.domain.types import ParsedAssessment, ParsedLesson, ParsedSection, ParsedSlot, ParsedTile
+from neo.domain.types import FileLink, ParsedAssessment, ParsedLesson, ParsedSection, ParsedSlot, ParsedTile
 
 MONTHS = {m: i for i, m in enumerate(
     ["يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو", "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"], 1)}
@@ -193,3 +193,24 @@ def parse_question_text(html: str) -> str:
     """نص السؤال من صفحة عرضه في بنك الأسئلة: أول div.materialStyle بعد عنوان النوع، بلا وسوم ولا فراغات زائدة."""
     node = BeautifulSoup(html, "html.parser").select_one("div.materialStyle")
     return re.sub(r"\s+", " ", node.get_text(" ")).strip() if node else ""
+
+
+_FILE_HREF = re.compile(r"^(?:https?://[^/]+)?(/files/(\d+)/([^/?#]+?)\.(docx|pptx|pdf|doc|ppt|xlsx)(?:\?[^#]*)?)$", re.I)
+
+
+def parse_file_links(html: str) -> list[FileLink]:
+    """روابط الملفات في صفحة (ملاحظات المعلم، قسم عرض، مجلد مصادر) بترتيبها، بلا تكرار للملف نفسه.
+    اسم العرض هو نص الرابط؛ إن خلا فالعنوان، ثم الاسم المرمّز في المسار."""
+    out, seen = [], set()
+    for a in BeautifulSoup(html, "lxml").select("a[href*='/files/']"):
+        m = _FILE_HREF.match(a.get("href", "").strip())
+        if not m:
+            continue
+        name = a.get_text(" ", strip=True) or a.get("title", "").strip() or m.group(3)
+        link = FileLink(int(m.group(2)), m.group(1), name, m.group(3), m.group(4).lower())
+        if link.key not in seen:
+            seen.add(link.key)
+            out.append(link)
+    return out
+
+

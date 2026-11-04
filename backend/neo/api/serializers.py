@@ -140,6 +140,10 @@ class JobSerializer(serializers.ModelSerializer):
         for key in ("limit", "lesson"):
             if params.get(key) is not None and (not isinstance(params[key], int) or params[key] < 1):
                 raise serializers.ValidationError({"params": f"{key} عدد موجب"})
+        if attrs["kind"] == Job.Kind.PREP_PACK:
+            for key in ("class", "week"):
+                if not isinstance(params.get(key), int) or params[key] < 1:
+                    raise serializers.ValidationError({"params": f"{key} مطلوب (رقم موجب)"})
         classes = params.get("classes")
         if classes is not None and (not isinstance(classes, list) or not all(isinstance(c, int) for c in classes)):
             raise serializers.ValidationError({"params": "classes قائمة LMS IDs"})

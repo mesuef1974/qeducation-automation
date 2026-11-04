@@ -33,3 +33,6 @@ docs/report/out/
 
 # صور المحتوى المولّدة
 backend/media/
+
+# إعدادات خاصة بالجهاز (أسماء المعلمين): backend/config/local.json
+backend/config/local.json

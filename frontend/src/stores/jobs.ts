@@ -63,7 +63,8 @@ export const useJobsStore = defineStore("jobs", () => {
   /** هل هناك مهمة نشطة من هذا النوع (ولهذا الصف إن حُدّد)؟ لتعطيل الأزرار المكررة */
   function busy(kind: JobKind, lms?: number, run?: number) {
     return active.value.some((j) => j.kind === kind &&
-      (lms === undefined || !j.params.classes || j.params.classes.includes(lms)) &&
+      (lms === undefined || (j.params.class !== undefined ? j.params.class === lms
+        : !j.params.classes || j.params.classes.includes(lms))) &&
       (run === undefined || j.params.run === run));
   }
 
