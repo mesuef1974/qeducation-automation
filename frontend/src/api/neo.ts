@@ -27,6 +27,8 @@ export const neo = {
   editContent: (id: number, payload: Record<string, string>) =>
     api.post<ContentProposal>(`neo/proposals/content/${id}/edit/`, payload),
   weekly: () => api.get<WeeklyState>("neo/weekly/"),
+  /** الملخص الثابت أعلى «اليوم» قُرئ */
+  weeklyRead: () => api.post<{ read_at: string }>("neo/weekly/read/"),
   snapshot: () => api.post<void>("neo/scorecard/"),
   cancel: (id: number) => api.post<Job>(`neo/jobs/${id}/cancel/`),
   live: (p: { since?: number; job?: number }) => api.get<LiveFeed>(`neo/live/${query(p)}`),

@@ -237,6 +237,17 @@ def safety_state(request):
                      "resumed_at": st.resumed_at, "verify_failures": st.verify_failures})
 
 
+@api_view(["POST"])
+def weekly_read(request):
+    """الملخص الثابت أعلى «اليوم» يبقى حتى يقرأه المعلم (الخطوة 9): POST يعلّم آخر دورة منتهية مقروءة."""
+    last = Job.objects.filter(kind=Job.Kind.WEEKLY, finished_at__isnull=False).order_by("-created_at").first()
+    if not last:
+        raise NotFound("لم تُجرَ دورة بعد")
+    last.report = {**last.report, "read_at": timezone.now().isoformat()}
+    last.save(update_fields=["report"])
+    return Response({"read_at": last.report["read_at"]})
+
+
 @api_view(["GET"])
 def weekly(request):
     """الدورة الأسبوعية: موعدها القادم وآخر دورة بتقريرها."""

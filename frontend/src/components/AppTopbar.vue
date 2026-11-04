@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, onMounted } from "vue";
+import { useRoute, useRouter } from "vue-router";
 
 import { neo } from "@/api/neo";
 import { useConfirm } from "@/composables/useConfirm";
@@ -15,6 +16,18 @@ const confirm = useConfirm();
 
 const openReview = computed(() => classes.openReview.date + classes.openReview.assign + classes.openReview.publish);
 const loginQueued = computed(() => jobs.busy("login"));
+
+// زر «سجّل الدخول» في تنبيه ويندوز يفتح الموقع بـ ?login=1 (الخطوة 0)
+const route = useRoute();
+const router = useRouter();
+onMounted(async () => {
+  await router.isReady();
+  if (route.query.login !== "1") return;
+  const query = { ...route.query };
+  delete query.login;
+  await router.replace({ query });
+  await login();
+});
 
 /** مفتاح الإيقاف الآلي: تُعاد الكتابة على المنصة بعد أن يراجع المعلم السبب */
 async function resume() {

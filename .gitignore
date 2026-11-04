@@ -22,6 +22,7 @@ venv/
 
 # ويندوز
 desktop.ini
+.no_autostart
 Thumbs.db
 
 # الواجهة الأمامية: الحزم والمخرجات المبنية (تُبنى بـ npm run build)

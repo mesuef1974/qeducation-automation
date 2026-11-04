@@ -13,7 +13,7 @@ from django.utils import timezone
 from neo.domain.redact import scrub
 from neo.infrastructure.client import BrowserBusy, NeoClient, NotLoggedIn, PlatformError
 from neo.models import Job, SyncRun, WorkerHeartbeat
-from neo.services import live, pipeline, safety, weekly_service
+from neo.services import alerts, live, pipeline, safety, weekly_service
 from neo.services.sync_service import NoActiveClasses, active_classes
 
 # headless → مصنع عملاء؛ الاختبارات تمرّر مصنعًا وهميًا
@@ -37,6 +37,7 @@ PARAMS = {
     Job.Kind.ASSIGN_APPLY: {"run", "approve", "limit"},
     Job.Kind.PUBLISH_APPLY: {"run", "approve", "limit"},
     Job.Kind.PREP_PACK: {"class", "week"},
+    Job.Kind.SESSION: set(),
 }
 
 
@@ -55,6 +56,9 @@ def _execute(job: Job, make: FactoryMaker, today: date) -> list[SyncRun]:
             client.login_interactive(LOGIN_TIMEOUT)
         return []
     factory = make(True)
+    if job.kind == k.SESSION:
+        job.report = pipeline.check_session(factory)
+        return []
     if job.kind == k.WEEKLY:
         return weekly_service.run(active_classes(p.get("classes")), factory, today, job.report)
     if job.kind == k.PREP_PACK:
@@ -138,7 +142,18 @@ class JobService:
         job.finished_at = timezone.now()
         job.save(update_fields=["status", "started_at", "error_kind", "error", "finished_at", "report"])
         job.runs.set(runs)
+        self._after(job)
         return job
+
+    def _after(self, job: Job) -> None:
+        """بعد كل مهمة: ملخص الدورة بتنبيه ويندوز، ودخول صامت حين تنتهي الجلسة، وتنبيه إن تعذّر (الخطوة 0)."""
+        if job.kind == Job.Kind.WEEKLY:
+            alerts.weekly(job)
+        if job.status == Job.Status.FAILED and job.error_kind == Job.Error.SESSION:
+            if job.kind == Job.Kind.SESSION:
+                alerts.session_expired()
+            elif job.kind != Job.Kind.LOGIN:
+                self.enqueue(Job.Kind.SESSION)  # المهمة المتوقفة تُستأنف بعد الدخول (الدورة في due_cycle)
 
     def recover(self) -> int:
         """عند بدء العامل: ما بقي «قيد التشغيل» توقف عامله فجأة. وتُحجب أسرار بقيت في أخطاء قديمة."""

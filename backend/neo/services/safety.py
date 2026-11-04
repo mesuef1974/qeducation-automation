@@ -15,7 +15,7 @@ from django.db.models import QuerySet
 from django.utils import timezone
 
 from neo.models import AssignProposal, DateProposal, PlatformLesson, ProposalStatus, PublishProposal, SafetyState
-from neo.services import live
+from neo.services import alerts, live
 
 APPROVAL_TTL = timedelta(hours=48)
 FRESH_FOR = timedelta(hours=1)
@@ -38,6 +38,7 @@ def halt(reason: str) -> SafetyState:
     if not s.halted:
         s.halted, s.reason, s.halted_at = True, reason[:1000], timezone.now()
         s.save(update_fields=["halted", "reason", "halted_at"])
+        alerts.halted(reason)
     live.emit("error", f"أُوقفت الكتابة على المنصة: {reason}"[:500])
     return s
 

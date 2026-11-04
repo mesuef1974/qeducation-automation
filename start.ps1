@@ -8,6 +8,14 @@ $backend = Join-Path $root "backend"
 $site = "http://127.0.0.1:8765"
 $shell = if (Get-Command pwsh -ErrorAction SilentlyContinue) { "pwsh" } else { "powershell" }
 
+# التشغيل مع ويندوز والمراقبة كل 10 دقائق (v2): يُسجَّل أو يُحدَّث مرة واحدة، ما لم يلغه المعلم (autostart.ps1 -Remove)
+if (-not (Test-Path (Join-Path $root ".no_autostart"))) {
+    $task = Get-ScheduledTask -TaskName "QEducationAutomation" -ErrorAction SilentlyContinue
+    if (-not $task -or $task.Description -notlike "*(v2)*") {
+        try { & (Join-Path $root "autostart.ps1") | Out-Null } catch { Write-Host "تعذّر تسجيل التشغيل التلقائي: $_" }
+    }
+}
+
 function Start-Window([string]$title, [string]$command) {
     $style = if ($Background) { "Minimized" } else { "Normal" }
     Start-Process $shell -WorkingDirectory $backend -WindowStyle $style -ArgumentList "-NoExit", "-Command",

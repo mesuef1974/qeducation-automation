@@ -152,6 +152,26 @@ class NeoClient:
             time.sleep(wait)
         self._last = time.monotonic()
 
+    SSO_PATH = "/saml_sso/sso"  # «تسجيل الدخول بالحساب الرسمي» في صفحة الدخول (الدخول الموحد)
+
+    def login_silent(self, timeout_s: int = 45) -> bool:
+        """
+        الخطوة 0: دخول صامت بلا كلمة مرور: الدخول الموحد بجلسة الحساب المحفوظة في ملف متصفح الأتمتة.
+        لا يُكتب شيء في أي حقل؛ إن طلب مزوّد الهوية تفاعلًا (كلمة مرور أو تحقق) ينتهي الانتظار ويعيد False.
+        """
+        live.stage("دخول صامت بالحساب الرسمي", "platform")
+        try:
+            self._throttle()
+            self.page.goto(f"{BASE_URL}{self.SSO_PATH}")
+            self.page.wait_for_url(
+                lambda u: u.startswith(BASE_URL) and self.SSO_PATH not in u and not is_login_url(u),
+                timeout=timeout_s * 1000)
+            self.get_html("/user_dashboard")  # تأكيد: صفحة المعلم تفتح بلا تحويل إلى الدخول
+        except (PlaywrightError, NotLoggedIn):
+            return False
+        self._save_cookies()
+        return True
+
     def login_interactive(self, timeout_s: int = 600) -> None:
         live.stage("نافذة الدخول مفتوحة: سجّل الدخول فيها بنفسك", "platform")
         self.page.goto(f"{BASE_URL}/user_dashboard")

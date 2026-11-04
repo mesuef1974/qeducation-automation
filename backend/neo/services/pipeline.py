@@ -7,7 +7,7 @@ from datetime import date
 
 from django.utils import timezone
 
-from neo.infrastructure.client import NeoClient
+from neo.infrastructure.client import NeoClient, NotLoggedIn
 from neo.models import AssignProposal, ContentProposal, DateProposal, PlatformClass, PublishProposal, SyncRun
 from neo.services.assign_service import AssignService
 from neo.services.audit_service import AuditService
@@ -156,6 +156,21 @@ def prep_pack(lms_id: int, week: int, factory: Factory, policy: dict | None = No
         return fetched + [PrepService(policy).run(classes[0], week, factory)]
     except PackStopped as exc:
         raise PipelineError(str(exc)) from exc
+
+
+# ------------------------------------------------------------- الخطوة 0: الجلسة
+
+def check_session(factory: Factory) -> dict:
+    """الجلسة سارية؟ وإلا دخول صامت بالحساب الرسمي؛ وإن تعذّر يُرفع NotLoggedIn فيُنبَّه المعلم بزر الدخول."""
+    live.stage("فحص جلسة المنصة", "platform")
+    with factory() as client:
+        try:
+            client.get_html("/user_dashboard")
+            return {"ok": True, "relogged": False}
+        except NotLoggedIn:
+            if client.login_silent():
+                return {"ok": True, "relogged": True}
+    raise NotLoggedIn("انتهت الجلسة وتعذّر الدخول الصامت بالحساب الرسمي: سجّل الدخول من نافذة الدخول")
 
 
 PROPOSALS = {"date": DateProposal, "assign": AssignProposal, "publish": PublishProposal, "content": ContentProposal}

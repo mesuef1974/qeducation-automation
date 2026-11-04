@@ -191,7 +191,7 @@ export type Proposal = DateProposal | PublishProposal | AssignProposal | Content
 
 export type JobKind =
   | "login" | "sync_plan" | "sync_apply" | "assign_plan" | "assign_apply" | "publish_plan" | "publish_apply" | "verify"
-  | "weekly" | "audit" | "content_plan" | "content_apply" | "prep_pack";
+  | "weekly" | "audit" | "content_plan" | "content_apply" | "prep_pack" | "session";
 export type JobStatus = "queued" | "running" | "done" | "failed";
 
 export interface JobParams {
@@ -265,8 +265,16 @@ export interface WeeklyStage {
   applied?: number; failed?: number; ok?: boolean; anomaly?: string;
   /** الدورة للمراجعة فقط: لم يُعتمد شيء آليًا */
   review_only?: boolean;
+  /** الحد: عدد حصص الصف في النافذة */
+  limit?: number;
+  /** مرحلة حزمة التحضير: الأسبوع ومجلده أو سبب تعذّرها */
+  week?: number;
+  folder?: string;
+  error?: string;
 }
 export interface WeeklyReport {
+  /** الملخص ثابت أعلى «اليوم» حتى يقرأه المعلم */
+  read_at?: string;
   today?: string;
   horizon?: string;
   attention?: number;

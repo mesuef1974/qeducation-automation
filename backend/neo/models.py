@@ -294,6 +294,7 @@ class Job(models.Model):
         CONTENT_PLAN = "content_plan", "اقتراح المحتوى"
         CONTENT_APPLY = "content_apply", "إضافة المحتوى المعتمد"
         PREP_PACK = "prep_pack", "حزمة التحضير الأسبوعية"
+        SESSION = "session", "فحص الجلسة"
 
     class Status(models.TextChoices):
         QUEUED = "queued", "في الانتظار"

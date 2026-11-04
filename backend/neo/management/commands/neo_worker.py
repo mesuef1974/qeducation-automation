@@ -93,6 +93,8 @@ class Command(BaseCommand):
             self.stdout.write(self.style.WARNING(f"أُنهي {k} متصفحًا يتيمًا كان يقفل ملف الدخول."))
         self.stdout.write("العامل يعمل. (Ctrl+C للإيقاف)" if not once else "تنفيذ المهام المنتظرة...")
         beat(os.getpid())
+        if weekly_service.session_check_due(timezone.localtime(), on_start=True):  # الخطوة 0: عند تشغيل الجهاز
+            svc.enqueue(Job.Kind.SESSION)
         stop = threading.Event()
         threading.Thread(target=_pulse, args=(stop,), daemon=True).start()
         checked, code_checked = 0.0, time.monotonic()
@@ -111,7 +113,10 @@ class Command(BaseCommand):
                         os.execv(sys.executable, [sys.executable, *sys.argv])
                 if time.monotonic() - checked >= SCHEDULE_CHECK_S:  # الدورة الأسبوعية حين يحين موعدها
                     checked = time.monotonic()
-                    if due := weekly_service.enqueue_due(timezone.localtime(), svc.enqueue):
+                    now = timezone.localtime()
+                    if weekly_service.session_check_due(now):  # الخطوة 0: كل صباح قبل أي مهمة مجدولة
+                        svc.enqueue(Job.Kind.SESSION)
+                    if due := weekly_service.enqueue_due(now, svc.enqueue):
                         self.stdout.write(f"[#{due.pk}] حان موعد الدورة الأسبوعية {due.params['cycle']}")
                 job = svc.claim()
                 if job is None:

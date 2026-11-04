@@ -17,6 +17,12 @@ def classes(db) -> dict[int, PlatformClass]:
 
 
 @pytest.fixture(autouse=True)
+def no_toasts(settings):
+    """لا تنبيهات ويندوز أثناء الاختبارات."""
+    settings.NEO_NOTIFY = False
+
+
+@pytest.fixture(autouse=True)
 def live_dir(settings, tmp_path):
     """البث الحي يكتب في مجلد مؤقت أثناء الاختبارات، لا في media/ الحقيقي."""
     settings.NEO_LIVE_DIR = tmp_path / "live"
