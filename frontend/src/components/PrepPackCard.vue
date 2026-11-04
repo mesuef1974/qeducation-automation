@@ -3,7 +3,7 @@ import { computed, reactive, ref } from "vue";
 
 import type { PlatformClass, PrepLesson, PrepRun } from "@/api/types";
 import { useJobsStore } from "@/stores/jobs";
-import { fmtShort, fmtStamp } from "@/utils/format";
+import { fmtDay, fmtShort, fmtStamp } from "@/utils/format";
 
 /**
  * حزمة التحضير الأسبوعية لصف: مجلد الأسبوع على سطح المكتب (التحضير والعرض وورقة العمل وعروض الأقسام لكل درس،
@@ -30,12 +30,17 @@ async function build() {
   }
 }
 
-const roleLabel: Record<string, string> = { prep: "تحضير", worksheet: "ورقة عمل", presentation: "عرض", section: "عرض قسم" };
+// مسافات غير منكسرة: «عرض قسم ×2» لا ينقسم على سطرين في الجدول الضيق
+const roleLabel: Record<string, string> = {
+  prep: "تحضير", worksheet: "ورقة\u00a0عمل", presentation: "عرض", section: "عرض\u00a0قسم",
+};
 const filesLine = (l: PrepLesson) => {
   const n: Record<string, number> = {};
   for (const f of l.files) n[f.role] = (n[f.role] ?? 0) + 1;
-  return Object.entries(n).map(([r, c]) => (c > 1 ? `${roleLabel[r]} ×${c}` : roleLabel[r])).join("، ");
+  return Object.entries(n).map(([r, c]) => (c > 1 ? `${roleLabel[r]}\u00a0×${c}` : roleLabel[r])).join("، ");
 };
+/** دروس مواعيدها على المنصة غير مواعيد الخطة؛ التحضيرات تُكتب بمواعيد الخطة (قرار المعلم) */
+const differs = computed(() => (last.value?.lessons ?? []).filter((l) => l.platform_differs).length);
 const notes = (l: PrepLesson) => l.files.filter((f) => f.note).map((f) => f.note as string);
 const staleCount = computed(() => Object.keys(last.value?.stale_years ?? {}).length);
 
@@ -93,6 +98,11 @@ async function copyRow() {
         <p v-if="last.folder" class="folder"><span class="muted">المجلد:</span> <code>{{ last.folder }}</code>
           <span class="muted">· {{ last.files }} ملفًا، نُزّل منها {{ last.downloads }}</span></p>
 
+        <p v-if="differs" class="callout warn">
+          تختلف مواعيد المنصة عن الخطة في {{ differs }} من دروس هذا الأسبوع. التحضيرات مكتوبة بمواعيد الخطة،
+          والطلاب يرون مواعيد المنصة؛ موعد كل درس على المنصة في عمود «ملاحظات».
+        </p>
+
         <div class="table-wrap">
           <table>
             <thead><tr><th>#</th><th>الدرس</th><th>اليوم والحصة</th><th>الملفات</th><th>ملاحظات</th></tr></thead>
@@ -102,12 +112,15 @@ async function copyRow() {
                 <td>{{ l.part }}</td>
                 <td class="tight">{{ l.day }} {{ fmtShort(l.date) }} · ح{{ l.period }}</td>
                 <td>{{ filesLine(l) }}</td>
-                <td class="notes">
-                  <span v-for="m in l.missing" :key="m" class="pill warn">بلا {{ m }}</span>
-                  <span v-if="l.platform_differs" class="muted">
-                    على المنصة: {{ l.platform_date ? fmtShort(l.platform_date) : "بلا تاريخ" }}{{ l.platform_period ? ` ح${l.platform_period}` : "" }}
-                  </span>
-                  <span v-for="n in notes(l)" :key="n" class="muted">{{ n }}</span>
+                <td>
+                  <!-- flex على عنصر داخل الخلية لا على الخلية نفسها، وإلا خرجت من الجدول وانكسرت حدود الصف -->
+                  <div class="notes">
+                    <span v-for="m in l.missing" :key="m" class="pill warn">بلا {{ m }}</span>
+                    <span v-if="l.platform_differs" class="pill warn">
+                      على المنصة: {{ l.platform_date ? fmtDay(l.platform_date) : "بلا تاريخ" }}{{ l.platform_period ? ` · ح${l.platform_period}` : "" }}
+                    </span>
+                    <span v-for="n in notes(l)" :key="n" class="muted">{{ n }}</span>
+                  </div>
                 </td>
               </tr>
             </tbody>
@@ -137,7 +150,7 @@ async function copyRow() {
             <span class="pill" :class="c.ok === null ? 'info' : c.ok ? 'ok' : 'bad'">Word · {{ c.template }}</span>
             <template v-if="c.ok === null">{{ c.note }}</template>
             <template v-else-if="c.ok">
-              فتحه Word: العام {{ c.years_seen?.length ? `${c.years_seen.join("، ")}–${Number(c.years_seen[0]) + 1}` : "" }} في الرأس والتذييل،
+              فتحه Word: العام {{ c.years_seen?.length ? `\u200e${c.years_seen.join("، ")}–${Number(c.years_seen[0]) + 1}` : "" }} في الرأس والتذييل،
               والمعلم والتاريخ والمتابعة سليمة، وصُدّر PDF
             </template>
             <template v-else>{{ c.problems?.join("، ") }}</template>

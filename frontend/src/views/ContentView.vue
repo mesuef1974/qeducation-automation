@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref, watch } from "vue";
-import { useRoute, useRouter } from "vue-router";
+import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { onBeforeRouteLeave, useRoute, useRouter } from "vue-router";
 
 import { neo } from "@/api/neo";
 import type { ContentProposal } from "@/api/types";
@@ -42,6 +42,18 @@ watch(lms, load, { immediate: true });
 const stop = jobs.onFinished((j) => { if (j.kind.startsWith("content_")) void load(); });
 onBeforeUnmount(stop);
 
+// تعديل لم يُحفظ لا يضيع بمغادرة الصفحة أو إغلاقها دون تنبيه
+onBeforeRouteLeave(() => !unsaved.value || confirm({
+  title: "تعديل لم يُحفظ",
+  body: "عدّلتَ نص اقتراح ولم تحفظه ولم تعتمده. إن غادرت الصفحة ضاع التعديل.",
+  confirm: "غادر دون حفظ",
+}));
+const warnUnload = (e: BeforeUnloadEvent) => {
+  if (unsaved.value) e.preventDefault();
+};
+onMounted(() => window.addEventListener("beforeunload", warnUnload));
+onBeforeUnmount(() => window.removeEventListener("beforeunload", warnUnload));
+
 interface Group { lesson: ContentProposal["lesson"]; run: number; props: ContentProposal[] }
 const groups = computed<Group[]>(() => {
   const by = new Map<number, Group>();
@@ -58,7 +70,10 @@ const allApproved = computed(() => items.value.filter((p) => p.status === "appro
 const pending = (g: Group) => g.props.filter((p) => p.status === "pending");
 const approved = (g: Group) => g.props.filter((p) => p.status === "approved");
 const field = (p: ContentProposal) => (p.kind === "description" || p.kind === "assessment" || p.kind === "outcomes" ? "text" : p.kind === "section" ? "html" : "");
-const text = (p: ContentProposal) => drafts.value[p.id] ?? String(p.payload[field(p)] ?? "");
+/** النص المعروض: تعديلك غير المحفوظ ما دام الاقتراح قيد المراجعة، وإلا ما حُفظ فعلًا على الخادم */
+const text = (p: ContentProposal) =>
+  (p.status === "pending" ? drafts.value[p.id] : undefined) ?? String(p.payload[field(p)] ?? "");
+const unsaved = computed(() => Object.keys(drafts.value).length > 0);
 
 async function plan() {
   try {
@@ -68,22 +83,33 @@ async function plan() {
   }
 }
 
-async function save(p: ContentProposal) {
+/** يحفظ تعديل الاقتراح إن وُجد؛ false إن رفضه الخادم (صيغة التقييم مثلًا)، فيبقى التعديل في صندوقه */
+async function save(p: ContentProposal): Promise<boolean> {
   const f = field(p);
-  if (!f || drafts.value[p.id] === undefined) return;
+  if (!f || drafts.value[p.id] === undefined) return true;
   try {
     const updated = await neo.editContent(p.id, { [f]: drafts.value[p.id] });
     Object.assign(p, updated);
     delete drafts.value[p.id];
+    return true;
   } catch (e) {
-    error.value = (e as Error).message;
+    error.value = `لم يُحفظ تعديل «${p.kind_label}»: ${(e as Error).message}`;
+    return false;
   }
 }
 
 async function decide(ids: number[], decision: "approve" | "reject" | "reset") {
   if (!ids.length) return;
   try {
+    error.value = "";
+    if (decision === "approve") {
+      // تعديل لم يُحفظ يُحفظ قبل الاعتماد، وإلا اعتُمد النص الأصلي وبقي الصندوق يعرض تعديلك
+      for (const p of items.value.filter((x) => ids.includes(x.id) && drafts.value[x.id] !== undefined)) {
+        if (!(await save(p))) return;
+      }
+    }
     await neo.decide("content", ids, decision);
+    ids.forEach((id) => delete drafts.value[id]);
     await load();
   } catch (e) {
     error.value = (e as Error).message;

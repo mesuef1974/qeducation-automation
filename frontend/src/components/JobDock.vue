@@ -2,6 +2,7 @@
 import { computed, watch } from "vue";
 
 import type { Job } from "@/api/types";
+import { firstLine, jobTarget } from "@/domain";
 import { useClassesStore } from "@/stores/classes";
 import { useJobsStore } from "@/stores/jobs";
 
@@ -14,14 +15,10 @@ const SHOWN = 2; // المهام النشطة الظاهرة؛ الباقي سط
 const queue = computed(() => [...jobs.active].sort((a, b) =>
   Number(b.status === "running") - Number(a.status === "running") || a.id - b.id));
 
-function target(j: Job): string {
-  if (j.params.classes?.length) return j.params.classes.map((c) => classes.name(c)).join("، ");
-  if (j.params.run) return `الاقتراح #${j.params.run}${j.params.limit ? ` · أول ${j.params.limit}` : ""}`;
-  return "";
-}
+const target = (j: Job) => jobTarget(j.kind, j.params, classes.name);
 
 function outcome(j: Job): string {
-  if (j.status === "failed") return j.error || j.error_label;
+  if (j.status === "failed") return firstLine(j.error) || j.error_label;
   const bad = j.runs.filter((r) => !r.ok);
   return bad.length ? `انتهت مع ${bad.length} عملية تحتاج مراجعة` : `${j.runs.length} عملية سليمة`;
 }

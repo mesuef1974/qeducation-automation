@@ -3,7 +3,7 @@ import { onUnmounted, ref, watch } from "vue";
 
 import { neo } from "@/api/neo";
 import type { Job, Run } from "@/api/types";
-import { TONE } from "@/domain";
+import { firstLine, jobTarget, TONE } from "@/domain";
 import { useClassesStore } from "@/stores/classes";
 import { useJobsStore } from "@/stores/jobs";
 import { fmtStamp } from "@/utils/format";
@@ -57,11 +57,7 @@ watch([kind, lms], () => loadRuns());
 const off = jobsStore.onFinished(() => (tab.value === "jobs" ? loadJobs() : loadRuns()));
 onUnmounted(off);
 
-function target(j: Job) {
-  if (j.params.classes?.length) return j.params.classes.map((c) => classes.name(c)).join("، ");
-  if (j.params.run) return `الاقتراح #${j.params.run}${j.params.limit ? ` · أول ${j.params.limit}` : ""}`;
-  return "-";
-}
+const target = (j: Job) => jobTarget(j.kind, j.params, classes.name) || "-";
 </script>
 
 <template>
@@ -92,7 +88,13 @@ function target(j: Job) {
             <td><span class="pill" :class="TONE[j.status]">{{ j.status_label }}</span></td>
             <td>
               <template v-if="j.status === 'failed'">
-                <b class="err">{{ j.error_label }}</b> <small class="muted">{{ j.error }}</small>
+                <b class="err">{{ j.error_label }}</b>
+                <!-- خطأ المنصة قد يحمل سجل الطلب كاملًا: سطره الأول هنا، والباقي عند الطلب -->
+                <details v-if="j.error.includes('\n') || j.error.length > 120" class="more">
+                  <summary class="muted">{{ firstLine(j.error) }}</summary>
+                  <pre class="json">{{ j.error }}</pre>
+                </details>
+                <small v-else class="muted">{{ j.error }}</small>
               </template>
               <span v-for="r in j.runs" :key="r.id" class="pill" :class="r.ok ? 'prep' : 'bad'">
                 {{ r.kind_label }} #{{ r.id }}
@@ -146,4 +148,6 @@ function target(j: Job) {
 <style scoped>
 .err { color: var(--bad); }
 td .pill { margin-inline-end: 4px; }
+.more summary { cursor: pointer; font-size: 13px; }
+.more pre { margin-block-start: 6px; white-space: pre-wrap; overflow-wrap: anywhere; max-inline-size: 60ch; }
 </style>

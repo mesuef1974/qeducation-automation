@@ -71,7 +71,10 @@ function go(id: string) {
   }
   const target = doc()?.getElementById(id);
   if (!target || !frame.value) return;
-  const top = frame.value.getBoundingClientRect().top + target.getBoundingClientRect().top + window.scrollY - 112;
+  // فوق القسم: الشريط العلوي وشريط الأقسام، وكلاهما لاصق ويطول حين يلتف في الشاشة الضيقة
+  const stuck = (document.querySelector(".topbar")?.getBoundingClientRect().height ?? 50)
+    + (document.querySelector(".sections")?.getBoundingClientRect().height ?? 46) + 16;
+  const top = frame.value.getBoundingClientRect().top + target.getBoundingClientRect().top + window.scrollY - stuck;
   window.scrollTo({ top, behavior: "smooth" });
 }
 
@@ -125,7 +128,7 @@ onBeforeUnmount(() => {
 <style scoped>
 .actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .report-title { margin-block-end: -12px; }
-.sections { position: sticky; inset-block-start: 58px; z-index: 4; box-shadow: 0 2px 10px rgba(0, 0, 0, .06); }
+.sections { position: sticky; inset-block-start: calc(var(--topbar-h, 50px) + 8px); z-index: 4; box-shadow: 0 2px 10px rgba(0, 0, 0, .06); }
 .sections button:disabled { opacity: .5; cursor: default; }
 .report { inline-size: 100%; border: 0; display: block; background: transparent; }
 .report.hidden { position: absolute; visibility: hidden; block-size: 0 !important; }

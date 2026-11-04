@@ -10,6 +10,7 @@ from django.db import IntegrityError, transaction
 from django.db.models import Q
 from django.utils import timezone
 
+from neo.domain.redact import scrub
 from neo.infrastructure.client import BrowserBusy, NeoClient, NotLoggedIn, PlatformError
 from neo.models import Job, SyncRun, WorkerHeartbeat
 from neo.services import live, pipeline, weekly_service
@@ -126,8 +127,10 @@ class JobService:
             bad = sum(1 for r in runs if not r.ok)
             live.end("done", f"تمت · {len(runs)} عملية" + (f"، {bad} تحتاج نظرك" if bad else " سليمة"))
         except Exception as exc:  # noqa: BLE001 - كل إخفاق يُسجَّل في المهمة ولا يوقف العامل
-            job.status, job.error_kind, job.error = Job.Status.FAILED, _classify(exc), str(exc)[:1000]
-            live.end("failed", f"{job.get_error_kind_display()}: {str(exc)[:300]}")
+            # خطأ Playwright يحمل ترويسات الطلب ومنها كوكيز الجلسة: يُحجب قبل الحفظ والبث
+            error = scrub(str(exc))
+            job.status, job.error_kind, job.error = Job.Status.FAILED, _classify(exc), error[:1000]
+            live.end("failed", f"{job.get_error_kind_display()}: {error[:300]}")
             # المراحل تسجّل ما طُبّق قبل انقطاع الجلسة ثم ترفع الاستثناء؛ عامل واحد، فكل عملية منذ البداية لهذه المهمة
             runs = list(SyncRun.objects.filter(started_at__gte=job.started_at))
         job.finished_at = timezone.now()
@@ -136,10 +139,21 @@ class JobService:
         return job
 
     def recover(self) -> int:
-        """عند بدء العامل: ما بقي «قيد التشغيل» توقف عامله فجأة."""
+        """عند بدء العامل: ما بقي «قيد التشغيل» توقف عامله فجأة. وتُحجب أسرار بقيت في أخطاء قديمة."""
+        self.scrub_errors()
         return Job.objects.filter(status=Job.Status.RUNNING).update(
             status=Job.Status.FAILED, error_kind=Job.Error.UNEXPECTED, error="توقف العامل أثناء التنفيذ",
             finished_at=timezone.now())
+
+    def scrub_errors(self) -> int:
+        """أخطاء حُفظت قبل الحجب (كوكيز الجلسة في سجل Playwright) تُحجب في مكانها، وما سواها لا يُمس."""
+        maybe = Q(error__icontains="cookie") | Q(error__icontains="authorization") | Q(error__icontains="session")
+        n = 0
+        for pk, error in Job.objects.filter(maybe).values_list("pk", "error"):
+            clean = scrub(error)
+            if clean != error:
+                n += Job.objects.filter(pk=pk).update(error=clean)
+        return n
 
     def cancel(self, job: Job) -> bool:
         """تُلغى المهمة المنتظرة فقط؛ الجارية لا تُقطع حتى لا تبقى المنصة في حالة وسطى."""

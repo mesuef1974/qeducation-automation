@@ -18,7 +18,9 @@ const classes = useClassesStore();
 const jobs = useJobsStore();
 const confirm = useConfirm();
 
-const kind = computed<ProposalKind>(() => (route.params.kind as ProposalKind) || "publish");
+// بلا مرحلة في الرابط: أول مرحلة فيها ما ينتظرك، وإلا أولها (التواريخ)
+const kind = computed<ProposalKind>(() => (route.params.kind as ProposalKind)
+  || STAGES.find((s) => classes.openReview[s.kind])?.kind || "date");
 const stage = computed(() => stageOf(kind.value));
 const lms = computed(() => Number(route.query.class) || undefined);
 /** open: المعلّق والمعتمد من كل العمليات · latest: آخر اقتراح لكل صف بكل حالاته */
@@ -240,7 +242,7 @@ const asPublish = (p: Proposal) => p as PublishProposal;
 </template>
 
 <style scoped>
-.bulk { position: sticky; inset-block-start: 56px; z-index: 5; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px 14px; }
+.bulk { position: sticky; inset-block-start: calc(var(--topbar-h, 50px) + 6px); z-index: 5; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px 14px; }
 .group { display: grid; gap: 8px; }
 .g-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
 .check { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; }

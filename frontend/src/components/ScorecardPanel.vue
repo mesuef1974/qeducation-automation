@@ -40,12 +40,14 @@ function tone(c: Criterion): [string, string] {
   return r >= 1 ? ["ok", "محقق"] : r >= 0.6 ? ["warn", "قريب"] : ["bad", "فجوة"];
 }
 
-function delta(c: Criterion): string {
+/** الفرق عن خط الأساس؛ المعايير كلها «الأعلى أفضل»، فالسالب تراجع */
+function delta(c: Criterion): number | null {
   const base = card.value?.baseline?.criteria.find((b) => b.key === c.key)?.value;
-  if (base == null || c.value == null || base === c.value) return "";
-  const d = Math.round((c.value - base) * 10) / 10;
-  return `${d > 0 ? "+" : ""}${d} عن خط الأساس`;
+  if (base == null || c.value == null || base === c.value) return null;
+  return Math.round((c.value - base) * 10) / 10;
 }
+// علامة LRM أولًا، وإلا ظهرت الإشارة يمين الرقم في السطر العربي («25.3+»)
+const signed = (d: number) => `\u200e${d > 0 ? "+" : ""}${d}`;
 
 type Cap = ScorecardData["capabilities"][number];
 const capTone = (c: Cap) => (c.automated ? "info" : c.used ? "ok" : c.enabled ? "warn" : "prep");
@@ -93,7 +95,9 @@ onMounted(load);
           النضج {{ c.level }} من 4 · المستهدف {{ c.target_level }}
         </small>
         <p class="detail">{{ c.detail }}</p>
-        <small v-if="delta(c)" class="delta">{{ delta(c) }}</small>
+        <small v-if="delta(c) !== null" class="delta" :class="{ down: delta(c)! < 0 }">
+          {{ signed(delta(c)!) }} عن خط الأساس
+        </small>
         <p v-if="c.next" class="next">الخطوة التالية: {{ c.next }}</p>
       </article>
     </section>
@@ -155,6 +159,7 @@ onMounted(load);
 .detail { margin: 0; font-size: 13px; }
 .next { margin: 0; font-size: 13px; color: var(--maroon); }
 .delta { color: var(--ok); }
+.delta.down { color: var(--bad); }
 .bar { block-size: 8px; border-radius: 999px; background: var(--code-bg); overflow: hidden; }
 .bar i { display: block; block-size: 100%; border-radius: inherit; background: var(--muted); }
 .bar i.ok { background: var(--ok); }

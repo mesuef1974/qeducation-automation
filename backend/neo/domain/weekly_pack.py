@@ -12,6 +12,7 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import date
 
+from neo.domain.bidi import LRM, latin_item
 from neo.domain.question_bank import part_of, topic_of
 from neo.domain.types import FileLink, Slot
 from neo.services.matching import normalize, strip_part
@@ -237,7 +238,7 @@ def book_for(grade: int, term: int, tracks: str) -> Book | None:
 
 
 def week_pages(book: Book | None, lessons: list[PackLesson]) -> tuple[str, list[str]]:
-    """(«144–163»، الدروس التي لا صفحات لها في الجدول)."""
+    """(«144–163»، الدروس التي لا صفحات لها في الجدول). النطاق بعلامة LRM حتى لا يظهر «163–144» في السطر العربي."""
     if book is None:
         return "", sorted({pl.code for pl in lessons})
     known = [pl for pl in lessons if pl.code in book.lessons]
@@ -247,18 +248,18 @@ def week_pages(book: Book | None, lessons: list[PackLesson]) -> tuple[str, list[
     first = min(book.lessons[pl.code][0] for pl in known)
     last_lesson = known[-1]
     last = book.part_end.get((last_lesson.code, last_lesson.part), book.lessons[last_lesson.code][1])
-    return f"{first}–{last}", unknown
+    return f"{LRM}{first}–{last}", unknown
 
 
 def topics_text(lessons: list[PackLesson]) -> str:
-    """«الدوال المتزايدة والمتناقصة (2–4)، القيم القصوى للدوال (1–3)»."""
+    """«الدوال المتزايدة والمتناقصة (2–4)، القيم القصوى للدوال (1–3)»، والنطاق بعلامة LRM فلا يُقلب."""
     groups: dict[str, list[int]] = {}
     for pl in lessons:
         groups.setdefault(pl.plan_title, []).append(pl.part)
     out = []
     for title, parts in groups.items():
         lo, hi = min(parts), max(parts)
-        out.append(f"{title} ({lo})" if lo == hi else f"{title} ({lo}–{hi})")
+        out.append(f"{title} ({lo})" if lo == hi else f"{title} ({LRM}{lo}–{hi})")
     return "، ".join(out)
 
 
@@ -291,7 +292,9 @@ def _ex_key(n: str) -> tuple[int, str]:
 
 
 def homework_text(exercises: dict[int, list[str]], final_assessments: int) -> str:
-    parts = [f"ص{page}: {'، '.join(sorted(nums, key=_ex_key))}" for page, nums in sorted(exercises.items())]
+    # «17a» تُتبع بعلامة RLM، وإلا انقلب ترتيب ما بعدها من أرقام في السطر العربي
+    parts = [f"ص{page}: {'، '.join(latin_item(n) for n in sorted(nums, key=_ex_key))}"
+             for page, nums in sorted(exercises.items())]
     text = ("تدريبات كتاب الطالب " + "؛ ".join(parts)) if parts else ""
     if final_assessments:
         tail = f"التقييم الختامي على المنصة ({final_assessments})"

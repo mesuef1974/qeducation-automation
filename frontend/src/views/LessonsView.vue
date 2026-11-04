@@ -114,13 +114,16 @@ const today = todayIso();
           </td>
           <td><span class="pill" :class="l.hidden ? 'bad' : 'ok'">{{ l.hidden ? "مخفي" : "ظاهر" }}</span></td>
           <td><span v-if="l.awards_points" class="pill ok">نعم</span><span v-else class="pill warn">لا</span></td>
-          <td class="quality">
-            <template v-if="l.audit">
-              <span v-if="!l.audit.issues.length" class="pill ok" :title="l.audit.sections.join('، ')">مستوفٍ</span>
-              <span v-for="x in l.audit.issue_labels" v-else :key="x" class="pill warn"
-                    :title="l.audit.sections.length ? `الأقسام: ${l.audit.sections.join('، ')}` : 'بلا أقسام'">{{ x }}</span>
-            </template>
-            <span v-else class="muted">-</span>
+          <td>
+            <!-- flex على عنصر داخل الخلية لا على الخلية نفسها، وإلا انكسرت حدود الصف -->
+            <div class="quality">
+              <template v-if="l.audit">
+                <span v-if="!l.audit.issues.length" class="pill ok" :title="l.audit.sections.join('، ')">مستوفٍ</span>
+                <span v-for="x in l.audit.issue_labels" v-else :key="x" class="pill warn"
+                      :title="l.audit.sections.length ? `الأقسام: ${l.audit.sections.join('، ')}` : 'بلا أقسام'">{{ x }}</span>
+              </template>
+              <span v-else class="muted">-</span>
+            </div>
           </td>
         </tr>
         <tr v-if="!shown.length"><td colspan="8" class="muted">لا دروس تطابق التصفية.</td></tr>

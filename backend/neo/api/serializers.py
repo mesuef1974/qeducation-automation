@@ -1,6 +1,8 @@
 from rest_framework import serializers
 
+from neo.domain.bidi import fix_ranges
 from neo.domain.quality import ISSUES
+from neo.domain.redact import scrub
 from neo.models import (
     AssignProposal, ContentProposal, DateProposal, Job, LessonAudit, PlatformClass, PlatformLesson, PublishProposal,
     SyncRun,
@@ -9,13 +11,17 @@ from neo.services.job_service import PARAMS
 
 
 class ClassSerializer(serializers.ModelSerializer):
-    plan_title = serializers.CharField(source="plan.__str__", read_only=True)
+    plan_title = serializers.SerializerMethodField()
     overview = serializers.SerializerMethodField()
 
     class Meta:
         model = PlatformClass
         fields = ["lms_id", "name", "active", "plan", "plan_title", "points_game", "points", "last_fetched_at",
                   "overview"]
+
+    def get_plan_title(self, obj):
+        # «الرياضيات - المستوى 10 - 2026-2027 ف1»: العام بعلامة LRM، وإلا ظهر «2027-2026»
+        return fix_ranges(str(obj.plan)) if obj.plan else None
 
     def get_overview(self, obj):
         return self.context.get("overviews", {}).get(obj.pk)
@@ -58,6 +64,11 @@ class _ProposalSerializer(serializers.ModelSerializer):
     lms_id = serializers.IntegerField(source="run.klass.lms_id", read_only=True)
 
     BASE = ["id", "run", "lms_id", "status", "status_label", "error", "applied_at"]
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        data["error"] = scrub(data.get("error"))  # خطأ المنصة قد يحمل كوكيز الجلسة
+        return data
 
 
 class _LessonProposalSerializer(_ProposalSerializer):
@@ -128,6 +139,11 @@ class JobSerializer(serializers.ModelSerializer):
         fields = ["id", "kind", "kind_label", "params", "status", "status_label", "created_at", "started_at",
                   "finished_at", "error_kind", "error_label", "error", "runs", "report"]
         read_only_fields = ["report", "status", "created_at", "started_at", "finished_at", "error_kind", "error"]
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        data["error"] = scrub(data.get("error"))  # خطأ المنصة قد يحمل كوكيز الجلسة
+        return data
 
     def validate(self, attrs):
         params, allowed = attrs.get("params") or {}, PARAMS[attrs["kind"]]

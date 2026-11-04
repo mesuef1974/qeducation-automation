@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pytest
 
+from neo.domain.bidi import LRM
 from neo.domain.types import FileLink, ParsedLesson, ParsedSection, ParsedSlot
 from neo.infrastructure import docx_prep
 from neo.infrastructure.parsers import parse_date_label
@@ -249,7 +250,8 @@ def test_prep_pack_week_11(klass, blobs, tmp_path):
     ws = week_dir / "52 - القيم القصوى للدوال 1" / "ورقة عمل - ورقة عمل التهيئة.docx"
     assert "10/11/2026" in zipfile.ZipFile(ws).read("word/document.xml").decode()
     msg = (week_dir / MESSAGE_FILE).read_text(encoding="utf-8-sig").splitlines()
-    assert msg[1].split("\t")[:3] == ["12/2", "الدوال المتزايدة والمتناقصة (2–4)، القيم القصوى للدوال (1–3)", "144–163"]
+    assert msg[1].split("\t")[:3] == ["12/2", f"الدوال المتزايدة والمتناقصة ({LRM}2–4)، القيم القصوى للدوال ({LRM}1–3)",
+                                      f"{LRM}144–163"]
     assert "ص151: 7" in s["message"]["row"][3] and "(6)" in s["message"]["row"][3]
     assert s["message"]["row"][4] == "لا يوجد"
     assert s["stale_years"] == {}

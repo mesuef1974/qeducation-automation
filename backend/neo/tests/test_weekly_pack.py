@@ -5,6 +5,7 @@ from datetime import date
 import pytest
 
 from neo.domain import weekly_pack as wp
+from neo.domain.bidi import LRM, RLM
 from neo.domain.types import FileLink
 from neo.services.scheduling import WeekSpan
 
@@ -118,7 +119,7 @@ def test_file_names():
 def test_message_row():
     pack = wp.select_week(ENTRIES, lessons(), WEEK_11, TIMETABLE_12_2)
     book = wp.book_for(12, 1, "العلمي والتكنولوجي")
-    assert wp.week_pages(book, pack) == ("144–163", [])
+    assert wp.week_pages(book, pack) == (f"{LRM}144–163", [])
     assert wp.week_pages(None, pack) == ("", ["3.1", "3.2"])
     assert wp.book_for(10, 1, "") is None
     texts = [
@@ -130,12 +131,12 @@ def test_message_row():
     ex = wp.book_exercises(texts)
     assert ex == {151: ["20a", "6", "19", "20", "7"], 166: ["6"]}
     hw = wp.homework_text(ex, 6)
-    assert hw == "تدريبات كتاب الطالب ص151: 6، 7، 19، 20، 20a؛ ص166: 6، والتقييم الختامي على المنصة (6)"
+    assert hw == f"تدريبات كتاب الطالب ص151: 6، 7، 19، 20، 20a{RLM}؛ ص166: 6، والتقييم الختامي على المنصة (6)"
     assert wp.homework_text({}, 0) == ""
     assert wp.tests_text([]) == "لا يوجد"
     assert wp.tests_text([("اختبار قصير", date(2026, 11, 10), date(2026, 11, 10))]) == "اختبار قصير (10/11/2026)"
     row = wp.message_row("12/2", pack, "144–163", hw, "لا يوجد")
-    assert row[:3] == ["12/2", f"{INC} (2–4)، {EXT} (1–3)", "144–163"] and row[-1] == ""
+    assert row[:3] == ["12/2", f"{INC} ({LRM}2–4)، {EXT} ({LRM}1–3)", "144–163"] and row[-1] == ""
     tsv = wp.message_tsv(row).splitlines()
     assert tsv[0].split("\t") == list(wp.MESSAGE_HEADER) and len(tsv[1].split("\t")) == 6
 

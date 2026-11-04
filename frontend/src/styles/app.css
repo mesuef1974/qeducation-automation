@@ -2,6 +2,8 @@
  * أنماط التطبيق فوق tokens.css وpages.css. خصائص منطقية فقط (inline/block)، فالتخطيط يمينيّ أصلًا.
  */
 .page { max-inline-size: 1180px; margin-inline: auto; padding-block: 24px 120px; display: grid; gap: 24px; }
+/* --topbar-h: ارتفاع الشريط العلوي الفعلي يضبطه App.vue؛ 50px على الشاشة الواسعة، وأكثر حين يلتف */
+html { scroll-padding-top: calc(var(--topbar-h, 56px) + 16px); }
 .page-head { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 12px; }
 .page-head h1 { font-size: clamp(24px, 4vw, 32px); }
 .page-head p { color: var(--muted); }
@@ -10,10 +12,18 @@
   background: var(--maroon-soft); color: var(--maroon);
 }
 .topbar .pill { flex: 0 0 auto; }
+/* محتوى الشريط بعرض .page (1180px) فتتحاذى الحواف؛ و32px لحشوته الجانبية (pages.css: 1040px لصفحات docs) */
+.topbar .in { max-width: calc(1180px + 32px); }
 @media (max-width: 760px) {
   .topbar .in { flex-wrap: wrap; }
   .topbar .mark { flex: 1; }
   .topbar nav { order: 3; flex-basis: 100%; }
+}
+@media (max-width: 560px) {
+  /* الجوال: زر الثيم أيقونة فقط (اسمه في aria-label)، فيتسع السطر الأول للهوية وحالة الجلسة، والتنقل في الثاني */
+  .topbar .in { column-gap: 8px; }
+  .topbar .theme-toggle { padding-inline: 8px; }
+  .topbar .theme-toggle span { display: none; }
 }
 
 /* الأزرار */

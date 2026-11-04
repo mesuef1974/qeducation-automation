@@ -10,14 +10,28 @@ import { useJobsStore } from "@/stores/jobs";
 const jobs = useJobsStore();
 const classes = useClassesStore();
 let off: (() => void) | undefined;
+let bar: ResizeObserver | undefined;
 
 onMounted(() => {
   jobs.refresh();
   classes.load();
   // كل مهمة تنتهي قد تغيّر الملخصات (اقتراح جديد، تطبيق، تحقق)
   off = jobs.onFinished(() => classes.load());
+  // ارتفاع الشريط العلوي الفعلي (يلتف على سطرين أو ثلاثة في الشاشة الضيقة) للأشرطة اللاصقة تحته (app.css)
+  const top = document.querySelector<HTMLElement>(".topbar");
+  if (top) {
+    const set = () => document.documentElement.style.setProperty("--topbar-h", `${top.offsetHeight}px`);
+    set(); // فورًا، فالمراقب لا يُبلغ في لسان مخفي حتى يُعرض
+    if ("ResizeObserver" in window) {
+      bar = new ResizeObserver(set);
+      bar.observe(top);
+    }
+  }
 });
-onUnmounted(() => off?.());
+onUnmounted(() => {
+  off?.();
+  bar?.disconnect();
+});
 </script>
 
 <template>
