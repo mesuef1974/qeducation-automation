@@ -1,0 +1,11 @@
+{
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          { "type": "command", "command": "python .claude/hooks/inbox.py --hook", "timeout": 10 }
+        ]
+      }
+    ]
+  }
+}
