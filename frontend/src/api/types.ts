@@ -342,8 +342,8 @@ export interface Usage {
   /** نتيجة الاستيراد عند «حدّث الآن» (POST)؛ null في القراءة العادية. pending = بقي ما يُستأنف */
   imported: { files: number; new: number; pending: boolean } | null;
   imported_at: string | null;
+  /** أول خطوة مستوردة؛ null = لا سجلات بعد */
   first: string | null;
-  last: string | null;
   totals: Record<UsagePeriod, UsageSum>;
   models: Record<UsagePeriod, UsageByModel[]>;
   groups: Record<UsagePeriod, UsageByGroup[]>;
@@ -355,7 +355,7 @@ export interface Usage {
 export interface UsageByModel extends UsageSum { model: string }
 export interface UsageByGroup { name: string; effective: number }
 export interface UsageByProject { project: string; effective: number; turns: number }
-export interface UsageDay { day: string; effective: number; tokens: number; turns: number; output: number }
+export interface UsageDay { day: string; effective: number; tokens: number; turns: number }
 export interface UsageSessionRow extends UsageSum { session: string; project: string; first: string; last: string; models: string[] }
 
 /** تبويب «مباشر»: البث الحي من العامل */

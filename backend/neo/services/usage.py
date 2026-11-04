@@ -238,13 +238,13 @@ def build(today: date | None = None, days: int = 30, session: str | None = None)
     periods = {"today": all_.filter(day=today), "week": all_.filter(day__range=(week_start, today)),
                "month": all_.filter(day__range=(month_start, today)), "session": all_.filter(session__session_id=session)}
     daily = {r["day"]: r for r in all_.filter(day__range=(today - timedelta(days=days - 1), today)).values("day")
-             .annotate(eff=Sum(_eff()), n=Count("pk"), o=Sum("output_tokens"),
+             .annotate(eff=Sum(_eff()), n=Count("pk"),
                        t=Sum(F("input_tokens") + F("cache_read") + F("cache_write") + F("output_tokens")))}
     series = []
     for d in (today - timedelta(days=i) for i in range(days - 1, -1, -1)):
         r = daily.get(d, {})
         series.append({"day": d, "effective": round(r.get("eff") or 0), "tokens": r.get("t") or 0,
-                       "turns": r.get("n") or 0, "output": r.get("o") or 0})
+                       "turns": r.get("n") or 0})
     rows = (UsageSession.objects.annotate(first=Min("turns__at"), last=Max("turns__at")).filter(last__isnull=False)
             .select_related("project").order_by("-last")[:30])
     sessions = []
@@ -262,7 +262,7 @@ def build(today: date | None = None, days: int = 30, session: str | None = None)
         "sources": [{"path": str(d), "found": d.is_dir(), "files": files.filter(path__startswith=str(d)).count()}
                     for d in dirs()],
         "imported_at": files.aggregate(m=Max("imported_at"))["m"],
-        "first": all_.aggregate(m=Min("at"))["m"], "last": all_.aggregate(m=Max("at"))["m"],
+        "first": all_.aggregate(m=Min("at"))["m"],
         "totals": {k: _sum(v) for k, v in periods.items()},
         "models": {k: _models(v) for k, v in periods.items()},
         "groups": {k: _groups(v) for k, v in periods.items()},
