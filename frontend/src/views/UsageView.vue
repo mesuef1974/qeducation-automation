@@ -62,7 +62,11 @@ function reset() {
   picked.value = [];
 }
 
-const shortModel = (m: string) => m.replace(/^claude-/, "").replace(/-(\d+)-(\d+)$/, " $1.$2").replace(/-(\d{8})$/, "");
+/** claude-haiku-4-5-20251001 ← haiku 4.5، claude-sonnet-5 ← sonnet 5 */
+function shortModel(m: string): string {
+  const [name, ...ver] = m.replace(/^claude-/, "").replace(/-\d{8}$/, "").split("-");
+  return ver.length ? `${name} ${ver.join(".")}` : name;
+}
 const maxOf = (rows: { effective: number }[]) => Math.max(1, ...rows.map((r) => r.effective));
 
 // لوحة الحدود
