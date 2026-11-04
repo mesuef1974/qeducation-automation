@@ -306,3 +306,11 @@ def test_page_labels():
     assert page_label("/teacher_lesson/show/1?lesson_id=2&section_id=3") == "قسم في الدرس"
     assert page_label("https://qeducation.edu.gov.qa/teacher_lesson/show/1?lesson_id=2") == "صفحة الدرس"
     assert page_label("/files/455212/x.docx?lmsauth=ab") == "ملف" and page_label("/x/y?z=1") == "/x/y"
+
+
+def test_proposal_evidence(client, publish_run):
+    """الخطوة 4: كل اقتراح يُعرض بقبل/بعد والسبب والأثر على الطالب، وقرب موعده."""
+    data = client.get(f"/api/neo/proposals/publish/?run={publish_run.pk}").json()
+    ev = {p["lesson"]["position"]: p["evidence"] for p in data}
+    assert ev[2]["before"].startswith("مخفي") and ev[2]["after"].startswith("ظاهر")
+    assert "يرى الطالب الدرس" in ev[2]["impact"] and ev[2]["soon"] is True  # درسه اليوم

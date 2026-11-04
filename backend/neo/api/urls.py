@@ -2,8 +2,17 @@ from django.urls import path
 from rest_framework.routers import DefaultRouter
 
 from neo.api.views import (
-    ClassViewSet, JobViewSet, LessonViewSet, ProposalViewSet, RunViewSet, live_feed, safety_state, scorecard, session,
-    weekly, weekly_read,
+    ClassViewSet,
+    JobViewSet,
+    LessonViewSet,
+    ProposalViewSet,
+    RunViewSet,
+    live_feed,
+    safety_state,
+    scorecard,
+    session,
+    weekly,
+    weekly_read,
 )
 
 router = DefaultRouter()

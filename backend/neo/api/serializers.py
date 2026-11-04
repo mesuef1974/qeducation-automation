@@ -4,9 +4,17 @@ from neo.domain.bidi import fix_ranges
 from neo.domain.quality import ISSUES
 from neo.domain.redact import scrub
 from neo.models import (
-    AssignProposal, ContentProposal, DateProposal, Job, LessonAudit, PlatformClass, PlatformLesson, PublishProposal,
+    AssignProposal,
+    ContentProposal,
+    DateProposal,
+    Job,
+    LessonAudit,
+    PlatformClass,
+    PlatformLesson,
+    PublishProposal,
     SyncRun,
 )
+from neo.services import evidence
 from neo.services.job_service import PARAMS
 
 
@@ -65,7 +73,12 @@ class _ProposalSerializer(serializers.ModelSerializer):
     status_label = serializers.CharField(source="get_status_display", read_only=True)
     lms_id = serializers.IntegerField(source="run.klass.lms_id", read_only=True)
 
-    BASE = ["id", "run", "lms_id", "status", "status_label", "error", "applied_at", "approved_at"]
+    evidence = serializers.SerializerMethodField()  # الخطوة 4: قبل/بعد والسبب والأثر وقرب الموعد
+
+    BASE = ["id", "run", "lms_id", "status", "status_label", "error", "applied_at", "approved_at", "evidence"]
+
+    def get_evidence(self, obj):
+        return evidence.of(obj)
 
     def to_representation(self, instance):
         data = super().to_representation(instance)

@@ -11,7 +11,14 @@ from rest_framework.response import Response
 
 from neo.api import serializers as s
 from neo.domain import assessment
-from neo.models import Job, PlatformClass, PlatformLesson, ProposalStatus, SyncRun, WorkerHeartbeat
+from neo.models import (
+    Job,
+    PlatformClass,
+    PlatformLesson,
+    ProposalStatus,
+    SyncRun,
+    WorkerHeartbeat,
+)
 from neo.services import live, review_service, safety, scorecard_service, weekly_service
 from neo.services.job_service import JobService, session_state, worker_alive
 from neo.services.pipeline import PROPOSALS, PipelineError
