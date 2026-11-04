@@ -19,7 +19,7 @@ from neo.models import (
     SyncRun,
     WorkerHeartbeat,
 )
-from neo.services import live, review_service, safety, scorecard_service, weekly_service
+from neo.services import live, review_service, safety, scorecard_service, usage, weekly_service
 from neo.services.job_service import JobService, session_state, worker_alive
 from neo.services.pipeline import PROPOSALS, PipelineError
 
@@ -246,6 +246,16 @@ def safety_state(request):
         st = safety.state()
     return Response({"halted": st.halted, "reason": st.reason, "halted_at": st.halted_at,
                      "resumed_at": st.resumed_at, "verify_failures": st.verify_failures})
+
+
+@api_view(["GET"])
+def usage_summary(request):
+    """
+    تبويب «الاستهلاك»: يستورد الجديد من مجلد Claude أولًا (تزايديًا)، ثم استهلاك الجلسة (?session= وإلا الأخيرة)
+    واليوم والأسبوع والشهر، وكل يوم ونموذج وجلسة. قراءة فقط من ملفات السجل.
+    """
+    imported = usage.import_all()
+    return Response({**usage.build(session=request.query_params.get("session") or None), "imported": imported})
 
 
 @api_view(["POST"])

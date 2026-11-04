@@ -3,8 +3,6 @@ import json
 from django.contrib import admin, messages
 from django.utils.html import format_html
 
-from neo.services import safety
-
 from neo.models import (
     AssignProposal,
     DateProposal,
@@ -16,7 +14,10 @@ from neo.models import (
     PublishProposal,
     SyncRun,
     TimetableSlot,
+    UsageFile,
+    UsageTurn,
 )
+from neo.services import safety
 
 
 class SlotInline(admin.TabularInline):
@@ -148,3 +149,18 @@ class JobAdmin(admin.ModelAdmin):
 
     def has_add_permission(self, request):
         return False
+
+
+@admin.register(UsageFile)
+class UsageFileAdmin(admin.ModelAdmin):
+    list_display = ["path", "project", "offset", "imported_at"]
+    search_fields = ["path", "session_id"]
+    readonly_fields = [f.name for f in UsageFile._meta.fields]
+
+
+@admin.register(UsageTurn)
+class UsageTurnAdmin(admin.ModelAdmin):
+    list_display = ["at", "model", "session_id", "input_tokens", "cache_read", "cache_write", "output_tokens"]
+    list_filter = ["model", "day"]
+    search_fields = ["session_id"]
+    readonly_fields = [f.name for f in UsageTurn._meta.fields]

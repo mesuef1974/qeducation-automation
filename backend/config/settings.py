@@ -97,6 +97,9 @@ NEO_WEEKLY = {"enabled": True, "weekday": 0, "hour": 7, "catchup_hours": 7 * 24 
               "since": "2026-11-09", "auto_approve": False}
 # تنبيهات ويندوز (الخطوتان 0 و9)؛ أزرارها تفتح الموقع المحلي
 NEO_NOTIFY = True
+# تبويب «الاستهلاك»: ملخصات الجلسات المُصدَّرة (أرقام فقط)، وسجلات Claude Code على هذا الجهاز إن وُجدت
+NEO_USAGE_DIRS = ([Path(p) for p in os.environ["NEO_USAGE_DIRS"].split(os.pathsep) if p] if os.environ.get("NEO_USAGE_DIRS")
+                  else [BASE_DIR / "usage", Path(os.environ.get("CLAUDE_CONFIG_DIR", Path.home() / ".claude")) / "projects"])
 NEO_APP_URL = "http://127.0.0.1:8765/app/"
 # محرك المحتوى: الصور المولّدة (خارج المستودع) ومصادر الصف التي تُذكر في قسم التهيئة
 MEDIA_ROOT = BASE_DIR / "media"

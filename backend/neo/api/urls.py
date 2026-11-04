@@ -11,6 +11,7 @@ from neo.api.views import (
     safety_state,
     scorecard,
     session,
+    usage_summary,
     weekly,
     weekly_read,
 )
@@ -24,4 +25,5 @@ router.register(r"jobs", JobViewSet, basename="neo-job")
 
 urlpatterns = [path("session/", session, name="neo-session"), path("scorecard/", scorecard, name="neo-scorecard"),
                path("weekly/", weekly, name="neo-weekly"), path("weekly/read/", weekly_read, name="neo-weekly-read"), path("live/", live_feed, name="neo-live"),
-               path("safety/", safety_state, name="neo-safety"), *router.urls]
+               path("safety/", safety_state, name="neo-safety"),
+               path("usage/", usage_summary, name="neo-usage"), *router.urls]

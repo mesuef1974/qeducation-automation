@@ -15,6 +15,7 @@ export const router = createRouter({
     { path: "/live", name: "live", component: () => import("@/views/LiveView.vue"), meta: { title: "مباشر" } },
     // «الأتمتة» دُمجت في «مباشر» (الرسم الحي)، ونضج المراحل في «SWOT والأداء»
     { path: "/automation", redirect: "/live" },
+    { path: "/usage", name: "usage", component: () => import("@/views/UsageView.vue"), meta: { title: "الاستهلاك" } },
     { path: "/swot", name: "swot", component: () => import("@/views/SwotView.vue"), meta: { title: "SWOT والأداء" } },
     { path: "/scorecard", redirect: "/swot" },
     { path: "/:pathMatch(.*)*", redirect: "/" },

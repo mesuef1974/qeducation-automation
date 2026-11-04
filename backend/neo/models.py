@@ -409,3 +409,47 @@ class SafetyState(models.Model):
 
     def __str__(self):
         return "الكتابة موقوفة" if self.halted else "الكتابة مفعّلة"
+
+
+class UsageFile(models.Model):
+    """ملف سجل جلسة Claude (*.jsonl) وموضع آخر قراءة فيه، فلا يُقرأ إلا ما أُضيف بعده (neo/services/usage.py)."""
+
+    path = models.CharField("المسار", max_length=1000, unique=True)
+    session_id = models.CharField("الجلسة", max_length=100, blank=True)
+    project = models.CharField("المشروع", max_length=300, blank=True)
+    size = models.BigIntegerField("الحجم", default=0)
+    mtime = models.FloatField("آخر تعديل", default=0)
+    offset = models.BigIntegerField("موضع القراءة", default=0)
+    imported_at = models.DateTimeField("آخر استيراد", null=True, blank=True)
+
+    class Meta:
+        verbose_name = "ملف استهلاك"
+        verbose_name_plural = "ملفات الاستهلاك"
+
+    def __str__(self):
+        return self.path
+
+
+class UsageTurn(models.Model):
+    """خطوة واحدة للنموذج: رموزها ونموذجها وأدواتها، بلا أي نص من المحادثة."""
+
+    key = models.CharField(max_length=200, unique=True)  # معرّف الرسالة والطلب؛ يمنع عدّ المكرر
+    file = models.ForeignKey(UsageFile, on_delete=models.CASCADE, related_name="turns")
+    session_id = models.CharField("الجلسة", max_length=100, db_index=True)
+    at = models.DateTimeField("الوقت", db_index=True)
+    day = models.DateField("اليوم (بتوقيت قطر)", db_index=True)
+    model = models.CharField("النموذج", max_length=100, db_index=True)
+    input_tokens = models.PositiveIntegerField(default=0)
+    cache_read = models.PositiveIntegerField(default=0)
+    cache_write = models.PositiveIntegerField(default=0)
+    output_tokens = models.PositiveIntegerField(default=0)
+    tools = models.JSONField(default=list)
+
+    class Meta:
+        ordering = ["at"]
+        verbose_name = "خطوة استهلاك"
+        verbose_name_plural = "خطوات الاستهلاك"
+        indexes = [models.Index(fields=["day", "model"])]
+
+    def __str__(self):
+        return f"{self.at:%Y-%m-%d %H:%M} {self.model}"

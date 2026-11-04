@@ -69,6 +69,7 @@ async function login() {
         </RouterLink>
         <RouterLink to="/log">السجل</RouterLink>
         <RouterLink to="/swot">SWOT والأداء</RouterLink>
+        <RouterLink to="/usage">الاستهلاك</RouterLink>
         <a href="/admin/">الإدارة</a>
       </nav>
 

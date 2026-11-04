@@ -40,3 +40,6 @@ backend/media/
 
 # إعدادات خاصة بالجهاز (أسماء المعلمين): backend/config/local.json
 backend/config/local.json
+
+# أرقام استهلاك جلسات Claude المُصدَّرة لتبويب «الاستهلاك» (محلية، خارج git)
+backend/usage/

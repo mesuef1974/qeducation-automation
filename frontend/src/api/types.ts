@@ -316,6 +316,37 @@ export interface WeeklyState {
   last: Job | null;
 }
 
+/** تبويب «الاستهلاك»: استهلاك Claude من قاعدة البيانات بعد استيراد سجلات مجلد Claude (neo/services/usage.py) */
+export interface UsageSum {
+  /** بوحدة «رمز إدخال عادي»: قراءة السياق ×0.1، وحفظه ×2، والمخرجات ×5 */
+  effective: number;
+  tokens: number;
+  input: number;
+  cache_read: number;
+  cache_write: number;
+  output: number;
+  turns: number;
+  sessions: number;
+}
+export type UsagePeriod = "session" | "today" | "week" | "month";
+export interface Usage {
+  today: string;
+  week_start: string;
+  month_start: string;
+  session: string | null;
+  weights: { cache_read: number; cache_write: number; output: number };
+  sources: { path: string; found: boolean; files: number }[];
+  imported: { files: number; new: number };
+  imported_at: string | null;
+  first: string | null;
+  last: string | null;
+  totals: Record<UsagePeriod, UsageSum>;
+  models: Record<UsagePeriod, (UsageSum & { model: string })[]>;
+  groups: Record<UsagePeriod, { name: string; effective: number }[]>;
+  daily: { day: string; effective: number; tokens: number; turns: number; output: number }[];
+  sessions: (UsageSum & { session: string; project: string; first: string; last: string; models: string[] })[];
+}
+
 /** تبويب «مباشر»: البث الحي من العامل */
 export type LiveKind = "start" | "stage" | "step" | "net" | "file" | "warn" | "error" | "end";
 
