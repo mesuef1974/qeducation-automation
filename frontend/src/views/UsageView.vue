@@ -61,8 +61,17 @@ const hovered = computed(() => (hover.value === null ? null : daily.value[hover.
 
 const shortModel = (m: string) => m.replace(/^claude-/, "").replace(/-(\d+)-(\d+)$/, " $1.$2");
 const shortSession = (s: string) => s.slice(0, 8);
-/** اسم مجلد Claude Code للمشروع (D--shschool-mvp) بصيغة المسار، وجذر المجلد للجلسات المُصدَّرة */
-const projectLabel = (p: string) => (p ? p.replace(/^([A-Za-z])--/, "$1:\\").replace(/--claude-worktrees-.*/, " (نسخة تطوير)") : "(الجذر)");
+/**
+ * اسم مجلد Claude Code للمشروع بصيغة مقروءة: Claude يكتب المسار بشرطات (C--Users-x-work)، فيُختصر المجلد الشخصي
+ * إلى ~، ونسخ التطوير (worktrees) تُعلَّم، وجذر المجلد للجلسات المُصدَّرة.
+ */
+function projectLabel(p: string): string {
+  if (!p) return "(الجذر)";
+  const dev = /--claude-worktrees-|-wt-runner-|--probe$/.test(p);
+  const base = p.replace(/--claude-worktrees-.*|-wt-runner-.*|-tmp--probe$/, "")
+    .replace(/^[A-Za-z]--Users-[^-]+-/, "~\\").replace(/^([A-Za-z])--/, "$1:\\");
+  return dev ? `${base} · نسخة تطوير` : base;
+}
 </script>
 
 <template>
