@@ -230,3 +230,19 @@ def test_apply_reads_back_and_stops(loaded):
     first.refresh_from_db()
     assert first.status == "failed" and "غير مطابقة" in first.error
     assert safety.state().halted and "كتابة خاطئة" in safety.state().reason
+
+
+def test_apply_error_hides_session_cookie(loaded):
+    """خطأ Playwright يحمل كوكيز الجلسة: يُحجب قبل حفظه على الاقتراح."""
+    svc, classes = loaded
+    run = svc.plan(classes[602598], date(2026, 11, 1))
+    first = run.proposals.order_by("lesson__position").first()
+    DateProposal.objects.filter(pk=first.pk).update(status=DateProposal.Status.APPROVED)
+
+    class Leaky(FakeClient):
+        def set_lesson_date(self, lms_id, lesson_id, d, period):
+            raise RuntimeError("Timeout\n  - cookie: lms_session_v1=SECRET123; x=1")
+
+    svc.apply(run, lambda: Leaky())
+    first.refresh_from_db()
+    assert first.status == "failed" and "SECRET123" not in first.error

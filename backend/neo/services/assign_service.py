@@ -12,10 +12,17 @@ from django.conf import settings
 from django.db import transaction
 from django.utils import timezone
 
+from neo.domain.redact import scrub
 from neo.domain.types import ParsedAssessment
 from neo.infrastructure.client import NeoClient, NotLoggedIn, stamp
 from neo.infrastructure.parsers import parse_assessments
-from neo.models import AssignProposal, PlatformAssessment, PlatformClass, PlatformLesson, SyncRun
+from neo.models import (
+    AssignProposal,
+    PlatformAssessment,
+    PlatformClass,
+    PlatformLesson,
+    SyncRun,
+)
 from neo.services import live, safety
 
 FLAG_PAST_LESSON = "درس ماضٍ - المهلة من اليوم"
@@ -178,7 +185,7 @@ class AssignService:
                     session_error = exc
                     break
                 except Exception as exc:  # noqa: BLE001 - أول خطأ غير متوقع يوقف التطبيق
-                    results[p.pk] = (AssignProposal.Status.FAILED, f"ضبط المواعيد: {str(exc)[:400]}")
+                    results[p.pk] = (AssignProposal.Status.FAILED, f"ضبط المواعيد: {scrub(str(exc))[:400]}")
                     stop = results[p.pk][1]
                     break
             for p in [p for p in to_give if p.lesson_date >= today]:
@@ -188,7 +195,7 @@ class AssignService:
                 try:
                     client.give_assessments(lms_id, [p.assessment.lms_assignment_id for p in to_give])
                 except Exception as exc:  # noqa: BLE001 - نتحقق من الحالة الفعلية أدناه
-                    give_error = str(exc)[:400]
+                    give_error = scrub(str(exc))[:400]
                 else:
                     give_error = ""
                 after = {a.lms_assignment_id: a.given for a in parse_assessments(client.assessments_html(lms_id))}

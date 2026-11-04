@@ -18,8 +18,16 @@ from datetime import date, datetime, timedelta
 from django.conf import settings
 from django.db.models import QuerySet
 
-from neo.models import AssignProposal, DateProposal, Job, PlatformClass, PublishProposal, SyncRun
+from neo.domain.redact import scrub
 from neo.infrastructure.client import PlatformError
+from neo.models import (
+    AssignProposal,
+    DateProposal,
+    Job,
+    PlatformClass,
+    PublishProposal,
+    SyncRun,
+)
 from neo.services import alerts, live, pipeline, safety, scorecard_service
 from neo.services.scheduling import WeekSpan, build_slots
 
@@ -206,7 +214,7 @@ def _prep(klass: PlatformClass, factory: pipeline.Factory, today: date, s: dict)
     try:
         runs = pipeline.prep_pack(klass.lms_id, week, factory)
     except (pipeline.PipelineError, PlatformError) as exc:
-        s.update(week=week, ok=False, error=str(exc)[:300])
+        s.update(week=week, ok=False, error=scrub(str(exc))[:300])
         return []
     pack = next((r for r in runs if r.kind == SyncRun.Kind.PREP), None)
     s.update(week=week, ok=bool(pack and pack.ok), folder=pack.summary.get("folder", "") if pack else "")

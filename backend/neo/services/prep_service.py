@@ -17,6 +17,8 @@ from django.utils import timezone
 
 from curriculum.models import CalendarEvent, ScheduleEntry, Week
 from neo.domain import weekly_pack as wp
+from neo.domain.bidi import fix_ranges
+from neo.domain.redact import scrub
 from neo.domain.types import FileLink
 from neo.infrastructure import docx_prep, office
 from neo.infrastructure.client import NotLoggedIn, PlatformError
@@ -225,7 +227,7 @@ class PrepService:
         try:
             return self._run(run, klass, week_no, factory)
         except Exception as exc:
-            run.summary = {**run.summary, "error": str(exc)}
+            run.summary = {**run.summary, "error": scrub(str(exc))}  # خطأ Playwright قد يحمل كوكيز الجلسة
             run.ok, run.finished_at = False, timezone.now()
             run.save()
             raise
@@ -234,7 +236,7 @@ class PrepService:
         plan = klass.plan
         live.stage(f"اختيار دروس الأسبوع {week_no} من الخطة · {klass.name}", "prep")
         pack, week = self.select(klass, week_no)
-        live.step(f"الدروس {pack[0].position}–{pack[-1].position}: {wp.topics_text(pack)}", len(pack), len(pack))
+        live.step(fix_ranges(f"الدروس {pack[0].position}–{pack[-1].position}: {wp.topics_text(pack)}"), len(pack), len(pack))
         section = wp.class_section(klass.name)
         year_from = int(plan.academic_year.split("-")[0])
         base = docx_prep.PrepFields(year_from, self.policy.get("teacher", ""), "", week.start_date, section, 0)

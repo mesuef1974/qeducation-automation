@@ -7,7 +7,14 @@ from datetime import date
 from django.db.models import Count, Q
 
 from neo.domain.scorecard import CAPABILITIES, COMPLIANCE, LEVELS, TASKS
-from neo.models import LessonAudit, PlatformAssessment, PlatformClass, PlatformLesson, ScorecardSnapshot, SyncRun
+from neo.models import (
+    LessonAudit,
+    PlatformAssessment,
+    PlatformClass,
+    PlatformLesson,
+    ScorecardSnapshot,
+    SyncRun,
+)
 
 APPLY_KINDS = (SyncRun.Kind.APPLY, SyncRun.Kind.ASSIGN_APPLY, SyncRun.Kind.PUBLISH_APPLY)
 

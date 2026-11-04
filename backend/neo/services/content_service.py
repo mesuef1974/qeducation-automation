@@ -13,6 +13,7 @@ from django.utils import timezone
 from curriculum.models import Lesson
 from neo.domain import assessment, question_bank
 from neo.domain import content as gen
+from neo.domain.redact import scrub
 from neo.infrastructure import tile_image
 from neo.infrastructure.client import NeoClient, NotLoggedIn
 from neo.infrastructure.parsers import parse_outcomes
@@ -167,7 +168,7 @@ class ContentService:
                     session_error = str(exc)
                     break
                 except Exception as exc:  # noqa: BLE001 - الخطوة 5: أول خطأ غير متوقع يوقف التطبيق
-                    results[p.pk] = (ContentProposal.Status.FAILED, str(exc)[:500])
+                    results[p.pk] = (ContentProposal.Status.FAILED, scrub(str(exc))[:500])
                     stop = results[p.pk][1]
                     break
         return self._record_apply(run, items, results, session_error, stop)

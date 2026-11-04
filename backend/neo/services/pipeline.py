@@ -8,11 +8,18 @@ from datetime import date
 from django.utils import timezone
 
 from neo.infrastructure.client import NeoClient, NotLoggedIn
-from neo.models import AssignProposal, ContentProposal, DateProposal, PlatformClass, PublishProposal, SyncRun
+from neo.models import (
+    AssignProposal,
+    ContentProposal,
+    DateProposal,
+    PlatformClass,
+    PublishProposal,
+    SyncRun,
+)
+from neo.services import live, safety
 from neo.services.assign_service import AssignService
 from neo.services.audit_service import AuditService
 from neo.services.content_service import ContentService
-from neo.services import live, safety
 from neo.services.prep_service import PackStopped, PrepService
 from neo.services.publish_service import PublishService
 from neo.services.sync_service import SyncService, active_classes

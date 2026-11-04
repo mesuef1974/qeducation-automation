@@ -14,7 +14,14 @@ from datetime import timedelta
 from django.db.models import QuerySet
 from django.utils import timezone
 
-from neo.models import AssignProposal, DateProposal, PlatformLesson, ProposalStatus, PublishProposal, SafetyState
+from neo.models import (
+    AssignProposal,
+    DateProposal,
+    PlatformLesson,
+    ProposalStatus,
+    PublishProposal,
+    SafetyState,
+)
 from neo.services import alerts, live
 
 APPROVAL_TTL = timedelta(hours=48)

@@ -14,6 +14,7 @@ from django.conf import settings
 from django.db import transaction
 from django.utils import timezone
 
+from neo.domain.redact import scrub
 from neo.infrastructure.client import NeoClient, NotLoggedIn
 from neo.models import PlatformClass, PlatformLesson, PublishProposal, SyncRun
 from neo.services import live, safety
@@ -143,7 +144,7 @@ class PublishService:
                     session_error = exc
                     break
                 except Exception as exc:  # noqa: BLE001
-                    results[prop.pk] = (PublishProposal.Status.FAILED, str(exc)[:400])
+                    results[prop.pk] = (PublishProposal.Status.FAILED, scrub(str(exc))[:400])
                 if results[prop.pk][0] == PublishProposal.Status.FAILED:  # الخطوة 5: يتوقف عند أول خطأ
                     stop = results[prop.pk][1]
                     break

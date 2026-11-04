@@ -11,10 +11,17 @@ from django.db import transaction
 from django.utils import timezone
 
 from curriculum.models import Plan, ScheduleEntry
+from neo.domain.redact import scrub
 from neo.domain.types import ParsedLesson, ParsedSlot, Target
 from neo.infrastructure.client import NeoClient, NotLoggedIn, PlatformError, stamp
 from neo.infrastructure.parsers import parse_lessons, parse_timetable
-from neo.models import DateProposal, PlatformClass, PlatformLesson, SyncRun, TimetableSlot
+from neo.models import (
+    DateProposal,
+    PlatformClass,
+    PlatformLesson,
+    SyncRun,
+    TimetableSlot,
+)
 from neo.services import live, safety
 from neo.services.matching import match_sequence
 from neo.services.scheduling import LessonState, WeekSpan, build_slots, propose_dates
@@ -252,7 +259,7 @@ class SyncService:
                     session_error = exc
                     break
                 except Exception as exc:  # noqa: BLE001 - أول خطأ غير متوقع يوقف التطبيق
-                    results[p.pk] = (DateProposal.Status.FAILED, str(exc)[:500])
+                    results[p.pk] = (DateProposal.Status.FAILED, scrub(str(exc))[:500])
                 stop = results[p.pk][1]
                 break
         log = self._record_apply(run, items, results, session_error, stop)  # يحفظ ما تم قبل التوقف
