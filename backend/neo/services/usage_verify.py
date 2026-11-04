@@ -2,7 +2,7 @@
 تحقق مستقل من أرقام «الاستهلاك» (مهمة usage_verify في العامل): يعدّ ملفات السجل الأصلية بكود منفصل عن الاستيراد
 (neo/services/usage.py) ثم يقارن بقاعدة البيانات لنفس النوافذ (آخر 7 أيام وآخر 30 يومًا).
 
-يجيب عن: كم ملفًا وسطرًا ورسالة؟ كم رسالة تكررت أسطرها، وهل اختلفت أرقام المكرر (فيُفقد شيء بأخذ أولها)؟
+يجيب عن: كم ملفًا وسطرًا ورسالة؟ كم رسالة تكررت أسطرها، وهل اختلفت أرقام المكرر؟ المرجع أكبر رقم بين أسطر الرسالة، كما يحفظه الاستيراد.
 وهل يطابق مجموع كل حقل (إدخال، قراءة سياق، حفظ سياق، مخرجات) وكل نموذج ما في قاعدة البيانات؟
 """
 import json
@@ -101,7 +101,7 @@ def verify(today=None) -> dict:
            "windows": {}}
     ok = True
     for name, since in (("week", today - timedelta(days=6)), ("month", today - timedelta(days=29))):
-        files, files_max, db = _window(msgs, since, today, "first"), _window(msgs, since, today, "max"), _db(since, today)
+        files, files_first, db = _window(msgs, since, today, "max"), _window(msgs, since, today, "first"), _db(since, today)
         diff = {k: db.get(k, 0) - files.get(k, 0) for k in ("input", "cache_read", "cache_write", "output", "turns")}
         models = sorted(set(files["by_model_output"]) | set(db["by_model_output"]))
         model_diff = {m: db["by_model_output"].get(m, 0) - files["by_model_output"].get(m, 0) for m in models}
@@ -110,7 +110,7 @@ def verify(today=None) -> dict:
         out["windows"][name] = {
             "since": since.isoformat(), "files": {k: files.get(k, 0) for k in diff}, "db": {k: db[k] for k in diff},
             "diff": diff, "model_diff": {m: d for m, d in model_diff.items() if d}, "match": match,
-            # لو أُخذ أكبر رقم بين أسطر الرسالة المكررة بدل أولها
-            "output_if_max": files_max.get("output", 0) - files.get("output", 0)}
+            # ما يُفقد من المخرجات لو أُخذ أول سطر للرسالة المكررة بدل أكبرها (الرقم المؤقت أثناء كتابة الرد)
+            "output_first_line_loss": files.get("output", 0) - files_first.get("output", 0)}
     out["ok"] = ok
     return out

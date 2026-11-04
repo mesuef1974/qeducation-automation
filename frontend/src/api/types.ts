@@ -376,7 +376,9 @@ export interface UsageVerify {
   bad_json: number;
   windows: Record<"week" | "month", {
     since: string; files: UsageCheckFields; db: UsageCheckFields; diff: UsageCheckFields;
-    model_diff: Record<string, number>; match: boolean; output_if_max: number;
+    model_diff: Record<string, number>; match: boolean;
+    /** ما كان سيُفقد من المخرجات لو أُخذ أول سطر للرسالة المكررة بدل أكبرها */
+    output_first_line_loss: number;
   }>;
 }
 

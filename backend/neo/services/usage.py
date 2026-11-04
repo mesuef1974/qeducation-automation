@@ -5,7 +5,7 @@
 الجهاز، و backend/usage/ لملخصات الجلسات المُصدَّرة بـ tools/export_usage.py)، تزايديًا من موضع آخر قراءة
 (UsageFile.offset)، ضمن مهلة زمنية (العامل كل 10 دقائق وهو خامل، و«حدّث الآن»)، فيُستأنف الباقي في المرة التالية.
 الجداول مطبَّعة: مشروع ← جلسة ← خطوة ← نموذج وأدوات (UsageTurnTool). أرقام فقط، بلا أي نص من المحادثة.
-الرسالة المكررة بمعرّفها تُعدّ مرة، والملف الذي أُعيدت كتابته يُقرأ من أوله، والسطر الناقص ينتظر اكتماله.
+الرسالة المكررة بمعرّفها تُعدّ مرة بأكبر أرقام أسطرها، والملف الذي أُعيدت كتابته يُقرأ من أوله، والسطر الناقص ينتظر اكتماله.
 
 التجميع: اليوم والأسبوع (آخر 7 أيام) والشهر (آخر 30 يومًا)، وعائلات النماذج (Fable وOpus وSonnet وHaiku)، وكل يوم، وكل نموذج، وأين ذهب الاستهلاك، وكل جلسة.
 الاستهلاك الفعلي بوحدة «رمز إدخال عادي»: قراءة سياق محفوظ ×0.1، وحفظ سياق جديد ×2، والمخرجات ×5.
@@ -111,17 +111,36 @@ def _record(line: bytes) -> dict | None:
 
 
 def _save(batch: list[dict], uf: UsageFile, refs: _Refs, default_session: str) -> int:
-    seen = set(UsageTurn.objects.filter(key__in=[b["key"] for b in batch]).values_list("key", flat=True))
-    rows, uses = [], []
+    """
+    الرسالة الواحدة قد تُكتب في أكثر من سطر، وأولها قد يحمل رقمًا مؤقتًا أثناء كتابة الرد: يُؤخذ أكبر رقم لكل حقل،
+    داخل الدفعة وبينها وبين ما حُفظ سابقًا (التحقق المستقل usage_verify يقارن بهذا).
+    """
+    merged: dict[str, dict] = {}
     for b in batch:
-        if b["key"] in seen:
+        e = merged.get(b["key"])
+        if e is None:
+            merged[b["key"]] = {**b, "tools": dict(b["tools"])}
+        else:
+            for k in ("in", "cr", "cw", "out"):
+                e[k] = max(e[k], b[k])
+            for name, n in b["tools"].items():
+                e["tools"][name] = max(e["tools"].get(name, 0), n)
+    existing = {t.key: t for t in UsageTurn.objects.filter(key__in=list(merged))}
+    rows, uses, grown = [], [], []
+    for key, b in merged.items():
+        if t := existing.get(key):
+            new = (max(t.input_tokens, b["in"]), max(t.cache_read, b["cr"]), max(t.cache_write, b["cw"]),
+                   max(t.output_tokens, b["out"]))
+            if new != (t.input_tokens, t.cache_read, t.cache_write, t.output_tokens):
+                t.input_tokens, t.cache_read, t.cache_write, t.output_tokens = new
+                grown.append(t)
             continue
-        seen.add(b["key"])
         rows.append(UsageTurn(
-            key=b["key"], file=uf, session_id=refs.session(b["session"] or default_session, uf.project),
+            key=key, file=uf, session_id=refs.session(b["session"] or default_session, uf.project),
             model_id=refs.model(b["model"]), at=b["at"], day=timezone.localtime(b["at"]).date(),
             input_tokens=b["in"], cache_read=b["cr"], cache_write=b["cw"], output_tokens=b["out"]))
         uses.append(b["tools"])
+    UsageTurn.objects.bulk_update(grown, ["input_tokens", "cache_read", "cache_write", "output_tokens"], batch_size=500)
     UsageTurn.objects.bulk_create(rows, batch_size=500)  # SQLite يعيد المعرّفات
     UsageTurnTool.objects.bulk_create([UsageTurnTool(turn_id=t.pk, tool_id=refs.tool(name), uses=n)
                                        for t, tools in zip(rows, uses, strict=True) for name, n in tools.items()],

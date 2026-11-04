@@ -151,7 +151,10 @@ function projectLabel(p: string): string {
           {{ fmtWhen(report.checked_at) }} ·
           {{ n(report.files) }} ملف · {{ n(report.lines) }} سطر استهلاك · {{ n(report.messages) }} رسالة فريدة ·
           {{ n(report.dup_lines) }} سطر مكرر لرسالة سبق عدّها
-          <template v-if="report.dup_differ"> · <b class="err">{{ n(report.dup_differ) }} مكرر بأرقام مختلفة</b></template>
+          <template v-if="report.dup_differ">
+            · {{ n(report.dup_differ) }} رسالة تكررت بأرقام مختلفة (أولها مؤقت أثناء كتابة الرد)، فيُؤخذ أكبرها:
+            أخذ أولها كان سيُنقص مخرجات 30 يومًا {{ n(report.windows.month.output_first_line_loss) }} رمز
+          </template>
           <template v-else> · المكرر بالأرقام نفسها دائمًا</template>
         </p>
         <div class="table-wrap">

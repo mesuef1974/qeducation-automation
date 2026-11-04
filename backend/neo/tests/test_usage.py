@@ -111,3 +111,16 @@ def test_verify_job(logs):
     job, _ = JobService().enqueue(Job.Kind.USAGE_VERIFY)
     job = JobService().run(JobService().claim())
     assert job.status == Job.Status.DONE and job.report["ok"] and UsageTurn.objects.count() == 3
+
+
+@pytest.mark.django_db
+def test_duplicate_lines_take_max(logs):
+    """أول سطر للرسالة قد يحمل رقم مخرجات مؤقتًا: يُحفظ الأكبر، ولو جاء السطر الأكبر في استيراد لاحق."""
+    from neo.services import usage_verify
+    usage.import_all(budget_s=None)
+    with logs.open("a", encoding="utf-8") as f:
+        f.write(_line("2026-11-04T10:00:00Z", tools=["Bash"], out=40, mid="a") + "\n")
+    usage.import_all(budget_s=None)
+    assert UsageTurn.objects.get(key__startswith="a:").output_tokens == 40 and UsageTurn.objects.count() == 3
+    r = usage_verify.verify(today=date(2026, 11, 4))
+    assert r["ok"] and r["dup_differ"] == 1 and r["windows"]["week"]["output_first_line_loss"] == 30
