@@ -20,6 +20,9 @@ venv/
 .env
 *.log
 
+# صندوق المراسلة بين جلسات Claude (محلي، خارج git)
+.local/
+
 # ويندوز
 desktop.ini
 .no_autostart
