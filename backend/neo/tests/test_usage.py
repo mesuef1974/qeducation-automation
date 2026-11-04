@@ -3,7 +3,7 @@ from datetime import date
 
 import pytest
 
-from neo.models import UsageTurn
+from neo.models import UsageModel, UsageSession, UsageTool, UsageTurn, UsageTurnTool
 from neo.services import usage
 
 
@@ -31,9 +31,10 @@ def logs(tmp_path, settings):
 
 @pytest.mark.django_db
 def test_import_and_periods(logs):
-    assert usage.import_all() == {"files": 1, "new": 3}
+    assert usage.import_all() == {"files": 1, "new": 3, "pending": False}
     assert usage.import_all()["new"] == 0  # لم يتغيّر الملف: لا يُقرأ
-    assert all(t.tools in ([], ["Bash"]) for t in UsageTurn.objects.all())
+    assert [t.name for t in UsageTool.objects.all()] == ["Bash"] and UsageTurnTool.objects.get().uses == 1
+    assert UsageSession.objects.get().project.name == "proj" and UsageModel.objects.count() == 2
     d = usage.build(today=date(2026, 11, 4))
     one = 5 + 0.1 * 1000 + 2 * 100 + 5 * 10
     t = d["totals"]["today"]
@@ -59,8 +60,19 @@ def test_incremental_append_and_partial_line(logs):
 
 @pytest.mark.django_db
 def test_api(client, logs):
-    r = client.get("/api/neo/usage/").json()
-    assert r["imported"]["new"] == 3 and r["totals"]["session"]["turns"] == 3
+    assert client.get("/api/neo/usage/").json()["imported"] is None  # القراءة لا تستورد
+    r = client.post("/api/neo/usage/").json()
+    assert r["imported"]["new"] == 3 and r["totals"]["session"]["turns"] == 3 and r["projects"][0]["project"] == "proj"
+
+
+@pytest.mark.django_db
+def test_budget_resumes(logs, monkeypatch):
+    monkeypatch.setattr(usage, "BATCH", 1)
+    r = usage.import_all(budget_s=0)  # المهلة انتهت بعد أول دفعة: يُستأنف
+    assert r["pending"] and UsageTurn.objects.count() == 1
+    while usage.import_all(budget_s=0)["pending"]:
+        pass
+    assert UsageTurn.objects.count() == 3
 
 
 def test_export_strips_text(tmp_path):

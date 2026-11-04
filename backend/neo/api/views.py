@@ -248,13 +248,13 @@ def safety_state(request):
                      "resumed_at": st.resumed_at, "verify_failures": st.verify_failures})
 
 
-@api_view(["GET"])
+@api_view(["GET", "POST"])
 def usage_summary(request):
     """
-    تبويب «الاستهلاك»: يستورد الجديد من مجلد Claude أولًا (تزايديًا)، ثم استهلاك الجلسة (?session= وإلا الأخيرة)
-    واليوم والأسبوع والشهر، وكل يوم ونموذج وجلسة. قراءة فقط من ملفات السجل.
+    تبويب «الاستهلاك» من قاعدة البيانات: الجلسة (?session= وإلا الأخيرة) واليوم والأسبوع والشهر، وكل يوم ونموذج
+    ومشروع وجلسة. العامل يستورد الجديد كل 10 دقائق؛ POST («حدّث الآن») يستورد بمهلة قصيرة ثم يعيد الملخص.
     """
-    imported = usage.import_all()
+    imported = usage.import_all() if request.method == "POST" else None
     return Response({**usage.build(session=request.query_params.get("session") or None), "imported": imported})
 
 

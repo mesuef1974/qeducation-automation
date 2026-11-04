@@ -3,24 +3,26 @@
 
 الاستيراد: يقرأ سجلات الجلسات بصيغة Claude Code (*.jsonl) من مجلدات NEO_USAGE_DIRS (مجلد Claude على هذا
 الجهاز، و backend/usage/ لملخصات الجلسات المُصدَّرة بـ tools/export_usage.py)، تزايديًا من موضع آخر قراءة
-(UsageFile.offset)، ويحفظ كل خطوة للنموذج في UsageTurn: الوقت والنموذج والرموز وأسماء الأدوات فقط، بلا نص.
-الرسالة المكررة بمعرّفها تُعدّ مرة، والملف الذي أُعيدت كتابته يُقرأ من أوله.
+(UsageFile.offset)، ضمن مهلة زمنية (العامل كل 10 دقائق وهو خامل، و«حدّث الآن»)، فيُستأنف الباقي في المرة التالية.
+الجداول مطبَّعة: مشروع ← جلسة ← خطوة ← نموذج وأدوات (UsageTurnTool). أرقام فقط، بلا أي نص من المحادثة.
+الرسالة المكررة بمعرّفها تُعدّ مرة، والملف الذي أُعيدت كتابته يُقرأ من أوله، والسطر الناقص ينتظر اكتماله.
 
 التجميع: اليوم والأسبوع (آخر 7 أيام) والشهر (منذ أوله)، وكل يوم، وكل نموذج، وأين ذهب الاستهلاك، وكل جلسة.
 الاستهلاك الفعلي بوحدة «رمز إدخال عادي»: قراءة سياق محفوظ ×0.1، وحفظ سياق جديد ×2، والمخرجات ×5.
 """
 import hashlib
 import json
+import time
 from collections import defaultdict
 from datetime import date, datetime, timedelta
 from pathlib import Path
 
 from django.conf import settings
-from django.db.models import Count, F, FloatField, Max, Min, QuerySet, Sum
+from django.db.models import Count, F, FloatField, Max, Min, Q, QuerySet, Sum
 from django.db.models.functions import Cast
 from django.utils import timezone
 
-from neo.models import UsageFile, UsageTurn
+from neo.models import UsageFile, UsageModel, UsageProject, UsageSession, UsageTool, UsageTurn, UsageTurnTool
 
 W_READ, W_WRITE, W_OUT = 0.1, 2.0, 5.0
 CONTEXT_READ, CONTEXT_WRITE, REPLY = "قراءة السياق (التعليمات والمحادثة)", "حفظ سياق جديد", "الردود والتفكير"
@@ -50,114 +52,191 @@ def dirs() -> list[Path]:
 
 # ------------------------------------------------------------------ الاستيراد
 
-def _turn(r: dict, uf: UsageFile) -> UsageTurn | None:
+BATCH = 2000  # خطوات في كل حفظ؛ موضع القراءة يُحفظ بعد كل دفعة، فالملف الكبير لا يُعاد من أوله
+BUDGET_S = 8.0
+
+
+class _Refs:
+    """معرّفات الصفوف المرجعية في الذاكرة طوال الاستيراد (مشروع، جلسة، نموذج، أداة)."""
+
+    def __init__(self):
+        self.projects, self.sessions, self.models, self.tools = {}, {}, {}, {}
+
+    def project(self, name: str) -> UsageProject:
+        if name not in self.projects:
+            self.projects[name] = UsageProject.objects.get_or_create(name=name[:300])[0]
+        return self.projects[name]
+
+    def session(self, sid: str, project: UsageProject) -> int:
+        if sid not in self.sessions:
+            self.sessions[sid] = UsageSession.objects.get_or_create(session_id=sid[:100], defaults={"project": project})[0].pk
+        return self.sessions[sid]
+
+    def model(self, name: str) -> int:
+        if name not in self.models:
+            self.models[name] = UsageModel.objects.get_or_create(name=name[:100])[0].pk
+        return self.models[name]
+
+    def tool(self, name: str) -> int:
+        if name not in self.tools:
+            self.tools[name] = UsageTool.objects.get_or_create(name=name[:200], defaults={"group": tool_group(name)})[0].pk
+        return self.tools[name]
+
+
+def _record(line: bytes) -> dict | None:
+    if b'"usage"' not in line:
+        return None
+    try:
+        r = json.loads(line)
+    except ValueError:
+        return None
     m = r.get("message") or {}
     u = m.get("usage")
-    if r.get("type") != "assistant" or not u or not r.get("timestamp") or m.get("model") in (None, "<synthetic>"):
+    if r.get("type") != "assistant" or not isinstance(u, dict) or not r.get("timestamp") or m.get("model") in (None, "<synthetic>"):
         return None
-    at = datetime.fromisoformat(r["timestamp"].replace("Z", "+00:00"))
-    session = r.get("sessionId") or uf.session_id
     key = f"{m['id']}:{r.get('requestId') or ''}" if m.get("id") else \
-        hashlib.sha1(f"{session}|{r['timestamp']}|{json.dumps(u, sort_keys=True)}".encode()).hexdigest()
+        hashlib.sha1(f"{r.get('sessionId')}|{r['timestamp']}|{json.dumps(u, sort_keys=True)}".encode()).hexdigest()
     content = m.get("content") if isinstance(m.get("content"), list) else []
-    return UsageTurn(
-        key=key[:200], file=uf, session_id=session[:100], at=at, day=timezone.localtime(at).date(), model=m["model"][:100],
-        input_tokens=u.get("input_tokens") or 0, cache_read=u.get("cache_read_input_tokens") or 0,
-        cache_write=u.get("cache_creation_input_tokens") or 0, output_tokens=u.get("output_tokens") or 0,
-        tools=[c.get("name", "") for c in content if isinstance(c, dict) and c.get("type") == "tool_use"])
+    tools = defaultdict(int)
+    for c in content:
+        if isinstance(c, dict) and c.get("type") == "tool_use" and c.get("name"):
+            tools[c["name"]] += 1
+    try:
+        at = datetime.fromisoformat(r["timestamp"].replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    return {"key": key[:200], "session": r.get("sessionId"), "at": at, "model": m["model"],
+            "in": int(u.get("input_tokens") or 0), "cr": int(u.get("cache_read_input_tokens") or 0),
+            "cw": int(u.get("cache_creation_input_tokens") or 0), "out": int(u.get("output_tokens") or 0), "tools": tools}
 
 
-def _import_file(path: Path, root: Path) -> int:
+def _save(batch: list[dict], uf: UsageFile, refs: _Refs, default_session: str) -> int:
+    seen = set(UsageTurn.objects.filter(key__in=[b["key"] for b in batch]).values_list("key", flat=True))
+    rows, uses = [], []
+    for b in batch:
+        if b["key"] in seen:
+            continue
+        seen.add(b["key"])
+        rows.append(UsageTurn(
+            key=b["key"], file=uf, session_id=refs.session(b["session"] or default_session, uf.project),
+            model_id=refs.model(b["model"]), at=b["at"], day=timezone.localtime(b["at"]).date(),
+            input_tokens=b["in"], cache_read=b["cr"], cache_write=b["cw"], output_tokens=b["out"]))
+        uses.append(b["tools"])
+    UsageTurn.objects.bulk_create(rows, batch_size=500)  # SQLite يعيد المعرّفات
+    UsageTurnTool.objects.bulk_create([UsageTurnTool(turn_id=t.pk, tool_id=refs.tool(name), uses=n)
+                                       for t, tools in zip(rows, uses, strict=True) for name, n in tools.items()],
+                                      batch_size=500)
+    return len(rows)
+
+
+def _import_file(path: Path, root: Path, refs: _Refs, deadline: float) -> tuple[int, bool]:
+    """يعيد (خطوات جديدة، اكتمل الملف؟)."""
     st = path.stat()
-    uf, _ = UsageFile.objects.get_or_create(path=str(path), defaults={
-        "session_id": path.stem[:100], "project": (path.parent.name if path.parent != root else "")[:300]})
-    if uf.size == st.st_size and uf.mtime == st.st_mtime:
-        return 0
+    rel = path.relative_to(root).parts
+    uf = UsageFile.objects.filter(path=str(path)).first() or UsageFile(
+        path=str(path), project=refs.project(rel[0] if len(rel) > 1 else ""))
+    if uf.pk and uf.size == st.st_size and uf.mtime == st.st_mtime and uf.offset >= st.st_size:
+        return 0, True
     if st.st_size < uf.offset:  # أُعيدت كتابة الملف: من أوله، والمكرر يُتجاهل بمفتاحه
         uf.offset = 0
-    added = []
+    uf.save()
+    default_session = path.parent.name if "subagents" in rel else path.stem
+    new, batch, done = 0, [], True
     with path.open("rb") as f:
         f.seek(uf.offset)
-        data = f.read()
-    end = data.rfind(b"\n") + 1  # سطر لم يكتمل بعد يُقرأ في المرة القادمة
-    for line in data[:end].splitlines():
-        if b'"usage"' not in line:
-            continue
-        try:
-            t = _turn(json.loads(line), uf)
-        except (ValueError, KeyError, TypeError):
-            continue
-        if t:
-            added.append(t)
-    before = UsageTurn.objects.count()
-    UsageTurn.objects.bulk_create(added, ignore_conflicts=True, batch_size=500)
-    uf.offset += end
-    uf.size, uf.mtime, uf.imported_at = st.st_size, st.st_mtime, timezone.now()
+        pos = uf.offset
+        for line in f:
+            if not line.endswith(b"\n"):  # سطر لم يكتمل بعد
+                break
+            pos += len(line)
+            if rec := _record(line):
+                batch.append(rec)
+            if len(batch) >= BATCH:
+                new += _save(batch, uf, refs, default_session)
+                batch, uf.offset = [], pos
+                uf.save(update_fields=["offset"])
+                if time.monotonic() > deadline:
+                    done = False
+                    break
+        if batch:
+            new += _save(batch, uf, refs, default_session)
+        uf.offset = pos
+    uf.size, uf.mtime, uf.imported_at = (st.st_size, st.st_mtime, timezone.now()) if done else (0, 0, timezone.now())
     uf.save()
-    return UsageTurn.objects.count() - before
+    return new, done
 
 
-def import_all() -> dict:
-    """يستورد الجديد من كل المجلدات؛ يعيد عدد الملفات والخطوات الجديدة."""
-    files = new = 0
+def import_all(budget_s: float | None = BUDGET_S) -> dict:
+    """يستورد الجديد من كل المجلدات ضمن المهلة (None = بلا مهلة)؛ pending = بقي ما يُستأنف لاحقًا."""
+    deadline = time.monotonic() + budget_s if budget_s is not None else float("inf")
+    refs, files, new, pending = _Refs(), 0, 0, False
     for root in dirs():
         if not root.is_dir():
             continue
         for p in sorted(root.rglob("*.jsonl")):
+            if files and time.monotonic() > deadline:  # كل استدعاء يتقدم ملفًا على الأقل
+                pending = True
+                break
             try:
-                n = _import_file(p, root)
+                n, done = _import_file(p, root, refs, deadline)
             except OSError:
                 continue
-            files += 1
-            new += n
-    return {"files": files, "new": new}
+            files, new = files + 1, new + n
+            pending = pending or not done
+    return {"files": files, "new": new, "pending": pending}
 
 
 # ------------------------------------------------------------------ التجميع
 
 def _eff():
-    f = lambda name: Cast(F(name), FloatField())
+    f = lambda name: Cast(F(name), FloatField())  # noqa: E731
     return f("input_tokens") + W_READ * f("cache_read") + W_WRITE * f("cache_write") + W_OUT * f("output_tokens")
 
 
 def _sum(qs: QuerySet) -> dict:
     a = qs.aggregate(eff=Sum(_eff()), i=Sum("input_tokens"), r=Sum("cache_read"), w=Sum("cache_write"),
-                     o=Sum("output_tokens"), n=Count("pk"), s=Count("session_id", distinct=True))
+                     o=Sum("output_tokens"), n=Count("pk"), s=Count("session", distinct=True))
     i, r, w, o = (a[k] or 0 for k in "irwo")
     return {"effective": round(a["eff"] or 0), "tokens": i + r + w + o, "input": i, "cache_read": r, "cache_write": w,
             "output": o, "turns": a["n"], "sessions": a["s"]}
 
 
 def _models(qs: QuerySet) -> list[dict]:
-    return [{"model": m, **_sum(qs.filter(model=m))} for m in
-            qs.values_list("model", flat=True).distinct().order_by()]
+    rows = qs.values("model__name").annotate(eff=Sum(_eff()), i=Sum("input_tokens"), r=Sum("cache_read"),
+                                             w=Sum("cache_write"), o=Sum("output_tokens"), n=Count("pk"),
+                                             s=Count("session", distinct=True)).order_by("-eff")
+    return [{"model": x["model__name"], "effective": round(x["eff"] or 0), "tokens": x["i"] + x["r"] + x["w"] + x["o"],
+             "input": x["i"], "cache_read": x["r"], "cache_write": x["w"], "output": x["o"], "turns": x["n"],
+             "sessions": x["s"]} for x in rows]
 
 
 def _groups(qs: QuerySet) -> list[dict]:
+    """قراءة السياق وحفظه على كل الخطوات، والمخرجات على أدوات الخطوة بالتساوي (أو «الردود» إن لم تكن أداة)."""
+    a = qs.aggregate(read=Sum(F("input_tokens") + W_READ * Cast(F("cache_read"), FloatField())), write=Sum("cache_write"),
+                     reply=Sum("output_tokens", filter=Q(tool_uses__isnull=True)))
     g = defaultdict(float)
-    for i, r, w, o, tools in qs.values_list("input_tokens", "cache_read", "cache_write", "output_tokens", "tools").iterator():
-        g[CONTEXT_READ] += i + W_READ * r
-        g[CONTEXT_WRITE] += W_WRITE * w
-        if tools:
-            for name in tools:
-                g[tool_group(name)] += W_OUT * o / len(tools)
-        else:
-            g[REPLY] += W_OUT * o
+    g[CONTEXT_READ] = a["read"] or 0
+    g[CONTEXT_WRITE] = W_WRITE * (a["write"] or 0)
+    g[REPLY] = W_OUT * (a["reply"] or 0)
+    uses = UsageTurnTool.objects.filter(turn__in=qs).values_list("turn_id", "tool__group", "uses", "turn__output_tokens")
+    per_turn = defaultdict(list)
+    for turn, group, n, out in uses.iterator():
+        per_turn[turn].append((group, n, out))
+    for items in per_turn.values():
+        total = sum(n for _, n, _ in items)
+        for group, n, out in items:
+            g[group] += W_OUT * out * n / total
     return sorted(({"name": k, "effective": round(v)} for k, v in g.items() if v), key=lambda x: -x["effective"])
-
-
-def _by_eff(rows: list[dict]) -> list[dict]:
-    return sorted(rows, key=lambda x: -x["effective"])
 
 
 def build(today: date | None = None, days: int = 30, session: str | None = None) -> dict:
     today = today or timezone.localdate()
     all_ = UsageTurn.objects.all()
     week_start, month_start = today - timedelta(days=6), today.replace(day=1)
-    latest = all_.order_by("-at").values_list("session_id", flat=True).first()
+    latest = all_.order_by("-at").values_list("session__session_id", flat=True).first()
     session = session or latest
     periods = {"today": all_.filter(day=today), "week": all_.filter(day__range=(week_start, today)),
-               "month": all_.filter(day__range=(month_start, today)), "session": all_.filter(session_id=session)}
+               "month": all_.filter(day__range=(month_start, today)), "session": all_.filter(session__session_id=session)}
     daily = {r["day"]: r for r in all_.filter(day__range=(today - timedelta(days=days - 1), today)).values("day")
              .annotate(eff=Sum(_eff()), n=Count("pk"), o=Sum("output_tokens"),
                        t=Sum(F("input_tokens") + F("cache_read") + F("cache_write") + F("output_tokens")))}
@@ -166,12 +245,16 @@ def build(today: date | None = None, days: int = 30, session: str | None = None)
         r = daily.get(d, {})
         series.append({"day": d, "effective": round(r.get("eff") or 0), "tokens": r.get("t") or 0,
                        "turns": r.get("n") or 0, "output": r.get("o") or 0})
+    rows = (UsageSession.objects.annotate(first=Min("turns__at"), last=Max("turns__at")).filter(last__isnull=False)
+            .select_related("project").order_by("-last")[:30])
     sessions = []
-    for s in all_.values("session_id").annotate(first=Min("at"), last=Max("at")).order_by("-last")[:30]:
-        qs = all_.filter(session_id=s["session_id"])
-        uf = UsageFile.objects.filter(turns__session_id=s["session_id"]).first()
-        sessions.append({"session": s["session_id"], "project": uf.project if uf else "", "first": s["first"],
-                         "last": s["last"], "models": sorted(set(qs.values_list("model", flat=True))), **_sum(qs)})
+    for s in rows:
+        qs = all_.filter(session=s)
+        sessions.append({"session": s.session_id, "project": s.project.name, "first": s.first, "last": s.last,
+                         "models": sorted(set(qs.values_list("model__name", flat=True))), **_sum(qs)})
+    projects = [{"project": x["session__project__name"], "effective": round(x["eff"] or 0), "turns": x["n"]}
+                for x in periods["month"].values("session__project__name").annotate(eff=Sum(_eff()), n=Count("pk"))
+                .order_by("-eff")[:10]]
     files = UsageFile.objects.all()
     return {
         "today": today, "week_start": week_start, "month_start": month_start, "session": session,
@@ -181,7 +264,7 @@ def build(today: date | None = None, days: int = 30, session: str | None = None)
         "imported_at": files.aggregate(m=Max("imported_at"))["m"],
         "first": all_.aggregate(m=Min("at"))["m"], "last": all_.aggregate(m=Max("at"))["m"],
         "totals": {k: _sum(v) for k, v in periods.items()},
-        "models": {k: _by_eff(_models(v)) for k, v in periods.items()},
+        "models": {k: _models(v) for k, v in periods.items()},
         "groups": {k: _groups(v) for k, v in periods.items()},
-        "daily": series, "sessions": sessions,
+        "projects": projects, "daily": series, "sessions": sessions,
     }

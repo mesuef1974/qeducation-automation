@@ -15,10 +15,13 @@ const loading = ref(false);
 const period = ref<UsagePeriod>("session");
 const table = ref(false);
 
-async function load(session?: string) {
+const note = ref("");
+async function load(session?: string, refresh = false) {
   loading.value = true;
   try {
-    data.value = await neo.usage(session);
+    data.value = await (refresh ? neo.usageImport(session) : neo.usage(session));
+    const im = data.value.imported;
+    note.value = im ? `استُوردت ${n(im.new)} خطوة جديدة${im.pending ? "، وبقي ما يستورده العامل في الدقائق القادمة" : ""}.` : "";
     error.value = "";
   } catch (e) {
     error.value = (e as Error).message;
@@ -58,6 +61,8 @@ const hovered = computed(() => (hover.value === null ? null : daily.value[hover.
 
 const shortModel = (m: string) => m.replace(/^claude-/, "").replace(/-(\d+)-(\d+)$/, " $1.$2");
 const shortSession = (s: string) => s.slice(0, 8);
+/** اسم مجلد Claude Code للمشروع (D--shschool-mvp) بصيغة المسار، وجذر المجلد للجلسات المُصدَّرة */
+const projectLabel = (p: string) => (p ? p.replace(/^([A-Za-z])--/, "$1:\\").replace(/--claude-worktrees-.*/, " (نسخة تطوير)") : "(الجذر)");
 </script>
 
 <template>
@@ -68,16 +73,17 @@ const shortSession = (s: string) => s.slice(0, 8);
     </div>
     <div class="head-side">
       <small class="muted">آخر استيراد {{ fmtWhen(data?.imported_at) }}</small>
-      <button class="btn sm" :disabled="loading" @click="load(data?.session ?? undefined)">
+      <button class="btn sm" :disabled="loading" @click="load(data?.session ?? undefined, true)">
         <i v-if="loading" class="spinner" /> حدّث الآن
       </button>
     </div>
   </header>
 
+  <div v-if="note" class="note-box">{{ note }}</div>
   <div v-if="error" class="error-box">{{ error }}</div>
   <p v-else-if="!data" class="empty"><i class="spinner" /> تحميل...</p>
   <p v-else-if="!data.first" class="empty">
-    لا سجلات بعد. المجلدات المقروءة:
+    لا سجلات بعد (العامل يستورد كل 10 دقائق، أو اضغط «حدّث الآن»). المجلدات المقروءة:
     <span v-for="s in data.sources" :key="s.path" class="mono"> {{ s.path }} ({{ s.found ? "موجود" : "غير موجود" }})</span>
   </p>
 
@@ -163,6 +169,18 @@ const shortSession = (s: string) => s.slice(0, 8);
       </section>
     </div>
 
+    <!-- المشاريع -->
+    <section v-if="data.projects.length" class="card">
+      <h2>المشاريع · هذا الشهر</h2>
+      <ul class="hbars">
+        <li v-for="p in data.projects" :key="p.project" :title="`${n(p.effective)} وحدة فعلية`">
+          <span class="lbl mono" dir="ltr">{{ projectLabel(p.project) }}</span>
+          <span class="track"><i :style="{ inlineSize: `${(p.effective / maxOf(data.projects)) * 100}%` }" /></span>
+          <span class="val">{{ c(p.effective) }} <small class="muted">{{ pct(p.effective, totals.month.effective) }}</small></span>
+        </li>
+      </ul>
+    </section>
+
     <!-- تفكيك الرموز -->
     <section class="card">
       <h2>تفكيك الرموز · {{ PERIODS.find((p) => p.key === period)?.label }}</h2>
@@ -190,7 +208,7 @@ const shortSession = (s: string) => s.slice(0, 8);
             <tr v-for="s in data.sessions" :key="s.session" :class="{ sel: s.session === data.session }"
                 class="click" @click="period = 'session'; load(s.session)">
               <td class="mono">{{ shortSession(s.session) }}</td>
-              <td>{{ s.project || "-" }}</td>
+              <td class="mono" dir="ltr">{{ projectLabel(s.project) }}</td>
               <td class="muted">{{ fmtStamp(s.first) }} ← {{ fmtStamp(s.last) }}</td>
               <td class="mono" dir="ltr">{{ s.models.map(shortModel).join("، ") }}</td>
               <td class="num">{{ n(s.turns) }}</td>

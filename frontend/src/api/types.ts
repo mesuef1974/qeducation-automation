@@ -316,7 +316,10 @@ export interface WeeklyState {
   last: Job | null;
 }
 
-/** تبويب «الاستهلاك»: استهلاك Claude من قاعدة البيانات بعد استيراد سجلات مجلد Claude (neo/services/usage.py) */
+/**
+ * تبويب «الاستهلاك»: استهلاك Claude من قاعدة البيانات (neo/services/usage.py)، بكياناتها المطبَّعة:
+ * مشروع ← جلسة ← خطوة ← نموذج وأدوات. العامل يستورد سجلات مجلد Claude كل 10 دقائق.
+ */
 export interface UsageSum {
   /** بوحدة «رمز إدخال عادي»: قراءة السياق ×0.1، وحفظه ×2، والمخرجات ×5 */
   effective: number;
@@ -336,16 +339,24 @@ export interface Usage {
   session: string | null;
   weights: { cache_read: number; cache_write: number; output: number };
   sources: { path: string; found: boolean; files: number }[];
-  imported: { files: number; new: number };
+  /** نتيجة الاستيراد عند «حدّث الآن» (POST)؛ null في القراءة العادية. pending = بقي ما يُستأنف */
+  imported: { files: number; new: number; pending: boolean } | null;
   imported_at: string | null;
   first: string | null;
   last: string | null;
   totals: Record<UsagePeriod, UsageSum>;
-  models: Record<UsagePeriod, (UsageSum & { model: string })[]>;
-  groups: Record<UsagePeriod, { name: string; effective: number }[]>;
-  daily: { day: string; effective: number; tokens: number; turns: number; output: number }[];
-  sessions: (UsageSum & { session: string; project: string; first: string; last: string; models: string[] })[];
+  models: Record<UsagePeriod, UsageByModel[]>;
+  groups: Record<UsagePeriod, UsageByGroup[]>;
+  /** المشاريع هذا الشهر */
+  projects: UsageByProject[];
+  daily: UsageDay[];
+  sessions: UsageSessionRow[];
 }
+export interface UsageByModel extends UsageSum { model: string }
+export interface UsageByGroup { name: string; effective: number }
+export interface UsageByProject { project: string; effective: number; turns: number }
+export interface UsageDay { day: string; effective: number; tokens: number; turns: number; output: number }
+export interface UsageSessionRow extends UsageSum { session: string; project: string; first: string; last: string; models: string[] }
 
 /** تبويب «مباشر»: البث الحي من العامل */
 export type LiveKind = "start" | "stage" | "step" | "net" | "file" | "warn" | "error" | "end";

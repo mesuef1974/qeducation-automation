@@ -31,8 +31,10 @@ export const neo = {
   weeklyRead: () => api.post<{ read_at: string }>("neo/weekly/read/"),
   snapshot: () => api.post<void>("neo/scorecard/"),
   cancel: (id: number) => api.post<Job>(`neo/jobs/${id}/cancel/`),
-  /** يستورد الجديد من مجلد Claude ثم يعيد الملخص */
+  /** ملخص الاستهلاك من قاعدة البيانات */
   usage: (session?: string) => api.get<Usage>(`neo/usage/${query({ session })}`),
+  /** «حدّث الآن»: يستورد الجديد من مجلد Claude بمهلة قصيرة ثم يعيد الملخص */
+  usageImport: (session?: string) => api.post<Usage>(`neo/usage/${query({ session })}`),
   live: (p: { since?: number; job?: number }) => api.get<LiveFeed>(`neo/live/${query(p)}`),
   /** تأكيد المطابقة الآلية مرة واحدة لدروس (lms_lesson_id) */
   confirmLessons: (ids: number[]) => api.post<{ changed: number }>("neo/lessons/confirm/", { ids }),

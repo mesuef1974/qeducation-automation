@@ -15,6 +15,10 @@ from neo.models import (
     SyncRun,
     TimetableSlot,
     UsageFile,
+    UsageModel,
+    UsageProject,
+    UsageSession,
+    UsageTool,
     UsageTurn,
 )
 from neo.services import safety
@@ -151,16 +155,43 @@ class JobAdmin(admin.ModelAdmin):
         return False
 
 
+@admin.register(UsageProject)
+class UsageProjectAdmin(admin.ModelAdmin):
+    list_display = ["name"]
+    search_fields = ["name"]
+
+
+@admin.register(UsageSession)
+class UsageSessionAdmin(admin.ModelAdmin):
+    list_display = ["session_id", "project"]
+    list_filter = ["project"]
+    search_fields = ["session_id"]
+
+
+@admin.register(UsageModel)
+class UsageModelAdmin(admin.ModelAdmin):
+    list_display = ["name"]
+
+
+@admin.register(UsageTool)
+class UsageToolAdmin(admin.ModelAdmin):
+    list_display = ["name", "group"]
+    list_filter = ["group"]
+    search_fields = ["name"]
+
+
 @admin.register(UsageFile)
 class UsageFileAdmin(admin.ModelAdmin):
-    list_display = ["path", "project", "offset", "imported_at"]
-    search_fields = ["path", "session_id"]
+    list_display = ["path", "project", "offset", "size", "imported_at"]
+    list_filter = ["project"]
+    search_fields = ["path"]
     readonly_fields = [f.name for f in UsageFile._meta.fields]
 
 
 @admin.register(UsageTurn)
 class UsageTurnAdmin(admin.ModelAdmin):
-    list_display = ["at", "model", "session_id", "input_tokens", "cache_read", "cache_write", "output_tokens"]
+    list_display = ["at", "model", "session", "input_tokens", "cache_read", "cache_write", "output_tokens"]
     list_filter = ["model", "day"]
-    search_fields = ["session_id"]
+    search_fields = ["session__session_id"]
+    list_select_related = ["model", "session"]
     readonly_fields = [f.name for f in UsageTurn._meta.fields]
