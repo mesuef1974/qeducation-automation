@@ -384,7 +384,8 @@ const statusTone = (s: string) => (s === "done" ? "ok" : s === "failed" ? "bad" 
           </div>
         </header>
         <AutomationDiagram v-if="showDiagram" :notes="notes" :worker="worker" :weekly-note="weeklyNote" :active="nodeNow"
-                           :trail="trail" :failed="failedNode" :progress="nodeProgress" :signals="signals" />
+                           :trail="trail" :failed="failedNode" :progress="nodeProgress" :signals="signals"
+                           :auto-approve="!!feed?.weekly.auto_approve" />
       </article>
 
       <article class="card feed" aria-label="سجل البث">
@@ -445,9 +446,14 @@ const statusTone = (s: string) => (s === "done" ? "ok" : s === "failed" ? "bad" 
           <dt>آخر اتصال</dt><dd>{{ fmtWhen(feed?.session.checked_at) }}</dd>
           <dt>الدورة الأسبوعية</dt>
           <dd>{{ feed?.weekly.enabled ? `القادمة ${fmtSlot(feed.weekly.next_at)}${feed.weekly.auto_approve ? "" : " · للمراجعة فقط"}` : "معطّلة" }}</dd>
-          <dt>التمهّل</dt><dd>3–6 ث بين طلبات الحزمة، وإعادة بعد 429</dd>
+          <dt>الكتابة على المنصة</dt>
+          <dd>
+            <span class="pill" :class="feed?.session.halted ? 'bad' : 'ok'">{{ feed?.session.halted ? "موقوفة آليًا" : "مسموحة بعد اعتمادك" }}</span>
+            <small v-if="feed?.session.halted" class="muted"> {{ feed.session.halt_reason }}</small>
+          </dd>
+          <dt>التمهّل</dt><dd>&lrm;3–6&lrm; ث بين طلبات الحزمة، وإعادة بعد &lrm;429&lrm;</dd>
         </dl>
-        <RouterLink to="/automation" class="btn ghost sm">رسم الأتمتة ونضج المراحل</RouterLink>
+        <RouterLink to="/swot" class="btn ghost sm">نضج المراحل في «SWOT والأداء»</RouterLink>
       </article>
     </aside>
   </section>

@@ -8,6 +8,7 @@ import { useConfirm } from "@/composables/useConfirm";
 import { TONE } from "@/domain";
 import { useClassesStore } from "@/stores/classes";
 import { useJobsStore } from "@/stores/jobs";
+import { fmtWhen } from "@/utils/format";
 
 /**
  * محرك المحتوى: اقتراحات الإضافة لكل درس ناقص (وصف، وصورة بطاقة، وقسم تهيئة، وتقييم ذاتي التصحيح).
@@ -65,9 +66,12 @@ const groups = computed<Group[]>(() => {
   return [...by.values()].sort((a, b) => a.lesson.position - b.lesson.position);
 });
 const latestRun = computed(() => Math.max(0, ...items.value.map((p) => p.run)));
-const allPending = computed(() => items.value.filter((p) => p.status === "pending" && p.run === latestRun.value));
+const allPending = computed(() => items.value.filter((p) => p.status === "pending" && p.evidence.sure && p.run === latestRun.value));
+const halted = computed(() => !!jobs.session?.halted);
 const allApproved = computed(() => items.value.filter((p) => p.status === "approved" && p.run === latestRun.value));
-const pending = (g: Group) => g.props.filter((p) => p.status === "pending");
+/** المنتظر الذي يقبل الاعتماد: مطابقة درسه بالخطة مؤكدة */
+const pending = (g: Group) => g.props.filter((p) => p.status === "pending" && p.evidence.sure);
+const unsure = (g: Group) => g.props.some((p) => p.status === "pending" && !p.evidence.sure);
 const approved = (g: Group) => g.props.filter((p) => p.status === "approved");
 const field = (p: ContentProposal) => (p.kind === "description" || p.kind === "assessment" || p.kind === "outcomes" ? "text" : p.kind === "section" ? "html" : "");
 /** النص المعروض: تعديلك غير المحفوظ ما دام الاقتراح قيد المراجعة، وإلا ما حُفظ فعلًا على الخادم */
@@ -161,7 +165,7 @@ const imageUrl = (p: ContentProposal) => `/api/neo/proposals/content/${p.id}/ima
       <button v-if="allPending.length" class="btn ghost sm" @click="decide(allPending.map((p) => p.id), 'approve')">
         اعتمد كل المنتظر ({{ allPending.length }})
       </button>
-      <button v-if="allApproved.length" class="btn sm" :disabled="jobs.busy('content_apply', undefined, latestRun)" @click="applyAll">
+      <button v-if="allApproved.length" class="btn sm" :disabled="halted || jobs.busy('content_apply', undefined, latestRun)" @click="applyAll">
         <i v-if="jobs.busy('content_apply', undefined, latestRun)" class="spinner" /> أضف كل المعتمد ({{ allApproved.length }})
       </button>
       <button class="btn sm" :disabled="!lms || jobs.busy('content_plan', lms)" @click="plan">
@@ -175,6 +179,7 @@ const imageUrl = (p: ContentProposal) => `/api/neo/proposals/content/${p.id}/ima
             @click="router.replace({ query: { class: c.lms_id } })">{{ c.name }}</button>
   </nav>
 
+  <div v-if="halted" class="error-box">الكتابة على المنصة موقوفة آليًا: {{ jobs.session?.halt_reason }}. لا يُضاف شيء حتى تعيد التفعيل من الشريط العلوي.</div>
   <div v-if="error" class="error-box">{{ error }}</div>
   <p v-else-if="loading && !items.length" class="empty"><i class="spinner" /> تحميل...</p>
   <p v-else-if="!groups.length" class="empty">لا اقتراحات بعد. شغّل تدقيق الجودة من صفحة الدروس، ثم «اقترح للدروس الناقصة».</p>
@@ -185,13 +190,14 @@ const imageUrl = (p: ContentProposal) => `/api/neo/proposals/content/${p.id}/ima
         <h2>{{ g.lesson.position }}. {{ g.lesson.title }}</h2>
         <small class="muted">
           <span v-for="p in g.props" :key="p.id" class="pill" :class="TONE[p.status]">{{ p.kind_label }} · {{ p.status_label }}</span>
+          <RouterLink v-if="unsure(g)" class="pill warn" :to="{ name: 'lessons', query: { class: lms } }">مطابقة غير مؤكدة · أكّدها ثم اعتمد</RouterLink>
         </small>
       </div>
       <div class="actions">
         <button v-if="pending(g).length" class="btn ghost sm" @click="decide(pending(g).map((p) => p.id), 'approve')">
           اعتمد الكل ({{ pending(g).length }})
         </button>
-        <button v-if="approved(g).length" class="btn sm" :disabled="jobs.busy('content_apply', undefined, g.run)" @click="apply(g)">
+        <button v-if="approved(g).length" class="btn sm" :disabled="halted || jobs.busy('content_apply', undefined, g.run)" @click="apply(g)">
           <i v-if="jobs.busy('content_apply', undefined, g.run)" class="spinner" /> أضف المعتمد ({{ approved(g).length }})
         </button>
         <button class="btn ghost sm" @click="open = open === g.lesson.id ? null : g.lesson.id">
@@ -205,11 +211,13 @@ const imageUrl = (p: ContentProposal) => `/api/neo/proposals/content/${p.id}/ima
         <div class="p-head">
           <b>{{ p.kind_label }}</b>
           <span class="pill" :class="TONE[p.status]">{{ p.status_label }}</span>
+          <span v-if="p.status === 'approved' && p.evidence.expires_at" class="muted exp">يسقط الاعتماد {{ fmtWhen(p.evidence.expires_at) }}</span>
           <span v-if="p.error" class="err">{{ p.error }}</span>
           <span class="grow" />
           <template v-if="p.status === 'pending'">
             <button v-if="drafts[p.id] !== undefined" class="btn sm" @click="save(p)">احفظ التعديل</button>
-            <button class="btn ghost sm" @click="decide([p.id], 'approve')">اعتمد</button>
+            <button class="btn ghost sm" :disabled="!p.evidence.sure" :title="p.evidence.sure ? '' : 'أكّد مطابقة الدرس من «الدروس» أولًا'"
+                    @click="decide([p.id], 'approve')">اعتمد</button>
             <button class="btn ghost sm" @click="decide([p.id], 'reject')">ارفض</button>
           </template>
           <button v-else-if="p.status === 'approved'" class="btn ghost sm" @click="decide([p.id], 'reset')">أعد للمراجعة</button>
@@ -240,6 +248,7 @@ const imageUrl = (p: ContentProposal) => `/api/neo/proposals/content/${p.id}/ima
 .p-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .grow { flex: 1; }
 .err { color: var(--bad); font-size: 13px; }
+.exp { font-size: 13px; }
 textarea { inline-size: 100%; font: 14px/1.6 var(--f-body); padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--fg); resize: vertical; }
 .tile { inline-size: min(100%, 320px); border-radius: 8px; border: 1px solid var(--line); }
 </style>

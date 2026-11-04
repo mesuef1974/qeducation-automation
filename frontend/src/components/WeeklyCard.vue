@@ -3,6 +3,8 @@ import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 
 import { neo } from "@/api/neo";
 import type { WeeklyReport, WeeklyStage, WeeklyState } from "@/api/types";
+import { STAGES } from "@/domain";
+import { useClassesStore } from "@/stores/classes";
 import { useJobsStore } from "@/stores/jobs";
 import { fmtSlot, fmtStamp } from "@/utils/format";
 
@@ -10,6 +12,7 @@ import { fmtSlot, fmtStamp } from "@/utils/format";
 const STAGE_LABEL: Record<string, string> = { dates: "التواريخ", assign: "الإسناد", publish: "النشر", prep: "التحضير" };
 
 const jobs = useJobsStore();
+const classes = useClassesStore();
 const state = ref<WeeklyState | null>(null);
 const error = ref("");
 
@@ -47,6 +50,10 @@ function line(s: WeeklyStage, key = ""): string {
   return parts.join(" · ");
 }
 const tone = (s: WeeklyStage) => (s.anomaly || s.failed || s.ok === false ? "bad" : s.held ? "warn" : "ok");
+
+/** ما بقي فعلًا بانتظار اعتمادك الآن (لا عدد التقرير وقت الدورة)، وأول مرحلة فيها منتظر */
+const left = computed(() => STAGES.reduce((n, s) => n + classes.pendingReview[s.kind], 0));
+const firstLeft = computed(() => STAGES.find((s) => classes.pendingReview[s.kind])?.kind);
 
 /** الملخص ثابت أعلى «اليوم» حتى يُقرأ (الخطوة 9) */
 const unread = computed(() => !!last.value?.finished_at && !report.value.read_at);
@@ -108,7 +115,12 @@ onBeforeUnmount(stop);
           </ul>
         </div>
       </div>
-      <RouterLink v-if="report.attention" to="/review" class="btn ghost sm">راجع ما بقي</RouterLink>
+      <p v-if="report.attention" class="left">
+        <RouterLink v-if="left" :to="{ name: 'review', params: { kind: firstLeft } }" class="btn ghost sm">
+          راجع ما بقي ({{ left }})
+        </RouterLink>
+        <span v-else class="pill ok">رُوجعت كلها</span>
+      </p>
     </template>
   </section>
 </template>
@@ -120,6 +132,7 @@ onBeforeUnmount(stop);
 .head h2 { font-size: 20px; margin: 0; }
 .status { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0; font-size: 14px; }
 .err { color: var(--bad); }
+.left { margin: 0; }
 .grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); }
 .klass ul { list-style: none; padding: 0; margin: 6px 0 0; display: grid; gap: 4px; font-size: 14px; }
 </style>

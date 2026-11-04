@@ -25,10 +25,13 @@ const props = withDefaults(defineProps<{
   /** تقدّم العقدة الجارية بين 0 و1 */
   progress?: number | null;
   signals?: Signal[];
-}>(), { weeklyTitle: "الدورة الأسبوعية", active: "", trail: null, failed: "", progress: null, signals: () => [] });
+  /** الدورة تعتمد الروتيني تلقائيًا؛ false = للمراجعة فقط */
+  autoApprove?: boolean;
+}>(), { weeklyTitle: "الدورة الأسبوعية", active: "", trail: null, failed: "", progress: null, signals: () => [],
+        autoApprove: false });
 
 const uid = useId();
-const W = 1000, H = 600, BW = 168, BH = 92;
+const W = 1000, H = 552, BW = 168, BH = 92;
 const byKey = (k: NodeKey) => NODES.find((s) => s.key === k)!;
 
 // سهم بين مركزي صندوقين (أفقي أو عمودي)، بالاتجاه من a إلى b
@@ -108,17 +111,25 @@ const segments = computed<Seg[]>(() => props.signals.flatMap((s) => {
 }));
 const sparks = computed(() => props.signals.filter((s) => s.kind === "file" || (s.kind === "read" && !READ[s.node]?.length)));
 
+// صمّامات الكتابة كما يطبّقها الخادم (safety.py و pipeline._guard_apply)، قائمة HTML تحت الرسم لا تُقص
 const SAFEGUARDS = [
-  "إضافة فقط: لا يُعدَّل موجود ولا يُحذف",
-  "يُقرأ الدرس قبل كل إضافة؛ الموجود يُتخطّى",
-  "حد 20 تغييرًا للمرحلة في الدورة الأسبوعية",
-  "فحص شكل المنصة قبل الكتابة (انكماش > 20% يوقف)",
-  "تحقق بعدي من منظور الطالب",
-  "بيانات الطلاب محلية فقط",
+  "لا يُكتب شيء قبل اعتمادك، والاعتماد صالح 48 ساعة ويسقط إن تغيّر الدرس بعده",
+  "درس مطابقته بالخطة غير مؤكدة لا يُقترح له ولا يُعتمد حتى تؤكده",
+  "جلب حديث قبل كل كتابة إن كان آخر جلب أقدم من ساعة",
+  "أي نقص في دروس المنصة يوقف المزامنة حتى تؤكد الحذف",
+  "التطبيق يتوقف عند أول خطأ غير متوقع، وما بعده يبقى معتمدًا",
+  "قراءة بعدية لكل كتابة؛ كتابة خاطئة أو تحققان فاشلان يوقفان الكتابة آليًا",
+  "إضافة فقط في المحتوى، ومواعيد التقييم القائمة لا تُمس",
+  "حد التغييرات في الدورة = حصص الصف في نافذتها",
 ];
+const weeklySub = computed(() => (props.autoApprove
+  ? "كل اثنين 7:00: تعتمد الروتيني الآمن تلقائيًا (تواريخ، إسناد، نشر) وتطبّقه بالصمّامات، ثم التحقق وحزمتا التحضير."
+  : "كل اثنين 7:00، للمراجعة فقط: تجلب وتقترح وتتحقق وتبني حزمتي التحضير، ولا يُطبَّق إلا ما اعتمدته."));
 </script>
 
 <template>
+  <div class="diagram-wrap">
+  <div class="scroll">
   <svg :viewBox="`0 0 ${W} ${H}`" role="img" aria-label="رسم عملية الأتمتة" :class="{ live }">
     <defs>
       <marker :id="`${uid}-arr`" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
@@ -170,29 +181,34 @@ const SAFEGUARDS = [
     </g>
 
     <!-- شريط الدورة الأسبوعية والعامل -->
-    <g transform="translate(204,392)">
-      <rect :width="780" height="72" rx="14" class="band" />
-      <text x="766" y="28" class="title">{{ weeklyTitle }}</text>
-      <text x="14" y="28" class="hint">{{ weeklyNote }}</text>
-      <text x="766" y="52" class="sub">تنفّذ ①②③ للروتيني تلقائيًا (تواريخ، إسناد، نشر، نقاط) بصمّامات، ثم لقطة بطاقة الأداء.</text>
-    </g>
-    <g transform="translate(204,484)">
-      <rect :width="780" height="56" rx="14" :class="['band', worker.tone]" />
-      <text x="766" y="24" class="title">العامل (neo_worker)</text>
-      <text x="766" y="44" class="sub">مهمة واحدة في كل مرة · نبض كل 5 ثوانٍ · يعيد تشغيل نفسه عند تغيّر الكود وهو خامل · {{ worker.label }}</text>
-    </g>
     <g transform="translate(16,392)">
-      <rect width="172" height="148" rx="14" class="band soft" />
-      <text x="158" y="24" class="title">الصمّامات</text>
-      <text v-for="(g, i) in SAFEGUARDS" :key="g" x="158" :y="44 + i * 17" class="tiny">• {{ g }}</text>
+      <rect :width="968" height="72" rx="14" class="band" />
+      <text x="954" y="28" class="title">{{ weeklyTitle }}</text>
+      <text x="14" y="28" class="hint">{{ weeklyNote }}</text>
+      <text x="954" y="52" class="sub">{{ weeklySub }}</text>
+    </g>
+    <g transform="translate(16,484)">
+      <rect :width="968" height="56" rx="14" :class="['band', worker.tone]" />
+      <text x="954" y="24" class="title">العامل (neo_worker)</text>
+      <text x="954" y="44" class="sub">مهمة واحدة في كل مرة · نبض كل 5 ثوانٍ · يعيد تشغيل نفسه عند تغيّر الكود وهو خامل · {{ worker.label }}</text>
     </g>
   </svg>
+  </div>
+  <section class="valves" aria-label="الصمّامات">
+    <h3>الصمّامات قبل أي كتابة على المنصة</h3>
+    <ul><li v-for="g in SAFEGUARDS" :key="g">{{ g }}</li></ul>
+  </section>
+  </div>
 </template>
 
 <style scoped>
-svg { inline-size: 100%; block-size: auto; display: block; font-family: inherit; direction: ltr; }
-.lane { font-size: 15px; font-weight: 700; fill: var(--muted); text-anchor: end; }
-.hint { font-size: 12px; fill: var(--muted); text-anchor: start; }
+/* الرسم لا يصغر عن 880px فيبقى نصه مقروءًا (لا 6.7px)، ويُمرَّر أفقيًا في الشاشات الضيقة.
+   direction: rtl يبقي «%» والأرقام في مكانها من النص العربي؛ ولذلك المرساة معكوسة: start = يمين x، end = يساره. */
+.diagram-wrap { display: grid; gap: 10px; }
+.scroll { overflow-x: auto; }
+svg { inline-size: 100%; min-inline-size: 880px; block-size: auto; display: block; font-family: inherit; direction: rtl; unicode-bidi: isolate; }
+.lane { font-size: 15px; font-weight: 700; fill: var(--muted); text-anchor: start; }
+.hint { font-size: 12px; fill: var(--muted); text-anchor: end; }
 .flow { fill: none; stroke: var(--line); stroke-width: 2.5; transition: stroke .4s, opacity .4s; }
 .flow.back { stroke-dasharray: 6 6; stroke: var(--maroon); opacity: .7; }
 .flow.side { stroke-dasharray: 3 5; stroke: var(--muted); }
@@ -212,9 +228,9 @@ svg { inline-size: 100%; block-size: auto; display: block; font-family: inherit;
 .node.human rect { fill: var(--maroon-soft); stroke: var(--maroon); stroke-dasharray: 5 4; }
 .node.human.run rect { stroke-dasharray: none; }
 .node .halo { fill: none; stroke: var(--maroon); stroke-width: 6; opacity: .25; animation: halo 1.6s ease-in-out infinite; }
-.node text { text-anchor: end; fill: var(--fg); }
-.node .title, g .title { font-size: 16px; font-weight: 700; fill: var(--fg); text-anchor: end; }
-.node .sub, g .sub { font-size: 11.5px; fill: var(--muted); text-anchor: end; }
+.node text { text-anchor: start; fill: var(--fg); }
+.node .title, g .title { font-size: 16px; font-weight: 700; fill: var(--fg); text-anchor: start; }
+.node .sub, g .sub { font-size: 12px; fill: var(--muted); text-anchor: start; }
 .node .note { font-size: 12px; font-weight: 600; fill: var(--maroon); }
 .node .when { font-size: 11px; fill: var(--muted); }
 .node.bad .note { fill: var(--bad); }
@@ -236,7 +252,9 @@ svg { inline-size: 100%; block-size: auto; display: block; font-family: inherit;
 .band.soft { fill: var(--code-bg); }
 .band.bad { stroke: var(--bad); fill: var(--bad-soft); }
 .band.run { stroke: var(--maroon); stroke-width: 3; }
-.tiny { font-size: 11px; fill: var(--fg); text-anchor: end; }
+.valves { border: 1px solid var(--line); border-radius: 12px; background: var(--code-bg); padding: 10px 14px; }
+.valves h3 { margin: 0 0 6px; font-size: 15px; }
+.valves ul { margin: 0; padding-inline-start: 18px; display: grid; gap: 4px 24px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); font-size: 14px; }
 
 @keyframes pulse { 50% { opacity: .2; } }
 @keyframes march { from { stroke-dashoffset: 15; } to { stroke-dashoffset: 0; } }

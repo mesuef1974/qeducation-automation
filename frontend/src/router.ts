@@ -13,7 +13,8 @@ export const router = createRouter({
     { path: "/content", name: "content", component: () => import("@/views/ContentView.vue"), meta: { title: "المحتوى" } },
     { path: "/log", name: "log", component: () => import("@/views/LogView.vue"), meta: { title: "السجل" } },
     { path: "/live", name: "live", component: () => import("@/views/LiveView.vue"), meta: { title: "مباشر" } },
-    { path: "/automation", name: "automation", component: () => import("@/views/AutomationView.vue"), meta: { title: "الأتمتة" } },
+    // «الأتمتة» دُمجت في «مباشر» (الرسم الحي)، ونضج المراحل في «SWOT والأداء»
+    { path: "/automation", redirect: "/live" },
     { path: "/swot", name: "swot", component: () => import("@/views/SwotView.vue"), meta: { title: "SWOT والأداء" } },
     { path: "/scorecard", redirect: "/swot" },
     { path: "/:pathMatch(.*)*", redirect: "/" },

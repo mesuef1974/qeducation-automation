@@ -4,13 +4,14 @@ import { useRoute, useRouter } from "vue-router";
 
 import { neo } from "@/api/neo";
 import type {
-  AssignProposal, DateProposal, Decision, Proposal, ProposalKind, PublishProposal,
+  AssignProposal, DateProposal, Decision, Proposal, ProposalKind, PublishProposal, RunNotes as Notes,
 } from "@/api/types";
+import RunNotes from "@/components/RunNotes.vue";
 import { useConfirm } from "@/composables/useConfirm";
 import { STAGES, stageOf, TONE } from "@/domain";
 import { useClassesStore } from "@/stores/classes";
 import { useJobsStore } from "@/stores/jobs";
-import { fmtDay, fmtShort, fmtStamp } from "@/utils/format";
+import { fmtDay, fmtShort, fmtStamp, fmtWhen } from "@/utils/format";
 
 const route = useRoute();
 const router = useRouter();
@@ -46,11 +47,30 @@ async function load() {
     }
     const ids = new Set(items.value.map((p) => p.id));
     selected.value = new Set([...selected.value].filter((id) => ids.has(id)));
+    void loadNotes();
   } catch (e) {
     error.value = (e as Error).message;
   } finally {
     loading.value = false;
   }
+}
+
+/** ملاحظات كل اقتراح: ما استُبعد عند الاقتراح، وما توقف أو بقي على المنصة في آخر تطبيق له */
+const notes = ref<Record<number, Notes>>({});
+async function loadNotes() {
+  const runs = [...new Set(items.value.map((p) => p.run))];
+  const got = await Promise.all(runs.map(async (run) => {
+    try {
+      const [plan, applied] = await Promise.all([neo.runs({ id: run, limit: 1 }), neo.runs({ plan_run: run, limit: 1 })]);
+      const a = applied.results[0]?.summary ?? {};
+      const n: Notes = { unconfirmed_match: plan.results[0]?.summary.unconfirmed_match,
+                         stopped: a.stopped, not_attempted: a.not_attempted, kept_on_platform: a.kept_on_platform, error: a.error };
+      return [run, n] as const;
+    } catch {
+      return [run, {}] as const;
+    }
+  }));
+  notes.value = Object.fromEntries(got);
 }
 
 watch([kind, lms, scope, () => classes.items.length], () => {
@@ -73,6 +93,10 @@ const groups = computed<Group[]>(() => {
 });
 
 const decidable = (p: Proposal) => p.status === "pending" || p.status === "approved";
+/** المنتظر الذي يقبل الاعتماد: مطابقة درسه مؤكدة */
+const approvable = (g: Group) => g.items.filter((p) => p.status === "pending" && p.evidence.sure);
+const halted = computed(() => !!jobs.session?.halted);
+const notice = ref("");
 function toggle(id: number) {
   const s = new Set(selected.value);
   if (s.has(id)) s.delete(id);
@@ -92,8 +116,13 @@ const busy = ref(false);
 async function decide(decision: Decision, ids = [...selected.value]) {
   if (!ids.length) return;
   busy.value = true;
+  notice.value = "";
+  const byId = new Map(items.value.map((p) => [p.id, p]));
+  const unsure = decision === "approve" ? ids.filter((id) => byId.get(id)?.status === "pending" && !byId.get(id)?.evidence.sure) : [];
   try {
-    await neo.decide(kind.value, ids, decision);
+    const { changed } = await neo.decide(kind.value, ids, decision);
+    if (unsure.length)
+      notice.value = `اعتُمد ${changed}، ولم يُعتمد ${unsure.length} لأن مطابقة درسه بالخطة غير مؤكدة: أكّدها من «الدروس» ثم اعتمد.`;
     selected.value = new Set();
     await Promise.all([load(), classes.load()]);
   } catch (e) {
@@ -164,7 +193,12 @@ const asPublish = (p: Proposal) => p as PublishProposal;
     <button class="btn ghost sm" @click="selected = new Set()">إلغاء التحديد</button>
   </div>
 
+  <div v-if="halted" class="error-box">
+    الكتابة على المنصة موقوفة آليًا: {{ jobs.session?.halt_reason }}. يمكنك المراجعة والاعتماد، ولا يُطبَّق شيء حتى تعيد التفعيل من الشريط العلوي.
+  </div>
+  <div v-if="notice" class="note-box">{{ notice }}</div>
   <div v-if="error" class="error-box">{{ error }}</div>
+  <p class="muted rule">الاعتماد صالح 48 ساعة، ويعود للمراجعة إن تغيّر الدرس على المنصة بعده. لا يُعتمد درس مطابقته بالخطة غير مؤكدة.</p>
   <p v-if="loading && !items.length" class="empty"><i class="spinner" /> تحميل...</p>
   <p v-else-if="!groups.length" class="empty">
     {{ scope === "open" ? `لا اقتراحات تنتظر المراجعة في ${stage.label}.` : `آخر اقتراح في ${stage.label} لم يتضمن عناصر.` }}
@@ -179,18 +213,20 @@ const asPublish = (p: Proposal) => p as PublishProposal;
       </label>
       <span class="muted">الاقتراح #{{ g.run }} · {{ g.items.length }} عنصر</span>
       <span class="spacer" />
-      <button v-if="g.items.some((p) => p.status === 'pending')" class="btn sm" :disabled="busy"
-              @click="decide('approve', g.items.filter((p) => p.status === 'pending').map((p) => p.id))">
-        اعتماد الكل
+      <button v-if="approvable(g).length" class="btn sm" :disabled="busy"
+              @click="decide('approve', approvable(g).map((p) => p.id))">
+        اعتماد الكل ({{ approvable(g).length }})
       </button>
-      <button v-if="stage.trial && g.approved > 1" class="btn sm" :disabled="jobs.busy(stage.apply, undefined, g.run)"
+      <button v-if="stage.trial && g.approved > 1" class="btn sm" :disabled="halted || jobs.busy(stage.apply, undefined, g.run)"
               @click="apply(g, 1)">
         جرّب على واحد
       </button>
-      <button class="btn primary sm" :disabled="!g.approved || jobs.busy(stage.apply, undefined, g.run)" @click="apply(g)">
+      <button class="btn primary sm" :disabled="halted || !g.approved || jobs.busy(stage.apply, undefined, g.run)"
+              :title="halted ? 'الكتابة موقوفة آليًا' : ''" @click="apply(g)">
         <i v-if="jobs.busy(stage.apply, undefined, g.run)" class="spinner" /> طبّق المعتمد ({{ g.approved }})
       </button>
     </header>
+    <RunNotes v-if="notes[g.run]" :notes="notes[g.run]" compact />
 
     <div class="table-wrap">
       <table>
@@ -239,6 +275,13 @@ const asPublish = (p: Proposal) => p as PublishProposal;
             </td>
             <td>
               <span class="pill" :class="TONE[p.status]">{{ p.status_label }}</span>
+              <RouterLink v-if="decidable(p) && !p.evidence.sure" class="pill warn as-link"
+                          :to="{ name: 'lessons', query: { class: p.lms_id } }" title="لا يُعتمد حتى تؤكد مطابقة الدرس بالخطة">
+                مطابقة غير مؤكدة · أكّدها
+              </RouterLink>
+              <small v-if="p.status === 'approved' && p.evidence.expires_at" class="muted exp">
+                يسقط الاعتماد {{ fmtWhen(p.evidence.expires_at) }}
+              </small>
               <small v-if="p.error" class="err">{{ p.error }}</small>
             </td>
           </tr>
@@ -256,4 +299,7 @@ const asPublish = (p: Proposal) => p as PublishProposal;
 .spacer { flex: 1; }
 .err { display: block; color: var(--bad); }
 .ev small { display: block; }
+.exp { display: block; }
+.rule { margin: 0; font-size: 13px; }
+.as-link { text-decoration: none; display: inline-block; margin-block-start: 4px; }
 </style>

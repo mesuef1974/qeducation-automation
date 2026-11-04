@@ -3,6 +3,7 @@ import { onUnmounted, ref, watch } from "vue";
 
 import { neo } from "@/api/neo";
 import type { Job, Run } from "@/api/types";
+import RunNotes from "@/components/RunNotes.vue";
 import { firstLine, jobTarget, TONE } from "@/domain";
 import { useClassesStore } from "@/stores/classes";
 import { useJobsStore } from "@/stores/jobs";
@@ -18,7 +19,7 @@ const jobs = ref<Job[]>([]);
 const KINDS: [string, string][] = [
   ["", "كل الأنواع"], ["fetch", "جلب"], ["plan", "اقتراح تواريخ"], ["apply", "تطبيق"],
   ["assign_plan", "اقتراح إسناد"], ["assign_apply", "تطبيق إسناد"], ["publish_plan", "اقتراح نشر"],
-  ["publish_apply", "تطبيق نشر"], ["verify", "تحقق"],
+  ["publish_apply", "تطبيق نشر"], ["content_plan", "اقتراح محتوى"], ["content_apply", "تطبيق محتوى"], ["verify", "تحقق"],
 ];
 const kind = ref("");
 const lms = ref<number | "">("");
@@ -57,6 +58,8 @@ watch([kind, lms], () => loadRuns());
 const off = jobsStore.onFinished(() => (tab.value === "jobs" ? loadJobs() : loadRuns()));
 onUnmounted(off);
 
+/** للعملية ما يحتاج نظرك (توقف، أو استبعاد لمطابقة غير مؤكدة، أو مواعيد لم تُمس) */
+const noted = (r: Run) => !!(r.summary.stopped || r.summary.error || r.summary.unconfirmed_match?.length || r.summary.kept_on_platform?.length);
 const target = (j: Job) => jobTarget(j.kind, j.params, classes.name) || "-";
 </script>
 
@@ -127,14 +130,22 @@ const target = (j: Job) => jobTarget(j.kind, j.params, classes.name) || "-";
               <td>{{ r.kind_label }}</td>
               <td>{{ r.class_name }}</td>
               <td class="muted">{{ fmtStamp(r.started_at) }}</td>
-              <td><span class="pill" :class="r.ok ? 'ok' : 'bad'">{{ r.ok ? "سليمة" : "تحتاج مراجعة" }}</span></td>
+              <td>
+                <span class="pill" :class="r.ok ? 'ok' : 'bad'">{{ r.ok ? "سليمة" : "تحتاج مراجعة" }}</span>
+                <span v-if="noted(r)" class="pill warn">فيها ما يحتاج نظرك</span>
+              </td>
               <td class="tight">
                 <button class="btn ghost sm" :aria-expanded="open === r.id" @click="open = open === r.id ? null : r.id">
                   {{ open === r.id ? "إخفاء" : "الملخص" }}
                 </button>
               </td>
             </tr>
-            <tr v-if="open === r.id"><td colspan="6"><pre class="json">{{ JSON.stringify(r.summary, null, 2) }}</pre></td></tr>
+            <tr v-if="open === r.id">
+              <td colspan="6"><div class="detail">
+                <RunNotes :notes="r.summary" />
+                <details><summary class="muted">الملخص الكامل</summary><pre class="json">{{ JSON.stringify(r.summary, null, 2) }}</pre></details>
+              </div></td>
+            </tr>
           </template>
         </tbody>
       </table>
@@ -147,6 +158,8 @@ const target = (j: Job) => jobTarget(j.kind, j.params, classes.name) || "-";
 
 <style scoped>
 .err { color: var(--bad); }
+.detail { display: grid; gap: 8px; }
+.detail summary { cursor: pointer; font-size: 13px; }
 td .pill { margin-inline-end: 4px; }
 .more summary { cursor: pointer; font-size: 13px; }
 .more pre { margin-block-start: 6px; white-space: pre-wrap; overflow-wrap: anywhere; max-inline-size: 60ch; }

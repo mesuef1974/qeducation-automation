@@ -15,7 +15,7 @@ export const neo = {
   session: () => api.get<SessionState>("neo/session/"),
   classes: () => api.get<PlatformClass[]>("neo/classes/"),
   lessons: (lms: number) => api.get<Lesson[]>(`neo/lessons/${query({ class: lms })}`),
-  runs: (p: { class?: number; kind?: string; limit?: number; offset?: number }) =>
+  runs: (p: { class?: number; kind?: string; id?: number; plan_run?: number; limit?: number; offset?: number }) =>
     api.get<Page<Run>>(`neo/runs/${query(p)}`),
   proposals: <T extends Proposal>(kind: ProposalKind, p: { class?: number; run?: number; status?: string }) =>
     api.get<T[]>(`neo/proposals/${kind}/${query(p)}`),

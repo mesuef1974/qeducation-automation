@@ -7,6 +7,7 @@ from datetime import date, timedelta
 from django.utils import timezone
 
 from neo.models import AssignProposal, ContentProposal, DateProposal, PublishProposal
+from neo.services import safety
 from neo.services.publish_service import policy
 
 SOON = timedelta(hours=48)
@@ -26,6 +27,12 @@ def _when(dt) -> str:
 
 
 def of(p) -> dict:
+    """الأدلة مع حالة الاعتماد: sure = مطابقة الدرس مؤكدة (وإلا لا يُعتمد)، expires_at = موعد سقوط الاعتماد."""
+    exp = p.approved_at + safety.APPROVAL_TTL if getattr(p, "approved_at", None) else None
+    return {**_of(p), "sure": safety.lesson_sure(p), "expires_at": exp}
+
+
+def _of(p) -> dict:
     if isinstance(p, DateProposal):
         pl = p.lesson
         reason = f"الخطة: الأسبوع {p.plan_week_no} · درس {pl.effective_code or '-'}"

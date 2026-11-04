@@ -63,6 +63,7 @@ input[type="checkbox"] { inline-size: 16px; block-size: 16px; accent-color: var(
 .kv dd { margin: 0; }
 
 .empty { color: var(--muted); padding: 28px; text-align: center; border: 1px dashed var(--line); border-radius: var(--radius); }
+.note-box { border-inline-start: 4px solid var(--warn); background: var(--warn-soft); color: var(--fg); border-radius: 10px; padding: 10px 14px; }
 .error-box { border-inline-start: 4px solid var(--bad); background: var(--bad-soft); color: var(--fg); border-radius: 10px; padding: 10px 14px; }
 
 .spinner {

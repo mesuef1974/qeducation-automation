@@ -103,7 +103,7 @@ class LessonViewSet(viewsets.ReadOnlyModelViewSet):
 
 
 class RunViewSet(viewsets.ReadOnlyModelViewSet):
-    """السجل: ?class=LMS_ID&kind=verify"""
+    """السجل: ?class=LMS_ID&kind=verify[,apply]&id=RUN&plan_run=RUN (تطبيقات اقتراح بعينه)"""
 
     serializer_class = s.RunSerializer
     pagination_class = Page
@@ -113,7 +113,11 @@ class RunViewSet(viewsets.ReadOnlyModelViewSet):
         if (lms := _int_param(self.request, "class")) is not None:
             qs = qs.filter(klass__lms_id=lms)
         if kind := self.request.query_params.get("kind"):
-            qs = qs.filter(kind=kind)
+            qs = qs.filter(kind__in=kind.split(","))
+        if (pk := _int_param(self.request, "id")) is not None:
+            qs = qs.filter(pk=pk)
+        if (plan := _int_param(self.request, "plan_run")) is not None:
+            qs = qs.filter(summary__plan_run=plan)  # عمليات التطبيق لاقتراح بعينه
         return qs
 
 

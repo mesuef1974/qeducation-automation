@@ -68,7 +68,6 @@ async function login() {
           <i class="live-dot" :class="{ on: jobs.session?.worker_busy, off: jobs.workerDown }" aria-hidden="true" />مباشر
         </RouterLink>
         <RouterLink to="/log">السجل</RouterLink>
-        <RouterLink to="/automation">الأتمتة</RouterLink>
         <RouterLink to="/swot">SWOT والأداء</RouterLink>
         <a href="/admin/">الإدارة</a>
       </nav>

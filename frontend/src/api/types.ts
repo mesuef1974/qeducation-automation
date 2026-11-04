@@ -135,6 +135,16 @@ export interface Lesson {
   audit: LessonAudit | null;
 }
 
+/** ما يكتبه الخادم في ملخص العملية ويحتاج نظر المعلم (sync/assign/publish/content services) */
+export interface RunNotes {
+  unconfirmed_match?: string[];
+  stopped?: string;
+  not_attempted?: number;
+  kept_on_platform?: string[];
+  error?: string;
+  plan_run?: number;
+}
+
 export interface Run {
   id: number;
   lms_id: number;
@@ -144,7 +154,7 @@ export interface Run {
   started_at: string;
   finished_at: string | null;
   ok: boolean;
-  summary: Record<string, unknown>;
+  summary: Record<string, unknown> & RunNotes;
 }
 
 interface ProposalBase {
@@ -167,6 +177,10 @@ export interface Evidence {
   impact: string;
   lesson_date: string | null;
   soon: boolean;
+  /** مطابقة الدرس بالخطة مؤكدة؛ وإلا لا يُعتمد (أكّدها من «الدروس») */
+  sure: boolean;
+  /** موعد سقوط الاعتماد (48 ساعة من اعتماده)، للمعتمد فقط */
+  expires_at: string | null;
 }
 
 export interface DateProposal extends ProposalBase {

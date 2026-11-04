@@ -314,3 +314,22 @@ def test_proposal_evidence(client, publish_run):
     ev = {p["lesson"]["position"]: p["evidence"] for p in data}
     assert ev[2]["before"].startswith("مخفي") and ev[2]["after"].startswith("ظاهر")
     assert "يرى الطالب الدرس" in ev[2]["impact"] and ev[2]["soon"] is True  # درسه اليوم
+
+
+def test_evidence_approval_state(client, publish_run):
+    """الواجهة تعرف ما لا يُعتمد (مطابقة غير مؤكدة) وموعد سقوط الاعتماد (48 ساعة)."""
+    ids = [p["id"] for p in client.get(f"/api/neo/proposals/publish/?run={publish_run.pk}").json()]
+    client.post("/api/neo/proposals/publish/decide/", {"ids": ids, "decision": "approve"}, content_type="application/json")
+    for p in client.get(f"/api/neo/proposals/publish/?run={publish_run.pk}").json():
+        assert p["evidence"]["sure"] is (p["status"] == "approved")
+        assert (p["evidence"]["expires_at"] is not None) is (p["status"] == "approved")
+
+
+def test_runs_filter_by_plan(client, publish_run):
+    """عمليات التطبيق لاقتراح بعينه، والاقتراح نفسه بمعرّفه، لعرض ملاحظاتها في «المراجعة»."""
+    from neo.models import SyncRun
+    SyncRun.objects.create(klass=publish_run.klass, kind=SyncRun.Kind.PUBLISH_APPLY, ok=False,
+                           summary={"plan_run": publish_run.pk, "stopped": "x", "not_attempted": 2})
+    got = client.get(f"/api/neo/runs/?plan_run={publish_run.pk}").json()["results"]
+    assert [r["summary"]["not_attempted"] for r in got] == [2]
+    assert [r["id"] for r in client.get(f"/api/neo/runs/?id={publish_run.pk}").json()["results"]] == [publish_run.pk]

@@ -21,6 +21,14 @@ export const useClassesStore = defineStore("classes", () => {
     return totals;
   });
 
+  /** المنتظر اعتمادك فقط (دون المعتمد الذي ينتظر التطبيق) */
+  const pendingReview = computed(() => {
+    const totals: Record<ProposalKind, number> = { date: 0, assign: 0, publish: 0, content: 0 };
+    for (const c of items.value)
+      for (const k of Object.keys(totals) as ProposalKind[]) totals[k] += c.overview.review[k].pending;
+    return totals;
+  });
+
   async function load() {
     loading.value = true;
     try {
@@ -33,5 +41,5 @@ export const useClassesStore = defineStore("classes", () => {
     }
   }
 
-  return { items, loading, error, byId, name, openReview, load };
+  return { items, loading, error, byId, name, openReview, pendingReview, load };
 });
