@@ -89,3 +89,25 @@ def test_export_strips_text(tmp_path):
     src.write_text(json.dumps(rec) + "\n" + json.dumps({"type": "user", "message": {"content": "سر"}}), encoding="utf-8")
     out = ex.main(src, tmp_path / "out").read_text(encoding="utf-8")
     assert "سر" not in out and '"Bash"' in out and out.count("\n") == 1
+
+
+@pytest.mark.django_db
+def test_verify_matches_db(logs):
+    from neo.services import usage_verify
+    usage.import_all(budget_s=None)
+    r = usage_verify.verify(today=date(2026, 11, 4))
+    assert r["ok"] and r["files"] == 1 and r["lines"] == 4 and r["messages"] == 3 and r["dup_lines"] == 1
+    assert r["dup_differ"] == 0 and r["windows"]["week"]["files"]["turns"] == 2
+    UsageTurn.objects.filter(model__name="claude-sonnet-5-5").update(output_tokens=999)  # قاعدة لا تطابق الملفات
+    bad = usage_verify.verify(today=date(2026, 11, 4))
+    assert not bad["ok"] and bad["windows"]["week"]["diff"]["output"] == 998
+    assert bad["windows"]["week"]["model_diff"] == {"claude-sonnet-5-5": 998}
+
+
+@pytest.mark.django_db
+def test_verify_job(logs):
+    from neo.models import Job
+    from neo.services.job_service import JobService
+    job, _ = JobService().enqueue(Job.Kind.USAGE_VERIFY)
+    job = JobService().run(JobService().claim())
+    assert job.status == Job.Status.DONE and job.report["ok"] and UsageTurn.objects.count() == 3

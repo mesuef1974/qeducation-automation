@@ -189,7 +189,7 @@ class ProposalViewSet(viewsets.ReadOnlyModelViewSet):
 
 class JobViewSet(mixins.CreateModelMixin, viewsets.ReadOnlyModelViewSet):
     """
-    المهام: GET /api/neo/jobs/ ، POST {"kind": "...", "params": {...}} ، POST /api/neo/jobs/{id}/cancel/
+    المهام: GET /api/neo/jobs/[?status=&kind=] ، POST {"kind": "...", "params": {...}} ، POST /api/neo/jobs/{id}/cancel/
     الطلب المكرر لمهمة نشطة يعيدها (200) بدل إنشاء أخرى (201).
     """
 
@@ -200,6 +200,8 @@ class JobViewSet(mixins.CreateModelMixin, viewsets.ReadOnlyModelViewSet):
         qs = Job.objects.prefetch_related("runs__klass")
         if st := self.request.query_params.get("status"):
             qs = qs.filter(status__in=st.split(","))
+        if kind := self.request.query_params.get("kind"):
+            qs = qs.filter(kind__in=kind.split(","))
         return qs
 
     def create(self, request, *args, **kwargs):

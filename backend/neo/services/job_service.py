@@ -38,6 +38,7 @@ PARAMS = {
     Job.Kind.PUBLISH_APPLY: {"run", "approve", "limit"},
     Job.Kind.PREP_PACK: {"class", "week"},
     Job.Kind.SESSION: set(),
+    Job.Kind.USAGE_VERIFY: set(),
 }
 
 
@@ -54,6 +55,11 @@ def _execute(job: Job, make: FactoryMaker, today: date) -> list[SyncRun]:
     if job.kind == k.LOGIN:
         with make(False)() as client:
             client.login_interactive(LOGIN_TIMEOUT)
+        return []
+    if job.kind == k.USAGE_VERIFY:  # قراءة ملفات محلية فقط، بلا متصفح ولا منصة
+        from neo.services import usage, usage_verify
+        usage.import_all(budget_s=None)  # الجديد أولًا، فالمقارنة على الحال نفسه
+        job.report = usage_verify.verify()
         return []
     factory = make(True)
     if job.kind == k.SESSION:

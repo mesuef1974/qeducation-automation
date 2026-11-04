@@ -217,7 +217,7 @@ export type Proposal = DateProposal | PublishProposal | AssignProposal | Content
 
 export type JobKind =
   | "login" | "sync_plan" | "sync_apply" | "assign_plan" | "assign_apply" | "publish_plan" | "publish_apply" | "verify"
-  | "weekly" | "audit" | "content_plan" | "content_apply" | "prep_pack" | "session";
+  | "weekly" | "audit" | "content_plan" | "content_apply" | "prep_pack" | "session" | "usage_verify";
 export type JobStatus = "queued" | "running" | "done" | "failed";
 
 export interface JobParams {
@@ -360,6 +360,25 @@ export interface UsageByGroup { name: string; effective: number }
 export interface UsageByProject { project: string; effective: number; turns: number }
 export interface UsageDay { day: string; effective: number; tokens: number; turns: number }
 export interface UsageSessionRow extends UsageSum { session: string; project: string; first: string; last: string; models: string[] }
+
+/** تقرير مهمة usage_verify: عدّ مستقل لملفات السجل مقارنًا بقاعدة البيانات (neo/services/usage_verify.py) */
+export interface UsageCheckFields { input: number; cache_read: number; cache_write: number; output: number; turns: number }
+export interface UsageVerify {
+  ok: boolean;
+  checked_at: string;
+  roots: { path: string; found: boolean }[];
+  files: number;
+  lines: number;
+  messages: number;
+  dup_lines: number;
+  dup_differ: number;
+  synthetic: number;
+  bad_json: number;
+  windows: Record<"week" | "month", {
+    since: string; files: UsageCheckFields; db: UsageCheckFields; diff: UsageCheckFields;
+    model_diff: Record<string, number>; match: boolean; output_if_max: number;
+  }>;
+}
 
 /** تبويب «مباشر»: البث الحي من العامل */
 export type LiveKind = "start" | "stage" | "step" | "net" | "file" | "warn" | "error" | "end";

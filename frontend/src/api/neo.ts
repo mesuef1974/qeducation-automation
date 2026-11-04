@@ -21,7 +21,7 @@ export const neo = {
     api.get<T[]>(`neo/proposals/${kind}/${query(p)}`),
   decide: (kind: ProposalKind, ids: number[], decision: Decision) =>
     api.post<{ changed: number }>(`neo/proposals/${kind}/decide/`, { ids, decision }),
-  jobs: (p: { status?: string; limit?: number; offset?: number } = {}) => api.get<Page<Job>>(`neo/jobs/${query(p)}`),
+  jobs: (p: { status?: string; kind?: string; limit?: number; offset?: number } = {}) => api.get<Page<Job>>(`neo/jobs/${query(p)}`),
   enqueue: (kind: JobKind, params: JobParams = {}) => api.post<Job>("neo/jobs/", { kind, params }),
   scorecard: () => api.get<Scorecard>("neo/scorecard/"),
   editContent: (id: number, payload: Record<string, string>) =>

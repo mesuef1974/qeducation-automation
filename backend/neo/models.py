@@ -295,6 +295,7 @@ class Job(models.Model):
         CONTENT_APPLY = "content_apply", "إضافة المحتوى المعتمد"
         PREP_PACK = "prep_pack", "حزمة التحضير الأسبوعية"
         SESSION = "session", "فحص الجلسة"
+        USAGE_VERIFY = "usage_verify", "تحقق من أرقام الاستهلاك"
 
     class Status(models.TextChoices):
         QUEUED = "queued", "في الانتظار"

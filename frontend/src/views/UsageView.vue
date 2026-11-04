@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from "vue";
+import { computed, onMounted, onUnmounted, ref } from "vue";
 
 import { neo } from "@/api/neo";
-import type { Usage, UsagePeriod } from "@/api/types";
+import type { Job, Usage, UsagePeriod, UsageVerify } from "@/api/types";
+import { useJobsStore } from "@/stores/jobs";
 import { fmtShort, fmtStamp, fmtWhen } from "@/utils/format";
 
 /**
@@ -29,7 +30,30 @@ async function load(session?: string, refresh = false) {
     loading.value = false;
   }
 }
-onMounted(() => load());
+// التحقق المستقل: العامل يعدّ ملفات السجل الأصلية بكود منفصل ويقارنها بقاعدة البيانات (مهمة usage_verify)
+const jobs = useJobsStore();
+const check = ref<Job | null>(null);
+const report = computed(() => (check.value?.status === "done" ? (check.value.report as unknown as UsageVerify) : null));
+async function loadCheck() {
+  try {
+    check.value = (await neo.jobs({ kind: "usage_verify", limit: 1 })).results[0] ?? null;
+  } catch { /* يبقى القسم بلا تقرير */ }
+}
+async function runCheck() {
+  try {
+    await jobs.enqueue("usage_verify");
+    await loadCheck();
+  } catch (e) {
+    error.value = (e as Error).message;
+  }
+}
+const off = jobs.onFinished((j) => { if (j.kind === "usage_verify") { void loadCheck(); void load(data.value?.session ?? undefined); } });
+onUnmounted(off);
+const FIELD_LABEL: [keyof UsageVerify["windows"]["week"]["diff"], string][] = [
+  ["turns", "الرسائل"], ["input", "إدخال جديد"], ["cache_read", "قراءة سياق"], ["cache_write", "حفظ سياق"], ["output", "مخرجات"],
+];
+
+onMounted(() => { void load(); void loadCheck(); });
 
 const PERIODS: { key: UsagePeriod; label: string }[] = [
   { key: "session", label: "هذه الجلسة" }, { key: "today", label: "اليوم" },
@@ -102,6 +126,63 @@ function projectLabel(p: string): string {
   </p>
 
   <template v-else-if="totals && cur">
+    <!-- التحقق ومصدر الأرقام -->
+    <section class="card verify" :class="report ? (report.ok ? 'good' : 'bad') : ''" aria-label="التحقق من الأرقام">
+      <header class="c-head">
+        <div>
+          <h2>التحقق ومصدر الأرقام</h2>
+          <small class="muted">
+            المصدر: ملفات سجل الجلسات التي يكتبها Claude على هذا الجهاز (*.jsonl)، ومنها حقل usage لكل رد من النموذج.
+            التحقق يعدّها من جديد بكود مستقل عن الاستيراد ويقارنها بقاعدة البيانات.
+          </small>
+        </div>
+        <button class="btn sm" :disabled="jobs.busy('usage_verify')" @click="runCheck">
+          <i v-if="jobs.busy('usage_verify')" class="spinner" /> تحقق من الأرقام الآن
+        </button>
+      </header>
+      <p v-if="!check" class="muted">لم يُجرَ تحقق بعد.</p>
+      <p v-else-if="check.status !== 'done'" class="muted">
+        <template v-if="check.status === 'failed'">تعذّر التحقق: {{ check.error }}</template>
+        <template v-else><i class="spinner" /> العامل يعدّ الملفات الآن (دقيقة أو اثنتان)...</template>
+      </p>
+      <template v-else-if="report">
+        <p class="verdict">
+          <span class="pill" :class="report.ok ? 'ok' : 'bad'">{{ report.ok ? "مطابقة تامة" : "يوجد فرق" }}</span>
+          {{ fmtWhen(report.checked_at) }} ·
+          {{ n(report.files) }} ملف · {{ n(report.lines) }} سطر استهلاك · {{ n(report.messages) }} رسالة فريدة ·
+          {{ n(report.dup_lines) }} سطر مكرر لرسالة سبق عدّها
+          <template v-if="report.dup_differ"> · <b class="err">{{ n(report.dup_differ) }} مكرر بأرقام مختلفة</b></template>
+          <template v-else> · المكرر بالأرقام نفسها دائمًا</template>
+        </p>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>الحقل</th>
+                <template v-for="w in (['week', 'month'] as const)" :key="w">
+                  <th>{{ w === "week" ? "7 أيام" : "30 يومًا" }}: الملفات</th><th>قاعدة البيانات</th><th>الفرق</th>
+                </template>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="[k, label] in FIELD_LABEL" :key="k">
+                <td>{{ label }}</td>
+                <template v-for="w in (['week', 'month'] as const)" :key="w">
+                  <td class="num">{{ n(report.windows[w].files[k]) }}</td>
+                  <td class="num">{{ n(report.windows[w].db[k]) }}</td>
+                  <td class="num" :class="{ err: report.windows[w].diff[k] }">{{ n(report.windows[w].diff[k]) }}</td>
+                </template>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <small class="muted">
+          لا يُعدّ: ردود «synthetic» ليست من نموذج ({{ n(report.synthetic) }})، وأسطر تالفة ({{ n(report.bad_json) }}).
+          لا تشمل الملفات: جلسات Claude في المتصفح أو التطبيق أو السحابة ما لم تُصدَّر إلى backend/usage، ولا حدود اشتراكك
+          (مصدرها صفحة الاستخدام في إعدادات claude.ai).
+        </small>
+      </template>
+    </section>
+
     <!-- العدادات: الأسبوعي والشهري وFable -->
     <section class="meters" aria-label="عدادات الاستهلاك">
       <article v-for="p in (['week', 'month'] as const)" :key="p" class="card meter">
@@ -278,6 +359,10 @@ function projectLabel(p: string): string {
 .head-side { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 h2 { font-size: 17px; margin: 0 0 10px; }
 .card { display: grid; gap: 8px; }
+.verify.good { border-color: var(--ok); }
+.verify.bad { border-color: var(--bad); }
+.verdict { margin: 0; font-size: 14px; }
+.err { color: var(--bad); }
 .meters { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); }
 .meter header h2 { margin: 0; }
 .meter .big { font-size: 34px; line-height: 1.15; font-variant-numeric: tabular-nums; }
