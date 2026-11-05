@@ -120,9 +120,6 @@ const maxTok = (rows: { tokens: number }[]) => Math.max(1, ...rows.map((r) => r.
         </div>
         <span class="track"><i :class="{ fable: x.key === 'fable' }" :style="{ inlineSize: `${Math.min(100, x.q.pct)}%` }" /></span>
         <small class="muted">
-          <template v-if="x.q.tokens_per_pct">≈ {{ c(x.q.tokens_per_pct) }} توكن لكل 1% · </template>
-          <template v-if="x.q.burn_per_day !== null">الحرق {{ n(Math.round(x.q.burn_per_day * 10) / 10) }}%/يوم · </template>
-          <template v-if="x.q.projected !== null">المتوقَّع عند التصفير {{ n(Math.round(x.q.projected)) }}% · </template>
           آخر لقطة {{ ago(x.q.at) }} من {{ x.q.source }}
         </small>
       </div>
@@ -148,7 +145,7 @@ const maxTok = (rows: { tokens: number }[]) => Math.max(1, ...rows.map((r) => r.
       </div>
       <small class="muted">
         المصدر: «ميزان» ({{ data.source.url }}) · {{ n(data.source.snapshots) }} لقطة حصة · التوكنز من {{ data.source.first_day }} إلى {{ data.source.last_day }}.
-        الحرق والمتوقَّع والتوكنز لكل 1% تقديرات من اللقطات.
+        النسب كما في آخر لقطة؛ معدل الحرق والمتوقَّع عند التصفير في «ميزان» نفسه.
       </small>
     </section>
 

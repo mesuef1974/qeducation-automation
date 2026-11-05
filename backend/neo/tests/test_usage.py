@@ -50,8 +50,8 @@ def test_quota_and_filters(mizan):
     d = usage.build(today=date(2026, 11, 4), models=["Sonnet 5.5"])
     assert d["totals"]["turns"] == 13 and d["panel"]["month"]["all"]["turns"] == 19  # اللوحة لا يمسها المرشّح
     w, fa, f5 = d["quota"]["week"], d["quota"]["fable"], d["quota"]["five_hour"]
-    assert w["pct"] == 6 and w["source"] == "cli_usage" and round(w["burn_per_day"], 1) == 2.4
-    assert 6 < w["projected"] <= 100 and fa["pct"] == 2 and f5["pct"] == 12
+    assert w["pct"] == 6 and w["source"] == "cli_usage" and not w["stale"] and fa["pct"] == 2 and f5["pct"] == 12
+    assert set(w) == {"pct", "reset", "at", "source", "stale"}  # كما في «ميزان» بلا تقدير
 
 
 def test_cache_and_unavailable(mizan, monkeypatch):

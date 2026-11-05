@@ -323,11 +323,8 @@ export interface UsageByFamily extends UsageSum { family: string }
 export interface UsageByOrigin extends UsageSum { origin: string; label: string }
 export interface UsageDay { day: string; tokens: number; turns: number }
 export interface UsageMonth { month: string; from: string; to: string; days: number; partial: boolean; tokens: number; turns: number; per_day: number }
-/** نسبة من حصة الخطة: آخر لقطة، وتقدير معدل الحرق والمتوقَّع عند التصفير والتوكنز لكل 1% */
-export interface UsageQuota {
-  pct: number; reset: string | null; at: string; source: string; burn_per_day: number | null; projected: number | null;
-  tokens_per_pct: number | null; stale: boolean;
-}
+/** نسبة من حصة الخطة كما في آخر لقطة لـ «ميزان»: النسبة وموعد التصفير ومصدر اللقطة */
+export interface UsageQuota { pct: number; reset: string | null; at: string; source: string; stale: boolean }
 export interface UsageFilter { days?: "7" | "30" | "90" | "all"; from?: string; to?: string; models?: string[] }
 export interface Usage {
   today: string;

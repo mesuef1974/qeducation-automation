@@ -24,7 +24,7 @@ TIMEOUT_S = 8
 ORIGINS = {"human": "إنسان", "peer": "جلسة أخرى", "scheduled": "مجدول", "sdk": "SDK", "task_notification": "إشعار مهمة",
            "system": "نظام", "sub": "وكيل فرعي", "unknown": "بلا أصل مسجّل"}
 FAMILIES = ("Fable", "Mythos", "Opus", "Sonnet", "Haiku")
-_DATA_MAIN = re.compile(r'<script[^>]*\bid="data-main"[^>]*>(.*?)</script>', re.S)
+_DATA_MAIN = re.compile(r'<script[^>]*\bid="data-main"[^>]*>(.*?)</script>', re.DOTALL)
 _cache: dict = {"at": 0.0, "data": None}
 
 
@@ -38,7 +38,7 @@ def base() -> str:
 
 def _get(path: str) -> str:
     try:
-        with urllib.request.urlopen(f"{base()}{path}", timeout=TIMEOUT_S) as r:  # noqa: S310 - عنوان محلي من الإعدادات
+        with urllib.request.urlopen(f"{base()}{path}", timeout=TIMEOUT_S) as r:
             return r.read().decode("utf-8")
     except (urllib.error.URLError, TimeoutError, OSError) as exc:
         raise MizanUnavailable(f"تعذّر الوصول إلى «ميزان» على {base()}: {exc}. شغّله ثم حدّث الصفحة.") from exc
@@ -106,31 +106,15 @@ def _ts(s: str | None) -> datetime | None:
     return datetime.fromisoformat(s.replace("Z", "+00:00")) if s else None
 
 
-def _quota(plan: list[dict], rows: list[dict], name, pct: str, reset: str, fable: bool) -> dict | None:
-    """
-    آخر نسبة وموعد تصفيرها، ومعدل الحرق من لقطات النافذة نفسها في آخر 24 ساعة، والمتوقَّع عند التصفير،
-    والتوكنز لكل 1% (توكنز النافذة حتى الآن ÷ النسبة). تقديرات تُعلَّم كذلك في الواجهة.
-    """
+def _quota(plan: list[dict], pct: str, reset: str) -> dict | None:
+    """آخر نسبة من لقطات «ميزان» وموعد تصفيرها ومصدر اللقطة، كما هي بلا تقدير."""
     snaps = [p for p in plan if p.get(pct) is not None]
     if not snaps:
         return None
     last = snaps[-1]
-    now, at, end = timezone.now(), _ts(last["ts"]), _ts(last.get(reset))
-    same = [p for p in snaps if p.get(reset) == last.get(reset)]
-    burn = None
-    ref = next((p for p in same if at - _ts(p["ts"]) <= timedelta(hours=24)), None)
-    if ref and (hours := (at - _ts(ref["ts"])).total_seconds() / 3600) >= 1:
-        burn = (last[pct] - ref[pct]) / hours * 24
-    projected = None
-    if burn is not None and end:
-        projected = min(100.0, last[pct] + burn * max(0.0, (end - now).total_seconds() / 86400))
-    per_pct = None
-    if end and last[pct] >= 1:
-        start = timezone.localtime(end - timedelta(days=7)).date()
-        win = [r for r in rows if _day(r) >= start and (not fable or family(name(r)) == "Fable")]
-        per_pct = round(_sum(win)["tokens"] / last[pct]) if win else None
-    return {"pct": last[pct], "reset": end, "at": at, "source": last.get("src"), "burn_per_day": burn,
-            "projected": projected, "tokens_per_pct": per_pct, "stale": bool(end and end < now)}
+    end = _ts(last.get(reset))
+    return {"pct": last[pct], "reset": end, "at": _ts(last["ts"]), "source": last.get("src"),
+            "stale": bool(end and end < timezone.now())}
 
 
 def _monthly(rows: list[dict], first: date | None, today: date) -> list[dict]:
@@ -155,16 +139,16 @@ def build(today: date | None = None, since: date | None = None, until: date | No
     today = today or timezone.localdate()
     d = fetch(force)
     names = d["models"]
-    name = lambda r: names[r["m"]] if isinstance(r.get("m"), int) and r["m"] < len(names) else "أخرى"  # noqa: E731
+    name = lambda r: names[r["m"]] if isinstance(r.get("m"), int) and r["m"] < len(names) else "أخرى"
     rows = d["rows"]
     first = date.fromisoformat(d["first_day"]) if d.get("first_day") else None
     until = min(until or today, today)
     since = max(since or (today - timedelta(days=29)), first or since or today)
     picked = [r for r in rows if name(r) in models] if models else rows
     sel = [r for r in picked if since <= _day(r) <= until]
-    week = _quota(d["plan"], rows, name, "w", "wr", False)
+    week = _quota(d["plan"], "w", "wr")
     week_start = timezone.localtime(week["reset"] - timedelta(days=7)).date() if week and week["reset"] else today - timedelta(days=6)
-    win = lambda s: [r for r in rows if s <= _day(r) <= today]  # noqa: E731
+    win = lambda s: [r for r in rows if s <= _day(r) <= today]
     daily = _by(sel, lambda r: r["d"])
     series, day = [], since
     while day <= until:
@@ -178,8 +162,7 @@ def build(today: date | None = None, since: date | None = None, until: date | No
                    "last_day": d.get("last_day"), "plan": d.get("plan_label"), "snapshots": len(d["plan"])},
         "filter": {"since": since, "until": until, "days": (until - since).days + 1, "models": models or []},
         "all_models": [{"model": n, "family": family(n)} for n in names if n in used],
-        "quota": {"week": week, "fable": _quota(d["plan"], rows, name, "fa", "far", True),
-                  "five_hour": _quota(d["plan"], rows, name, "f", "fr", False)},
+        "quota": {"week": week, "fable": _quota(d["plan"], "fa", "far"), "five_hour": _quota(d["plan"], "f", "fr")},
         "panel": {"week": {"since": week_start, "all": _sum(win(week_start)),
                            "fable": _sum([r for r in win(week_start) if family(name(r)) == "Fable"])},
                   "month": {"since": today - timedelta(days=29), "all": _sum(win(today - timedelta(days=29))),
