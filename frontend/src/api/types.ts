@@ -217,7 +217,7 @@ export type Proposal = DateProposal | PublishProposal | AssignProposal | Content
 
 export type JobKind =
   | "login" | "sync_plan" | "sync_apply" | "assign_plan" | "assign_apply" | "publish_plan" | "publish_apply" | "verify"
-  | "weekly" | "audit" | "content_plan" | "content_apply" | "prep_pack" | "session" | "usage_verify";
+  | "weekly" | "audit" | "content_plan" | "content_apply" | "prep_pack" | "session";
 export type JobStatus = "queued" | "running" | "done" | "failed";
 
 export interface JobParams {
@@ -316,74 +316,33 @@ export interface WeeklyState {
   last: Job | null;
 }
 
-/**
- * تبويب «الاستهلاك»: استهلاك Claude من قاعدة البيانات (neo/services/usage.py)، بكياناتها المطبَّعة:
- * مشروع ← جلسة ← خطوة ← نموذج وأدوات. العامل يستورد سجلات مجلد Claude كل 10 دقائق.
- */
-export interface UsageSum {
-  /** بوحدة «رمز إدخال عادي»: قراءة السياق ×0.1، وحفظه ×2، والمخرجات ×5 */
-  effective: number;
-  tokens: number;
-  input: number;
-  cache_read: number;
-  cache_write: number;
-  output: number;
-  turns: number;
-  sessions: number;
+/** تبويب «الاستهلاك»: من «ميزان» على هذا الجهاز، قراءة فقط (neo/services/usage.py) */
+export interface UsageSum { tokens: number; input: number; cache_write: number; cache_read: number; output: number; turns: number }
+export interface UsageByModel extends UsageSum { model: string; family: string }
+export interface UsageByFamily extends UsageSum { family: string }
+export interface UsageByOrigin extends UsageSum { origin: string; label: string }
+export interface UsageDay { day: string; tokens: number; turns: number }
+export interface UsageMonth { month: string; from: string; to: string; days: number; partial: boolean; tokens: number; turns: number; per_day: number }
+/** نسبة من حصة الخطة: آخر لقطة، وتقدير معدل الحرق والمتوقَّع عند التصفير والتوكنز لكل 1% */
+export interface UsageQuota {
+  pct: number; reset: string | null; at: string; source: string; burn_per_day: number | null; projected: number | null;
+  tokens_per_pct: number | null; stale: boolean;
 }
-export interface UsageByModel extends UsageSum { model: string }
-export interface UsageByGroup { name: string; effective: number }
-export interface UsageByFamily { family: string; effective: number; tokens: number; turns: number; models: string[] }
-export interface UsageDay { day: string; effective: number; tokens: number; turns: number }
-export interface UsageMonth {
-  month: string; from: string; to: string; days: number; partial: boolean;
-  tokens: number; effective: number; turns: number; per_day: number;
-}
-/** سطر في لوحة الحدود: كل النماذج وFable، بلا مرشّح النماذج */
-export interface UsagePanelRow { since: string; all: UsageSum; fable: UsageSum; families: UsageByFamily[] }
 export interface UsageFilter { days?: "7" | "30" | "90" | "all"; from?: string; to?: string; models?: string[] }
 export interface Usage {
   today: string;
-  session: string | null;
-  weights: { cache_read: number; cache_write: number; output: number };
-  sources: { path: string; found: boolean; files: number }[];
-  /** نتيجة الاستيراد عند «تحديث فوري» (POST)؛ null في القراءة العادية. pending = بقي ما يُستأنف */
-  imported: { files: number; new: number; pending: boolean } | null;
-  imported_at: string | null;
-  /** أول خطوة مستوردة؛ null = لا سجلات بعد */
-  first: string | null;
+  source: { name: string; url: string; fetched_at: string; first_day: string | null; last_day: string | null; plan: string | null; snapshots: number };
   filter: { since: string; until: string; days: number; models: string[] };
   all_models: { model: string; family: string }[];
-  panel: { week: UsagePanelRow; month: UsagePanelRow };
-  session_total: UsageSum;
+  quota: { week: UsageQuota | null; fable: UsageQuota | null; five_hour: UsageQuota | null };
+  panel: { week: { since: string; all: UsageSum; fable: UsageSum }; month: { since: string; all: UsageSum; families: UsageByFamily[] } };
   totals: UsageSum;
   models: UsageByModel[];
   families: UsageByFamily[];
-  groups: UsageByGroup[];
+  origins: UsageByOrigin[];
   daily: UsageDay[];
   /** كل شهر ميلادي (بمرشّح النماذج، لا النطاق) */
   monthly: UsageMonth[];
-}
-
-/** تقرير مهمة usage_verify: عدّ مستقل لملفات السجل مقارنًا بقاعدة البيانات (neo/services/usage_verify.py) */
-export interface UsageCheckFields { input: number; cache_read: number; cache_write: number; output: number; turns: number }
-export interface UsageVerify {
-  ok: boolean;
-  checked_at: string;
-  roots: { path: string; found: boolean }[];
-  files: number;
-  lines: number;
-  messages: number;
-  dup_lines: number;
-  dup_differ: number;
-  synthetic: number;
-  bad_json: number;
-  windows: Record<"week" | "month", {
-    since: string; files: UsageCheckFields; db: UsageCheckFields; diff: UsageCheckFields;
-    model_diff: Record<string, number>; match: boolean;
-    /** ما كان سيُفقد من المخرجات لو أُخذ أول سطر للرسالة المكررة بدل أكبرها */
-    output_first_line_loss: number;
-  }>;
 }
 
 /** تبويب «مباشر»: البث الحي من العامل */

@@ -17,12 +17,11 @@ from django.utils import autoreload, timezone
 
 from neo.infrastructure.client import kill_orphan_browsers
 from neo.models import Job
-from neo.services import usage, weekly_service
+from neo.services import weekly_service
 from neo.services.job_service import HEARTBEAT_S, JobService, beat, stop_beat, worker_alive
 
 SCHEDULE_CHECK_S = 60
 CODE_CHECK_S = 5
-USAGE_CHECK_S = 600  # استيراد استهلاك Claude وهو خامل، بمهلة قصيرة، والباقي في المرة التالية
 SETTLE_S = 10  # إعادة التشغيل بعد ثبات الكود: النسخ (git) يستغرق ثواني، فلا يبدأ العامل على كود نصف منسوخ
 SKIP_DIRS = {".neo_profile", "media", "__pycache__", ".pytest_cache", ".ruff_cache", "node_modules"}
 
@@ -98,7 +97,7 @@ class Command(BaseCommand):
             svc.enqueue(Job.Kind.SESSION)
         stop = threading.Event()
         threading.Thread(target=_pulse, args=(stop,), daemon=True).start()
-        checked, code_checked, usage_checked = 0.0, time.monotonic(), 0.0
+        checked, code_checked = 0.0, time.monotonic()
         snapshot = {} if once or noreload else _code_snapshot()
         try:
             while True:
@@ -123,16 +122,6 @@ class Command(BaseCommand):
                 if job is None:
                     if once:
                         return
-                    if time.monotonic() - usage_checked >= USAGE_CHECK_S:
-                        usage_checked = time.monotonic()
-                        try:
-                            r = usage.import_all()
-                            if r["new"]:
-                                self.stdout.write(f"الاستهلاك: {r['new']} خطوة جديدة" + (" (يُستأنف)" if r["pending"] else ""))
-                            if r["pending"]:
-                                usage_checked -= USAGE_CHECK_S - 30  # بقي ما يُستورد: بعد نصف دقيقة
-                        except Exception as exc:  # noqa: BLE001 - الاستهلاك لا يوقف العامل
-                            self.stdout.write(self.style.WARNING(f"تعذّر استيراد الاستهلاك: {exc}"))
                     time.sleep(interval)
                     continue
                 self.stdout.write(f"[#{job.pk}] {job.get_kind_display()} {job.params or ''}")

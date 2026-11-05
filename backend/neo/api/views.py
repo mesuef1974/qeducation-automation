@@ -252,11 +252,11 @@ def safety_state(request):
                      "resumed_at": st.resumed_at, "verify_failures": st.verify_failures})
 
 
-@api_view(["GET", "POST"])
+@api_view(["GET"])
 def usage_summary(request):
     """
-    تبويب «الاستهلاك» من قاعدة البيانات: ?days=7|30|90|all أو ?from=YYYY-MM-DD&to=، و?models=a,b، و?session=.
-    العامل يستورد الجديد كل 10 دقائق؛ POST («تحديث فوري») يستورد بمهلة قصيرة ثم يعيد الملخص.
+    تبويب «الاستهلاك» من «ميزان» (قراءة فقط): ?days=7|30|90|all أو ?from=YYYY-MM-DD&to=، و?models=a,b،
+    و?refresh=1 لتجاوز المخزّن (دقيقة). إن تعذّر «ميزان» فالرد 503 برسالة واضحة.
     """
     q = request.query_params
     today = timezone.localdate()
@@ -276,9 +276,10 @@ def usage_summary(request):
         else:
             raise ValidationError({"days": "7 | 30 | 90 | all"})
     models = [m for m in (q.get("models") or "").split(",") if m] or None
-    imported = usage.import_all() if request.method == "POST" else None
-    return Response({**usage.build(today=today, since=since, until=until, models=models, session=q.get("session") or None),
-                     "imported": imported})
+    try:
+        return Response(usage.build(today=today, since=since, until=until, models=models, force=q.get("refresh") == "1"))
+    except usage.MizanUnavailable as exc:
+        return Response({"detail": str(exc)}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
 
 
 @api_view(["POST"])

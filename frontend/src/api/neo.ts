@@ -31,11 +31,10 @@ export const neo = {
   weeklyRead: () => api.post<{ read_at: string }>("neo/weekly/read/"),
   snapshot: () => api.post<void>("neo/scorecard/"),
   cancel: (id: number) => api.post<Job>(`neo/jobs/${id}/cancel/`),
-  /** ملخص الاستهلاك بمرشّحات الصفحة؛ refresh = «تحديث فوري» (يستورد الجديد بمهلة قصيرة أولًا) */
-  usage: (f: UsageFilter = {}, refresh = false) => {
-    const q = query({ days: f.from ? undefined : f.days, from: f.from, to: f.to, models: f.models?.join(",") });
-    return refresh ? api.post<Usage>(`neo/usage/${q}`) : api.get<Usage>(`neo/usage/${q}`);
-  },
+  /** الاستهلاك من «ميزان» بمرشّحات الصفحة؛ refresh = تجاوز مخزّن الخادم (دقيقة) */
+  usage: (f: UsageFilter = {}, refresh = false) => api.get<Usage>(`neo/usage/${query({
+    days: f.from ? undefined : f.days, from: f.from, to: f.to, models: f.models?.join(","), refresh: refresh ? 1 : undefined,
+  })}`),
   live: (p: { since?: number; job?: number }) => api.get<LiveFeed>(`neo/live/${query(p)}`),
   /** تأكيد المطابقة الآلية مرة واحدة لدروس (lms_lesson_id) */
   confirmLessons: (ids: number[]) => api.post<{ changed: number }>("neo/lessons/confirm/", { ids }),
