@@ -103,7 +103,7 @@ def _day(r: dict) -> date:
 
 
 def _ts(s: str | None) -> datetime | None:
-    return datetime.fromisoformat(s.replace("Z", "+00:00")) if s else None
+    return datetime.fromisoformat(s) if s else None
 
 
 def _quota(plan: list[dict], pct: str, reset: str) -> dict | None:

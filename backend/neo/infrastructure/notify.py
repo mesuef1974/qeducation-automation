@@ -46,7 +46,7 @@ def toast(title: str, body: str, button: tuple[str, str] | None = None, key: str
         b64 = base64.b64encode(toast_xml(title, body, button).encode("utf-8")).decode("ascii")
         subprocess.run(["powershell.exe", "-NoProfile", "-NonInteractive", "-Command",
                         SCRIPT.replace("{b64}", b64).replace("{app}", APP_ID)],
-                       capture_output=True, timeout=20, creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+                       capture_output=True, timeout=20, check=False, creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
     except Exception:  # noqa: BLE001 - التنبيه لا يوقف العمل أبدًا
         return False
     if key:

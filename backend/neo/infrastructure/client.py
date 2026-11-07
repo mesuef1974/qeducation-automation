@@ -3,6 +3,7 @@
 الدخول يتم يدويًا من المعلم مرة واحدة (neo_login)؛ لا تُخزَّن أي كلمة مرور.
 """
 import json
+import logging
 import random
 import re
 import subprocess
@@ -33,6 +34,7 @@ from neo.infrastructure.parsers import (
 )
 from neo.services import live
 
+log = logging.getLogger(__name__)
 BASE_URL = "https://qeducation.edu.gov.qa"
 MONTHS_AR = ["يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو",
              "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"]
@@ -74,11 +76,13 @@ def kill_orphan_browsers(profile_dir: Path | None = None) -> int:
         script = ("Get-CimInstance Win32_Process -Filter \"Name='msedge.exe' or Name='chrome.exe'\" | "
                   "Select-Object ProcessId, CommandLine | ConvertTo-Json -Compress")
         out = subprocess.run(["powershell", "-NoProfile", "-Command", script], capture_output=True, text=True,
-                             encoding="utf-8", errors="replace").stdout.strip()
+                             encoding="utf-8", errors="replace", check=False,
+                             creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0)).stdout.strip()
         procs = json.loads(out) if out else []
         for proc in procs if isinstance(procs, list) else [procs]:
             if profile in (proc.get("CommandLine") or "").lower():
-                subprocess.run(["taskkill", "/PID", str(proc["ProcessId"]), "/F"], capture_output=True)
+                subprocess.run(["taskkill", "/PID", str(proc["ProcessId"]), "/F"], capture_output=True, check=False,
+                               creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
                 killed += 1
     return killed
 
@@ -127,7 +131,7 @@ class NeoClient:
             live.emit("net", live.page_label(path), status=resp.status, path=path.split("?")[0],
                       method=None if method == "GET" else method)
         except Exception:  # noqa: BLE001 - البث لا يوقف العمل
-            pass
+            log.debug("تعذّر بث حدث الشبكة", exc_info=True)
 
     @staticmethod
     def _net(path: str, status: int, started: float) -> None:

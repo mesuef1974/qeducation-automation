@@ -22,7 +22,7 @@ def _powershell(script: str, env: dict | None = None, timeout: int = 60) -> str:
     prefix = "[Console]::OutputEncoding = [Text.Encoding]::UTF8; $ErrorActionPreference = 'Stop'; "
     r = subprocess.run(["powershell", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass",
                         "-Command", prefix + script], capture_output=True, text=True, encoding="utf-8",
-                       errors="replace", timeout=timeout, env={**os.environ, **(env or {})})
+                       errors="replace", timeout=timeout, check=False, creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0), env={**os.environ, **(env or {})})
     if r.returncode != 0:
         raise OfficeUnavailable((r.stderr or r.stdout).strip()[:500])
     return r.stdout.strip()
