@@ -1,4 +1,5 @@
 from datetime import date, timedelta
+from pathlib import Path
 
 from django.conf import settings
 from django.http import FileResponse
@@ -193,7 +194,7 @@ class ProposalViewSet(viewsets.ReadOnlyModelViewSet):
         if self._kind() != "content" or "file" not in prop.payload:
             raise NotFound("لا صورة لهذا الاقتراح")
         path = safe_join(str(settings.MEDIA_ROOT), prop.payload["file"])
-        return FileResponse(open(path, "rb"), content_type="image/png")
+        return FileResponse(Path(path).open("rb"), content_type="image/png")
 
 
 class JobViewSet(mixins.CreateModelMixin, viewsets.ReadOnlyModelViewSet):
