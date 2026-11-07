@@ -87,8 +87,8 @@ def test_session_job_records_result(db):
 
 
 def test_toast_xml_and_noop_off_windows(settings):
-    xml = notify.toast_xml("عنوان <1>", "نص & تفاصيل", ("افتح", "http://127.0.0.1:8765/app/?login=1"))
-    assert "&lt;1&gt;" in xml and "&amp;" in xml and 'arguments="http://127.0.0.1:8765/app/?login=1"' in xml
+    xml = notify.toast_xml("عنوان <1>", "نص & تفاصيل", ("افتح", "http://127.0.0.1:8777/app/?login=1"))
+    assert "&lt;1&gt;" in xml and "&amp;" in xml and 'arguments="http://127.0.0.1:8777/app/?login=1"' in xml
     settings.NEO_NOTIFY = True
     assert notify.toast("x", "y") is (__import__("sys").platform == "win32") or True  # خارج ويندوز لا يرسل
     settings.NEO_NOTIFY = False

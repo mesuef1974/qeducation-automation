@@ -24,7 +24,7 @@ _last: dict[str, float] = {}
 
 
 def app_url(path: str = "") -> str:
-    return getattr(settings, "NEO_APP_URL", "http://127.0.0.1:8765/app/") + path.lstrip("/")
+    return getattr(settings, "NEO_APP_URL", "http://127.0.0.1:8777/app/") + path.lstrip("/")
 
 
 def toast_xml(title: str, body: str, button: tuple[str, str] | None = None) -> str:

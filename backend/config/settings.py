@@ -99,7 +99,7 @@ NEO_WEEKLY = {"enabled": True, "weekday": 0, "hour": 7, "catchup_hours": 7 * 24 
 NEO_NOTIFY = True
 # تبويب «الاستهلاك»: مصدره «ميزان» على هذا الجهاز (قراءة فقط): صفحته (data-main) لتوكنز كل يوم ونموذج، وplan.json للحصة
 NEO_MIZAN_URL = os.environ.get("NEO_MIZAN_URL", "http://127.0.0.1:8790")
-NEO_APP_URL = "http://127.0.0.1:8765/app/"
+NEO_APP_URL = "http://127.0.0.1:8777/app/"
 # محرك المحتوى: الصور المولّدة (خارج المستودع) ومصادر الصف التي تُذكر في قسم التهيئة
 MEDIA_ROOT = BASE_DIR / "media"
 NEO_CONTENT_SOURCES = ("كتاب الطالب", "الكتاب التفاعلي")

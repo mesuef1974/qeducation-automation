@@ -1,6 +1,6 @@
 # أتمتة منصة قطر للتعليم
 
-مشروع محلي للمعلم: Django في `backend/` (التطبيق `neo`) وVue 3 في `frontend/`. العامل `python manage.py neo_worker` ينفّذ المهام على المنصة عبر Playwright، والخادم على `127.0.0.1:8765` (`start.ps1`). معايير كل خطوة كما قررها المعلم في `docs/automation_criteria.md`.
+مشروع محلي للمعلم: Django في `backend/` (التطبيق `neo`) وVue 3 في `frontend/`. العامل `python manage.py neo_worker` ينفّذ المهام على المنصة عبر Playwright، والخادم على `127.0.0.1:8777` (`start.ps1`). معايير كل خطوة كما قررها المعلم في `docs/automation_criteria.md`.
 
 ## قواعد العمل (قرار المعلم 2026-11-04)
 
