@@ -130,7 +130,7 @@ class NeoClient:
             path = resp.url[len(BASE_URL):]
             live.emit("net", live.page_label(path), status=resp.status, path=path.split("?")[0],
                       method=None if method == "GET" else method)
-        except Exception:  # noqa: BLE001 - البث لا يوقف العمل
+        except Exception:
             log.debug("تعذّر بث حدث الشبكة", exc_info=True)
 
     @staticmethod
