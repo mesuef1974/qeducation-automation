@@ -17,10 +17,11 @@ Remove-Item $optOut -ErrorAction SilentlyContinue
 
 $shell = if (Get-Command pwsh -ErrorAction SilentlyContinue) { (Get-Command pwsh).Source } else { "powershell.exe" }
 $script = Join-Path $PSScriptRoot "start.ps1"
-$action = New-ScheduledTaskAction -Execute $shell -WorkingDirectory $PSScriptRoot `
-    -Argument "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$script`" -Background"
+# conhost --headless: لا نافذة ولا وميض (WindowStyle Hidden وحده يُظهر النافذة لحظة قبل إخفائها)
+$action = New-ScheduledTaskAction -Execute "$env:SystemRoot\System32\conhost.exe" -WorkingDirectory $PSScriptRoot `
+    -Argument "--headless `"$shell`" -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$script`" -Background"
 $logon = New-ScheduledTaskTrigger -AtLogOn -User $env:USERNAME
-$logon.Delay = "PT1M"  # بعد استقرار الشبكة
+$logon.Delay = "PT70S"  # بعد دخول ويندوز بـ 70 ثانية: استقرار الشبكة (قرار المعلم 2026-11-07)
 # المراقبة: كل 10 دقائق يشغّل ما ليس يعمل فقط (الخادم، العامل)، فيعود العامل إن توقف
 $watch = New-ScheduledTaskTrigger -Once -At (Get-Date).Date -RepetitionInterval (New-TimeSpan -Minutes 10) `
     -RepetitionDuration (New-TimeSpan -Days 3650)
