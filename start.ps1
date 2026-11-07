@@ -1,6 +1,7 @@
 ﻿# تشغيل الأتمتة بأمر واحد: .\start.ps1
-# يشغّل ما ليس يعمل فقط (الخادم، العامل)، كلًّا في نافذة، ثم يفتح الموقع. الإيقاف: أغلق النافذة أو Ctrl+C فيها.
-# -Background: للتشغيل عند الدخول إلى ويندوز (autostart.ps1)؛ نوافذ مصغّرة ولا يُفتح الموقع.
+# يشغّل ما ليس يعمل فقط (الخادم، العامل) في الخلفية بلا أي نافذة ظاهرة (قرار المعلم 2026-11-07)، ثم يفتح الموقع.
+# الإيقاف: أنهِ عمليتي python (runserver وneo_worker) من مدير المهام.
+# -Background: للتشغيل عند الدخول إلى ويندوز (autostart.ps1)؛ لا يُفتح الموقع.
 param([switch]$Background)
 $ErrorActionPreference = "Stop"
 $root = $PSScriptRoot
@@ -17,8 +18,7 @@ if (-not (Test-Path (Join-Path $root ".no_autostart"))) {
 }
 
 function Start-Window([string]$title, [string]$command) {
-    $style = if ($Background) { "Minimized" } else { "Normal" }
-    Start-Process $shell -WorkingDirectory $backend -WindowStyle $style -ArgumentList "-NoExit", "-Command",
+    Start-Process $shell -WorkingDirectory $backend -WindowStyle Hidden -ArgumentList "-NoProfile", "-NoExit", "-Command",
         "`$Host.UI.RawUI.WindowTitle = '$title'; $command"
 }
 
