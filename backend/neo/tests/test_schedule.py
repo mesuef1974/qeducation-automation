@@ -86,11 +86,14 @@ def test_session_job_records_result(db):
     assert job.status == Job.Status.DONE and job.report == {"ok": True, "relogged": True}
 
 
-def test_toast_xml_and_noop_off_windows(settings):
+def test_toast_xml_and_noop_off_windows(settings, monkeypatch):
     xml = notify.toast_xml("عنوان <1>", "نص & تفاصيل", ("افتح", "http://127.0.0.1:8777/app/?login=1"))
     assert "&lt;1&gt;" in xml and "&amp;" in xml and 'arguments="http://127.0.0.1:8777/app/?login=1"' in xml
+    sent = []  # لا تنبيه حقيقيًا من الاختبارات أبدًا: subprocess مُستبدل
+    monkeypatch.setattr(notify.subprocess, "run", lambda *a, **k: sent.append(a))
     settings.NEO_NOTIFY = True
-    assert notify.toast("x", "y") is (__import__("sys").platform == "win32") or True  # خارج ويندوز لا يرسل
+    assert notify.toast("x", "y") is (__import__("sys").platform == "win32")  # خارج ويندوز لا يرسل
+    assert len(sent) == (1 if __import__("sys").platform == "win32" else 0)
     settings.NEO_NOTIFY = False
     assert notify.toast("x", "y") is False
 
