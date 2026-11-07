@@ -3,7 +3,7 @@ import vue from "@vitejs/plugin-vue";
 import { defineConfig } from "vite";
 
 // خادم Django المحلي؛ أثناء التطوير يمرَّر إليه /api و/admin و/static و/docs
-const BACKEND = "http://127.0.0.1:8765";
+const BACKEND = "http://127.0.0.1:8777";
 
 export default defineConfig({
   base: "/app/",

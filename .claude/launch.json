@@ -4,8 +4,9 @@
     {
       "name": "django",
       "runtimeExecutable": "python",
-      "runtimeArgs": ["backend/manage.py", "runserver", "127.0.0.1:8765"],
-      "port": 8765
+      "runtimeArgs": ["backend/manage.py", "runserver", "127.0.0.1:8777"],
+      "port": 8777,
+      "autoPort": false
     }
   ]
 }

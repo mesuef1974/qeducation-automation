@@ -10,7 +10,7 @@ python -m pip install -r backend/requirements.txt
 python -m playwright install msedge        # أو يكفي Edge المثبّت على ويندوز
 python backend/manage.py migrate
 ```
-الخادم المحلي: `python backend/manage.py runserver 127.0.0.1:8765`. الدخول تلقائي كمدير، والطلبات مقبولة من الجهاز نفسه فقط.
+الخادم المحلي: `python backend/manage.py runserver 127.0.0.1:8777`. الدخول تلقائي كمدير، والطلبات مقبولة من الجهاز نفسه فقط.
 
 ## 1. ملف الخطة الفصلية
 المصدر الرسمي للخطة ملف PDF (نموذج ES-ESM-P3-F1). كل خطة تُنقل منه إلى ملف Excel موحّد في المجلد `plans/<العام>/ف<الفصل>/`. مثال: `plans/2026-2027/ف1/الرياضيات_10.xlsx`.

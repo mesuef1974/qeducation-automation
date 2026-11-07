@@ -9,7 +9,7 @@ from django.core.management.base import BaseCommand, CommandError
 from playwright.sync_api import Error as PlaywrightError
 from playwright.sync_api import sync_playwright
 
-URL = "http://127.0.0.1:8765/docs/report/platform_report.html?share"
+URL = "http://127.0.0.1:8777/docs/report/platform_report.html?share"
 
 
 class Command(BaseCommand):

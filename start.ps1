@@ -5,7 +5,7 @@ param([switch]$Background)
 $ErrorActionPreference = "Stop"
 $root = $PSScriptRoot
 $backend = Join-Path $root "backend"
-$site = "http://127.0.0.1:8765"
+$site = "http://127.0.0.1:8777"
 $shell = if (Get-Command pwsh -ErrorAction SilentlyContinue) { "pwsh" } else { "powershell" }
 
 # التشغيل مع ويندوز والمراقبة كل 10 دقائق (v2): يُسجَّل أو يُحدَّث مرة واحدة، ما لم يلغه المعلم (autostart.ps1 -Remove)
@@ -42,7 +42,7 @@ $session = Get-Session
 if ($session) {
     Write-Host "الخادم يعمل مسبقًا."
 } else {
-    Start-Window "الخادم" "python manage.py runserver 127.0.0.1:8765"
+    Start-Window "الخادم" "python manage.py runserver 127.0.0.1:8777"
     for ($i = 0; $i -lt 30 -and -not $session; $i++) { Start-Sleep -Seconds 1; $session = Get-Session }
     if (-not $session) { throw "لم يستجب الخادم على $site؛ راجع نافذة الخادم." }
     Write-Host "شُغّل الخادم."

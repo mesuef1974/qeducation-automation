@@ -37,7 +37,7 @@ python backend/manage.py neo_sync                               # جلب + اق�
 python backend/manage.py neo_sync --apply RUN --approve future  # اعتماد القادمة وكتابتها
 python backend/manage.py neo_sync --apply RUN --approve all     # اعتماد الكل وكتابته
 ```
-المراجعة والاعتماد اليدوي متاحان أيضًا من لوحة الإدارة: http://127.0.0.1:8765/admin/neo/dateproposal/
+المراجعة والاعتماد اليدوي متاحان أيضًا من لوحة الإدارة: http://127.0.0.1:8777/admin/neo/dateproposal/
 
 ### نتيجة التنفيذ الأول
 
