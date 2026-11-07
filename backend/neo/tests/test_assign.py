@@ -7,8 +7,8 @@ from django.utils import timezone
 from neo.domain.types import ParsedAssessment, ParsedLesson
 from neo.infrastructure.parsers import parse_assessments
 from neo.models import AssignProposal, PlatformAssessment
-from neo.services.assign_service import AssignPolicy, AssignService, plan_window
 from neo.services import safety
+from neo.services.assign_service import AssignPolicy, AssignService, plan_window
 from neo.services.sync_service import SyncService
 from neo.tests.helpers import confirm_matches
 

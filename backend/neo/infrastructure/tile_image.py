@@ -67,7 +67,7 @@ class _Plot:
 
     def parabola(self, a: float, h: float, k: float, width: int = 4):
         pts = []
-        for i in range(0, 161):
+        for i in range(161):
             x = -4 + i / 20
             y = a * (x - h) ** 2 + k
             if -3.2 <= y <= 5.2:
@@ -148,7 +148,7 @@ def _curve(p: _Plot, fn, lo: float, hi: float, width: int = 4):
 
 @_motif("limit")
 def _limit(p: _Plot):
-    f = lambda x: 0.25 * (x + 1) ** 2 - 1  # noqa: E731
+    f = lambda x: 0.25 * (x + 1) ** 2 - 1
     _curve(p, f, -4, 0.85)
     _curve(p, f, 1.15, 3.6)
     p.dot(1, f(1), fill=SOFT, r=6)  # فجوة عند x = 1
@@ -170,7 +170,7 @@ def _continuity(p: _Plot):
 
 @_motif("tangent")
 def _tangent(p: _Plot):
-    f = lambda x: 0.3 * x ** 2 - 1  # noqa: E731
+    f = lambda x: 0.3 * x ** 2 - 1
     _curve(p, f, -3.6, 3.6)
     x0, m = 1.5, 0.6 * 1.5  # مماس عند x0 بميل f′(x0)
     a, b = p.px(x0 - 2.2, f(x0) - 2.2 * m), p.px(x0 + 2.2, f(x0) + 2.2 * m)

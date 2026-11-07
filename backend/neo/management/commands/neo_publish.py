@@ -23,7 +23,7 @@ class Command(BaseCommand):
         parser.add_argument("--show-browser", action="store_true")
 
     def handle(self, *args, apply, approve, limit, show_browser, **opts):
-        factory = lambda: NeoClient(headless=not show_browser)  # noqa: E731
+        factory = lambda: NeoClient(headless=not show_browser)
         try:
             if apply:
                 runs = pipeline.publish_apply(apply, factory, timezone.localdate(), approve, limit)

@@ -7,8 +7,8 @@ import pytest
 from neo.domain.types import ParsedLesson, ParsedSlot
 from neo.infrastructure.parsers import parse_date_label, parse_lessons, parse_timetable
 from neo.models import DateProposal, PlatformLesson
-from neo.services.matching import strip_part
 from neo.services import safety
+from neo.services.matching import strip_part
 from neo.services.sync_service import SyncService, build_targets
 from neo.tests.helpers import confirm_matches
 

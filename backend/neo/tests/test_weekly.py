@@ -8,7 +8,14 @@ from django.utils import timezone
 
 from neo.domain.types import ParsedLesson
 from neo.infrastructure.client import PlatformError
-from neo.models import Job, PlatformLesson, PublishProposal, ScorecardSnapshot, SyncRun, TimetableSlot
+from neo.models import (
+    Job,
+    PlatformLesson,
+    PublishProposal,
+    ScorecardSnapshot,
+    SyncRun,
+    TimetableSlot,
+)
 from neo.services import weekly_service as w
 from neo.services.job_service import JobService
 from neo.services.publish_service import PublishService

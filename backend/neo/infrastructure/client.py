@@ -4,9 +4,9 @@
 """
 import json
 import random
+import re
 import subprocess
 import sys
-import re
 import time
 from datetime import date, datetime
 from pathlib import Path
@@ -18,7 +18,6 @@ from playwright.sync_api import sync_playwright
 from neo.domain.assessment import POINTS, TF, Question
 from neo.domain.quality import ASSESSMENT_KINDS
 from neo.domain.types import FileLink, ParsedSection
-from neo.services import live
 from neo.infrastructure.parsers import (
     is_login_page,
     is_login_url,
@@ -32,6 +31,7 @@ from neo.infrastructure.parsers import (
     parse_sections,
     parse_tiles,
 )
+from neo.services import live
 
 BASE_URL = "https://qeducation.edu.gov.qa"
 MONTHS_AR = ["يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو",

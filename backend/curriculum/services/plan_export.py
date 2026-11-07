@@ -3,8 +3,8 @@ from django.db.models import Sum
 
 from curriculum import models as m
 from curriculum.domain.plan_spec import (
-    EntrySpec,
     EnrichmentSpec,
+    EntrySpec,
     EventSpec,
     ExtraLessonSpec,
     OutcomeBlockSpec,

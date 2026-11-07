@@ -28,7 +28,7 @@ class Command(BaseCommand):
         parser.add_argument("--show-browser", action="store_true")
 
     def handle(self, *args, no_fetch, today, apply, approve, show_browser, **opts):
-        factory = lambda: NeoClient(headless=not show_browser)  # noqa: E731
+        factory = lambda: NeoClient(headless=not show_browser)
         today = today or timezone.localdate()
         try:
             if apply:

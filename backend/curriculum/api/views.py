@@ -8,7 +8,11 @@ from rest_framework.exceptions import NotFound, ValidationError
 from rest_framework.response import Response
 
 from curriculum import models as m
-from curriculum.api.serializers import CalendarEventSerializer, LessonSerializer, PlanSerializer
+from curriculum.api.serializers import (
+    CalendarEventSerializer,
+    LessonSerializer,
+    PlanSerializer,
+)
 from curriculum.services.schedule_service import ScheduleService
 
 

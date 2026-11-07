@@ -144,6 +144,7 @@ def test_message_row():
 def test_parse_notes_links():
     """صفحة الملاحظات الحقيقية: الرقم مجلد يتشاركه التحضير والعرض، فلا يُعدّ تكرارًا؛ وصور الصفوف ليست ملفات."""
     from pathlib import Path
+
     from neo.infrastructure.parsers import parse_file_links
     html = (Path(__file__).parent / "fixtures" / "lesson_notes.html").read_text(encoding="utf-8")
     links = parse_file_links(html)

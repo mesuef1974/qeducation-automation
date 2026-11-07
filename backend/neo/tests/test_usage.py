@@ -1,5 +1,5 @@
 import json
-from datetime import date, datetime, timedelta, timezone as tz
+from datetime import UTC, date, datetime, timedelta
 
 import pytest
 
@@ -17,7 +17,7 @@ def _page(rows):
 
 @pytest.fixture
 def mizan(monkeypatch):
-    now = datetime.now(tz.utc)
+    now = datetime.now(UTC)
     reset = (now + timedelta(days=3)).isoformat().replace("+00:00", "Z")
     plan = [
         {"ts": (now - timedelta(hours=20)).isoformat().replace("+00:00", "Z"), "f": None, "fr": None, "w": 4, "wr": reset,

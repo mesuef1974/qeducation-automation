@@ -166,7 +166,7 @@ def select_week(entries: list[PlanEntry], lessons: list[LessonRef], week: WeekSp
 # ------------------------------------------------------------- أسماء الملفات
 
 _FORBIDDEN = re.compile(r'[<>:"/\\|?*\x00-\x1f]')
-_KNOWN_EXT = re.compile(r"\.(docx|pptx|pdf|doc|ppt)$", re.I)
+_KNOWN_EXT = re.compile(r"\.(docx|pptx|pdf|doc|ppt)$", re.IGNORECASE)
 WORKSHEET_STEMS = ("wrq_ml", "mrj")
 SECTIONS_DIR = "عروض الأقسام"
 

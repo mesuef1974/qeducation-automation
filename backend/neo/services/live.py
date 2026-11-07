@@ -13,7 +13,7 @@ import json
 import re
 import threading
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from django.conf import settings
@@ -62,7 +62,7 @@ def emit(kind: str, text: str, node: str | None = None, **extra) -> None:
             _state["stage"] = text
         if node in NODES:
             _state["node"] = node
-        ev = {"seq": _state["seq"], "at": datetime.now(timezone.utc).isoformat(timespec="milliseconds"),
+        ev = {"seq": _state["seq"], "at": datetime.now(UTC).isoformat(timespec="milliseconds"),
               "t": round(time.monotonic() - _state["t0"], 2), "kind": kind, "text": text, "stage": _state["stage"]}
         if _state["node"]:
             ev["node"] = _state["node"]

@@ -4,7 +4,14 @@ from datetime import date
 
 from bs4 import BeautifulSoup
 
-from neo.domain.types import FileLink, ParsedAssessment, ParsedLesson, ParsedSection, ParsedSlot, ParsedTile
+from neo.domain.types import (
+    FileLink,
+    ParsedAssessment,
+    ParsedLesson,
+    ParsedSection,
+    ParsedSlot,
+    ParsedTile,
+)
 
 MONTHS = {m: i for i, m in enumerate(
     ["يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو", "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"], 1)}
@@ -97,7 +104,7 @@ def parse_outcomes(html: str) -> list[tuple[str, str]]:
     """نتاجات التعلم المربوطة بالدرس (صفحة show_competencies): (الرمز، النص)."""
     out = []
     for a in BeautifulSoup(html, "lxml").select(".proficiencyItem a"):
-        m = re.match(r"\s*([\d.]+?)\.?\s+(.*)", a.get_text(" ", strip=True), re.S)
+        m = re.match(r"\s*([\d.]+?)\.?\s+(.*)", a.get_text(" ", strip=True), re.DOTALL)
         if m:
             out.append((m.group(1), m.group(2).strip()))
     return out
@@ -108,7 +115,7 @@ def parse_available_outcomes(html: str) -> list[dict]:
     out = []
     for cb in BeautifulSoup(html, "lxml").select("input[name='proficiencies[]']"):
         a = cb.find_next("a", href=re.compile(rf"proficiency_id={cb['value']}\b"))
-        m = a and re.match(r"\s*([\d.]+?)\.?\s+(.*)", a.get_text(" ", strip=True), re.S)
+        m = a and re.match(r"\s*([\d.]+?)\.?\s+(.*)", a.get_text(" ", strip=True), re.DOTALL)
         if m:
             out.append({"id": int(cb["value"]), "code": m.group(1), "text": m.group(2).strip()})
     return out
@@ -195,7 +202,7 @@ def parse_question_text(html: str) -> str:
     return re.sub(r"\s+", " ", node.get_text(" ")).strip() if node else ""
 
 
-_FILE_HREF = re.compile(r"^(?:https?://[^/]+)?(/files/(\d+)/([^/?#]+?)\.(docx|pptx|pdf|doc|ppt|xlsx)(?:\?[^#]*)?)$", re.I)
+_FILE_HREF = re.compile(r"^(?:https?://[^/]+)?(/files/(\d+)/([^/?#]+?)\.(docx|pptx|pdf|doc|ppt|xlsx)(?:\?[^#]*)?)$", re.IGNORECASE)
 
 
 def parse_file_links(html: str) -> list[FileLink]:

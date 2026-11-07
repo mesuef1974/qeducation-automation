@@ -18,7 +18,13 @@ from django.utils import autoreload, timezone
 from neo.infrastructure.client import kill_orphan_browsers
 from neo.models import Job
 from neo.services import weekly_service
-from neo.services.job_service import HEARTBEAT_S, JobService, beat, stop_beat, worker_alive
+from neo.services.job_service import (
+    HEARTBEAT_S,
+    JobService,
+    beat,
+    stop_beat,
+    worker_alive,
+)
 
 SCHEDULE_CHECK_S = 60
 CODE_CHECK_S = 5

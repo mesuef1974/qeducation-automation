@@ -8,8 +8,8 @@ from pathlib import Path
 from curriculum.domain.plan_spec import (
     BREAK,
     TEACHING,
-    EntrySpec,
     EnrichmentSpec,
+    EntrySpec,
     EventSpec,
     ExtraLessonSpec,
     PlanFileError,
