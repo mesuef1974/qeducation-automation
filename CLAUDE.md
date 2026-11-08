@@ -23,6 +23,11 @@
 - العامل ينسخ `db.sqlite3` يوميًا إلى `.local/backups/` (آخر 14 نسخة، خارج git)، ويدويًا `python manage.py neo_backup`. الاسترجاع: أوقف الخادم والعامل ثم انسخ الملف فوق `backend/db.sqlite3`.
 - السجل بتدوير في `.local/logs/neo.log`. `DJANGO_DEBUG` افتراضيًا 0 (واجهة JSON فقط بلا BrowsableAPI)؛ `NEO_HTTPS=1` يفعّل الكوكيز Secure خلف HTTPS.
 
+## تدقيق الواجهة (2026-11-08)
+
+- `cd backend && python manage.py neo_ui_audit` على الخادم الحي: axe (WCAG 2.2 AA) وتجاوب أفقي لـ 9 صفحات × ثيمان × عرض 320 و375 و1024، ولقطات مرجعية لـ `docs/design-system.html` في `frontend/tests/baseline`. يُشغَّل قبل الدمج بعد أي تغيير بصري؛ `--update-baseline` بعد مراجعة لقطة مقصودة (يكتب في المجلد الذي يُشغَّل منه، فانسخه إلى نسخة التطوير ولا تترك المجلد الحي متسخًا). لا لقطات لصفحات التطبيق (فيها أسماء طلاب).
+- منطق الثيم في `docs/assets/theme.js` ومناطق التمرير في `scroll-regions.js` (يُدمجان في index.html)، والمكوّنات المشتركة في `docs/assets/components.css`. `npm test` يشغّل اختبارات الواجهة.
+
 ## الاختبارات
 
 - `cd backend && python -m pytest` (قاعدة بيانات مؤقتة؛ لا تفتح `db.sqlite3` الحي أثناء عمل العامل).

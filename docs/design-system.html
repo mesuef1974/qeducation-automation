@@ -166,7 +166,7 @@
   ];
   function render() {
     document.getElementById("swatches").innerHTML = TOKENS.map(function (t) {
-      return '<div class="sw"><i style="background: var(' + t + ')"></i><b>' + t + '</b><code>' + val(t) + '</code></div>';
+      return '<div class="sw"><i style="background: var(' + t + ')"></i><code>' + t + '</code><code>' + val(t) + '</code></div>';
     }).join("");
     document.getElementById("contrast").innerHTML = PAIRS.map(function (p) {
       var r = ratio(val(p[0]), val(p[1])), pass = r >= p[2];
