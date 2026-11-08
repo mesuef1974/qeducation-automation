@@ -28,6 +28,10 @@ onMounted(() => {
     }
   }
 });
+/** رابط التخطي: ينقل التركيز إلى المحتوى دون تغيير مسار Vue Router */
+function skipToMain() {
+  document.getElementById("main")?.focus();
+}
 onUnmounted(() => {
   off?.();
   bar?.disconnect();
@@ -35,8 +39,9 @@ onUnmounted(() => {
 </script>
 
 <template>
+  <a class="skip" href="#main" @click.prevent="skipToMain">تخطَّ إلى المحتوى</a>
   <AppTopbar />
-  <main class="page">
+  <main id="main" class="page" tabindex="-1">
     <RouterView />
   </main>
   <JobDock />

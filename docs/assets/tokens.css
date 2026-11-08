@@ -22,13 +22,15 @@
   --maroon-soft: #F5E6EB;
   --slate: #2F5D7C;
   --slate-soft: #E4EEF5;
-  --ok: #2E7D4F;
+  --ok: #2A7248; /* 5.04:1 على --ok-soft (كان #2E7D4F: 4.36) */
   --ok-soft: #E3F2E8;
   --warn: #9A6200;
   --warn-soft: #FBF0DC;
   --bad: #B3261E;
   --bad-soft: #FBE7E6;
   --code-bg: #F1ECEE;
+  /* حدود عناصر التحكم: 3:1 على الأقل (WCAG 1.4.11)؛ --line للفواصل فقط */
+  --line-strong: #8F868B;
 
   --f-display: "Reem Kufi", "IBM Plex Sans Arabic", "Segoe UI", Tahoma, sans-serif;
   --f-body: "IBM Plex Sans Arabic", "Segoe UI", Tahoma, sans-serif;
@@ -42,7 +44,7 @@
     --bg: #161214; --surface: #1F1A1D; --fg: #EFE9EC; --muted: #A99EA4; --line: #362D32;
     --maroon: #E07A98; --maroon-soft: #3A1A25; --slate: #8CBBDA; --slate-soft: #1B2A35;
     --ok: #7FCB9C; --ok-soft: #173123; --warn: #E8B860; --warn-soft: #34270F;
-    --bad: #F2938C; --bad-soft: #3A1C1A; --code-bg: #2A2226;
+    --bad: #F2938C; --bad-soft: #3A1C1A; --code-bg: #2A2226; --line-strong: #7A6E75;
     color-scheme: dark;
   }
 }
@@ -50,6 +52,6 @@
   --bg: #161214; --surface: #1F1A1D; --fg: #EFE9EC; --muted: #A99EA4; --line: #362D32;
   --maroon: #E07A98; --maroon-soft: #3A1A25; --slate: #8CBBDA; --slate-soft: #1B2A35;
   --ok: #7FCB9C; --ok-soft: #173123; --warn: #E8B860; --warn-soft: #34270F;
-  --bad: #F2938C; --bad-soft: #3A1C1A; --code-bg: #2A2226;
+  --bad: #F2938C; --bad-soft: #3A1C1A; --code-bg: #2A2226; --line-strong: #7A6E75;
   color-scheme: dark;
 }
