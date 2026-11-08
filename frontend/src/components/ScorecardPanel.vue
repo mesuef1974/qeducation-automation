@@ -165,7 +165,7 @@ onMounted(load);
 .bar i.ok { background: var(--ok); }
 .bar i.warn { background: var(--warn); }
 .bar i.bad { background: var(--bad); }
-.lvl { margin-inline-end: 12px; white-space: nowrap; }
+.lvl { display: inline-block; margin-inline-end: 12px; white-space: nowrap; } /* inline-block: يسمح بالالتفاف بين العناصر المتلاصقة */
 .steps { display: inline-flex; gap: 3px; vertical-align: middle; margin-inline-end: 6px; }
 .steps i { inline-size: 14px; block-size: 8px; border-radius: 2px; background: var(--code-bg); }
 .steps i.on { background: var(--maroon); }
