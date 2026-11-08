@@ -351,9 +351,9 @@ const statusTone = (s: string) => (s === "done" ? "ok" : s === "failed" ? "bad" 
             <div><dt>طلبات المنصة</dt><dd class="mono">{{ counts.net ?? 0 }}</dd></div>
             <div>
               <dt>ملفات</dt><dd class="mono">{{ fileTotal }}</dd>
-              <small v-if="ops.download || ops.cache || ops.edit" class="sub">
+              <dd v-if="ops.download || ops.cache || ops.edit" class="sub">
                 نُزّل {{ ops.download ?? 0 }} · مخزّن {{ ops.cache ?? 0 }} · عُدّل {{ ops.edit ?? 0 }}
-              </small>
+              </dd>
             </div>
             <div :class="{ warn: counts.warn }"><dt>تنبيهات</dt><dd class="mono">{{ counts.warn ?? 0 }}</dd></div>
             <div :class="{ bad: counts.error }"><dt>أخطاء</dt><dd class="mono">{{ counts.error ?? 0 }}</dd></div>
@@ -521,7 +521,7 @@ const statusTone = (s: string) => (s === "done" ? "ok" : s === "failed" ? "bad" 
 .kpis div { background: var(--bg); border-radius: 10px; padding: 8px 12px; }
 .kpis dt { font-size: var(--fs-xs); color: var(--muted); }
 .kpis dd { margin: 0; font-size: var(--fs-2xl); font-weight: 600; }
-.kpis .sub { display: block; color: var(--muted); font-size: var(--fs-xs); }
+.kpis .sub { display: block; color: var(--muted); font-size: var(--fs-xs); font-weight: 400; } /* dd لا small: القائمة التعريفية لا تقبل غيرهما */
 .kpis .warn dd { color: var(--warn); }
 .kpis .bad dd { color: var(--bad); }
 .result { border-radius: 10px; padding: 10px 14px; font-size: var(--fs-base); }
