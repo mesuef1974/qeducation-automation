@@ -4,6 +4,9 @@
 .page { max-inline-size: 1180px; margin-inline: auto; padding-block: 24px 120px; display: grid; gap: 24px; }
 /* عنصر الشبكة بلا min-width:0 يتمدد بعرض جدوله فيدفع الصفحة خارج الشاشة (الجوال) */
 .page > * { min-width: 0; }
+/* مسارات الشبكة تُحسب بالحد الأدنى لمحتواها فيدفعها جدول أو نص طويل خارج الشاشة: عمود واحد قابل للانكماش */
+.card, .page section.group { grid-template-columns: minmax(0, 1fr); }
+.run-notes li, .error-box, .note-box { overflow-wrap: anywhere; }
 .page:focus { outline: none; }
 /* --topbar-h: ارتفاع الشريط العلوي الفعلي يضبطه App.vue؛ 50px على الشاشة الواسعة، وأكثر حين يلتف */
 html { scroll-padding-top: calc(var(--topbar-h, 56px) + 16px); }
