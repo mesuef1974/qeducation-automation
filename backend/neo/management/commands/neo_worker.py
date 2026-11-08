@@ -4,6 +4,7 @@ python manage.py neo_worker --once   → ينفّذ المهام المنتظر�
 يعيد تشغيل نفسه عند تغيّر الكود وهو خامل بين المهام فقط (لا يقطع مهمة على المنصة) ما لم يُمرَّر --noreload،
 وينظّف عند بدئه متصفحًا يتيمًا يقفل ملف الدخول.
 """
+import logging
 import os
 import sys
 import threading
@@ -17,7 +18,7 @@ from django.utils import autoreload, timezone
 
 from neo.infrastructure.client import kill_orphan_browsers
 from neo.models import Job
-from neo.services import weekly_service
+from neo.services import backup_service, weekly_service
 from neo.services.job_service import (
     HEARTBEAT_S,
     JobService,
@@ -26,6 +27,7 @@ from neo.services.job_service import (
     worker_alive,
 )
 
+log = logging.getLogger(__name__)
 SCHEDULE_CHECK_S = 60
 CODE_CHECK_S = 5
 SETTLE_S = 10  # إعادة التشغيل بعد ثبات الكود: النسخ (git) يستغرق ثواني، فلا يبدأ العامل على كود نصف منسوخ
@@ -99,6 +101,7 @@ class Command(BaseCommand):
             self.stdout.write(self.style.WARNING(f"أُنهي {k} متصفحًا يتيمًا كان يقفل ملف الدخول."))
         self.stdout.write("العامل يعمل. (Ctrl+C للإيقاف)" if not once else "تنفيذ المهام المنتظرة...")
         beat(os.getpid())
+        log.info("بدأ العامل")
         if weekly_service.session_check_due(timezone.localtime(), on_start=True):  # الخطوة 0: عند تشغيل الجهاز
             svc.enqueue(Job.Kind.SESSION)
         stop = threading.Event()
@@ -120,6 +123,7 @@ class Command(BaseCommand):
                 if time.monotonic() - checked >= SCHEDULE_CHECK_S:  # الدورة الأسبوعية حين يحين موعدها
                     checked = time.monotonic()
                     now = timezone.localtime()
+                    backup_service.run_if_due(now.date())  # نسخة اليوم مرة واحدة، والعامل خامل الآن
                     if weekly_service.session_check_due(now):  # الخطوة 0: كل صباح قبل أي مهمة مجدولة
                         svc.enqueue(Job.Kind.SESSION)
                     if due := weekly_service.enqueue_due(now, svc.enqueue):

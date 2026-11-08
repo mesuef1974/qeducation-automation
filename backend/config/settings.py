@@ -4,6 +4,7 @@
 import json
 import os
 import secrets
+import sys
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -20,7 +21,8 @@ def _secret_key() -> str:
 
 
 SECRET_KEY = _secret_key()
-DEBUG = os.environ.get("DJANGO_DEBUG", "1") == "1"
+# الأسلم افتراضيًا: بلا صفحات أخطاء تفصيلية؛ DJANGO_DEBUG=1 للتطوير فقط
+DEBUG = os.environ.get("DJANGO_DEBUG", "0") == "1"
 ALLOWED_HOSTS = ["127.0.0.1", "localhost", "[::1]"]
 
 INSTALLED_APPS = [
@@ -100,6 +102,9 @@ NEO_NOTIFY = True
 # تبويب «الاستهلاك»: مصدره «ميزان» على هذا الجهاز (قراءة فقط): صفحته (data-main) لتوكنز كل يوم ونموذج، وplan.json للحصة
 NEO_MIZAN_URL = os.environ.get("NEO_MIZAN_URL", "http://127.0.0.1:8790")
 NEO_APP_URL = "http://127.0.0.1:8777/app/"
+# نسخ احتياطي يومي للقاعدة وسجل بتدوير: خارج git على الجهاز وحده (.local/ في .gitignore)
+NEO_BACKUP_DIR = PROJECT_ROOT / ".local" / "backups"
+NEO_LOG_FILE = None if "pytest" in sys.modules else PROJECT_ROOT / ".local" / "logs" / "neo.log"
 # محرك المحتوى: الصور المولّدة (خارج المستودع) ومصادر الصف التي تُذكر في قسم التهيئة
 MEDIA_ROOT = BASE_DIR / "media"
 NEO_CONTENT_SOURCES = ("كتاب الطالب", "الكتاب التفاعلي")
@@ -150,16 +155,27 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SAMESITE = "Lax"
 CSRF_COOKIE_SAMESITE = "Lax"
-# Secure يتطلب HTTPS؛ الخادم محلي على http://127.0.0.1
-SESSION_COOKIE_SECURE = not DEBUG
-CSRF_COOKIE_SECURE = not DEBUG
+# Secure يتطلب HTTPS؛ الخادم محلي على http://127.0.0.1 فلا يُفعَّل إلا خلف HTTPS (NEO_HTTPS=1)
+SESSION_COOKIE_SECURE = os.environ.get("NEO_HTTPS") == "1"
+CSRF_COOKIE_SECURE = SESSION_COOKIE_SECURE
 X_FRAME_OPTIONS = "DENY"
 
 REST_FRAMEWORK = {
     "DEFAULT_PERMISSION_CLASSES": ["rest_framework.permissions.IsAdminUser"],
-    "DEFAULT_RENDERER_CLASSES": [
-        "rest_framework.renderers.JSONRenderer",
-        "rest_framework.renderers.BrowsableAPIRenderer",
-    ],
+    "DEFAULT_RENDERER_CLASSES": ["rest_framework.renderers.JSONRenderer"],  # بلا واجهة متصفح تنفّذ POST
     "UNICODE_JSON": True,
 }
+
+
+# السجل: أخطاء العامل والنسخ الاحتياطي تبقى في ملف يدوَّر (5×2MB) بدل نافذة مخفية تضيع مخرجاتها
+if NEO_LOG_FILE:
+    NEO_LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
+    LOGGING = {
+        "version": 1,
+        "disable_existing_loggers": False,
+        "formatters": {"std": {"format": "%(asctime)s %(levelname)s %(name)s: %(message)s"}},
+        "handlers": {"file": {"class": "logging.handlers.RotatingFileHandler", "filename": str(NEO_LOG_FILE),
+                              "maxBytes": 2_000_000, "backupCount": 5, "encoding": "utf-8", "formatter": "std"}},
+        "loggers": {"neo": {"handlers": ["file"], "level": "INFO"},
+                    "django.request": {"handlers": ["file"], "level": "WARNING"}},
+    }

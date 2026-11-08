@@ -3,6 +3,7 @@
 الحالة في قاعدة البيانات فقط، فلا حاجة إلى Celery أو Redis لعامل محلي واحد.
 """
 import json
+import logging
 from collections.abc import Callable
 from datetime import date, timedelta
 
@@ -15,6 +16,8 @@ from neo.infrastructure.client import BrowserBusy, NeoClient, NotLoggedIn, Platf
 from neo.models import Job, SyncRun, WorkerHeartbeat
 from neo.services import alerts, live, pipeline, safety, weekly_service
 from neo.services.sync_service import NoActiveClasses, active_classes
+
+log = logging.getLogger(__name__)
 
 # headless → مصنع عملاء؛ الاختبارات تمرّر مصنعًا وهميًا
 FactoryMaker = Callable[[bool], pipeline.Factory]
@@ -136,6 +139,7 @@ class JobService:
             # خطأ Playwright يحمل ترويسات الطلب ومنها كوكيز الجلسة: يُحجب قبل الحفظ والبث
             error = scrub(str(exc))
             job.status, job.error_kind, job.error = Job.Status.FAILED, _classify(exc), error[:1000]
+            log.warning("فشلت المهمة #%s %s [%s]: %s", job.pk, job.kind, job.error_kind, error[:300])
             live.end("failed", f"{job.get_error_kind_display()}: {error[:300]}")
             # المراحل تسجّل ما طُبّق قبل انقطاع الجلسة ثم ترفع الاستثناء؛ عامل واحد، فكل عملية منذ البداية لهذه المهمة
             runs = list(SyncRun.objects.filter(started_at__gte=job.started_at))
