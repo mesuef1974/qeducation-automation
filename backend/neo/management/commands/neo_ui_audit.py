@@ -11,6 +11,7 @@ from pathlib import Path
 
 from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
+from playwright.sync_api import Error as PlaywrightError
 from playwright.sync_api import sync_playwright
 
 ROUTES = ["/app/", "/app/review", "/app/lessons", "/app/content", "/app/live", "/app/log", "/app/swot", "/app/usage"]
@@ -87,7 +88,14 @@ class Command(BaseCommand):
 
     def _audit(self, page, base: str, route: str, theme: str, width: int, update: bool) -> list[str]:
         tag = f"{route} · {theme} · {width}"
-        page.goto(base + route, wait_until="networkidle")
+        for attempt in range(3):  # انقطاع عابر في شبكة المتصفح (ERR_NETWORK_IO_SUSPENDED) لا يُسقط التدقيق كله
+            try:
+                page.goto(base + route, wait_until="networkidle")
+                break
+            except PlaywrightError:
+                if attempt == 2:
+                    raise
+                page.wait_for_timeout(1500)
         page.wait_for_timeout(1200)  # الواجهة تجلب بياناتها بعد التحميل
         page.add_script_tag(path=str(AXE))
         result = page.evaluate("""async (tags) => {
