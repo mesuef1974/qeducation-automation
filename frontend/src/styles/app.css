@@ -27,12 +27,16 @@ html { scroll-padding-top: calc(var(--topbar-h, 56px) + 16px); }
 }
 .topbar .mark-short { display: none; }
 @media (max-width: 560px) {
-  /* الجوال: سطر واحد (≈56px بدل 89): هوية مختصرة، تنقل بتمرير أفقي، حالة الجلسة السليمة نقطة، وزر الثيم أيقونة */
-  .topbar .in { flex-wrap: nowrap; gap: 6px; padding-block: 6px; }
-  .topbar .mark { flex: 0 0 auto; }
+  /* الجوال: هوية مختصرة وحالة الجلسة السليمة نقطة وزر الثيم أيقونة. السطر واحد (≈46px) ما دامت الحالة سليمة،
+     وإن ظهرت شارة تنبيه (توقف الكتابة، انتهاء الجلسة، العامل يعمل) التفّ التنقل إلى سطر ثانٍ كي لا يفيض الشريط */
+  .topbar .in { flex-wrap: wrap; gap: 6px; padding-block: 6px; }
+  .topbar .mark { flex: 1 1 auto; }
   .topbar .mark-long { display: none; }
   .topbar .mark-short { display: inline; }
-  .topbar nav { order: 0; flex: 1 1 0; flex-basis: 0; min-inline-size: 0; }
+  .topbar nav { order: 3; flex: 1 1 100%; min-inline-size: 0; }
+  .topbar .in:not(:has(.pill:not(.ok))) { flex-wrap: nowrap; }
+  .topbar .in:not(:has(.pill:not(.ok))) .mark { flex: 0 0 auto; }
+  .topbar .in:not(:has(.pill:not(.ok))) nav { order: 0; flex: 1 1 0; }
   .topbar .theme-toggle { padding-inline: 8px; }
   .topbar .theme-toggle span { display: none; }
   .topbar .pill.ok { padding: 0; inline-size: 24px; block-size: 24px; justify-content: center; }
