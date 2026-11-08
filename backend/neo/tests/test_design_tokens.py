@@ -66,6 +66,8 @@ def test_ui_audit_judge_blocks_serious_and_overflow():
     out = judge(v, overflow=0, width=375)
     assert len(out) == 1 and "color-contrast" in out[0] and ".pill" in out[0]  # المتوسط لا يُفشل، ولا HTML
     assert judge([], overflow=2, width=320) and not judge([], overflow=1, width=320)
+    named = [{"id": "x", "impact": "critical", "nodes": [{"target": ['div[aria-label="اسم طالب"]']}]}]
+    assert judge(named, 0, 375)[0].endswith("div[aria-label]")  # قيم السمات تُحجب: قد تحمل أسماء
 
 
 def test_ui_audit_diff_ratio(tmp_path):

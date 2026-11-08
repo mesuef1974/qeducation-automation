@@ -187,7 +187,7 @@ const maxTok = (rows: { tokens: number }[]) => Math.max(1, ...rows.map((r) => r.
             <span>{{ c(t) }}</span>
           </div>
           <div class="bars">
-            <div v-for="(d, i) in daily" :key="d.day" class="col" tabindex="0" :aria-label="`${fmtShort(d.day)}: ${n(d.tokens)}`"
+            <div v-for="(d, i) in daily" :key="d.day" class="col" tabindex="0" role="img" :aria-label="`${fmtShort(d.day)}: ${n(d.tokens)}`"
                  @mouseenter="hover = i" @mouseleave="hover = null" @focus="hover = i" @blur="hover = null">
               <i :class="{ zero: !d.tokens }" :style="{ blockSize: `${(d.tokens / dailyMax) * 100}%` }" />
             </div>

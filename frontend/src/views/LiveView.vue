@@ -330,7 +330,7 @@ const statusTone = (s: string) => (s === "done" ? "ok" : s === "failed" ? "bad" 
             <span class="stage-now">{{ progress?.stage || stages[stages.length - 1]?.text || "بدء المهمة" }}</span>
             <span class="step-now">{{ progress?.text ?? lastStep }}</span>
           </div>
-          <div class="bar" :class="{ indeterminate: running && !progress }" role="progressbar" :aria-valuenow="pct"
+          <div class="bar" :class="{ indeterminate: running && !progress }" role="progressbar" aria-label="تقدم المهمة" :aria-valuenow="pct"
                aria-valuemin="0" aria-valuemax="100">
             <i :style="{ inlineSize: `${pct}%` }" />
           </div>
@@ -549,7 +549,7 @@ const statusTone = (s: string) => (s === "done" ? "ok" : s === "failed" ? "bad" 
 .ev { display: grid; grid-template-columns: 96px 74px minmax(0, 1fr) auto; gap: 10px; align-items: baseline; padding: 4px 12px; }
 .ev:hover { background: var(--surface); }
 .ev time { display: grid; color: var(--muted); font-size: var(--fs-xs); line-height: 1.3; }
-.ev time small { font-size: var(--fs-xs); opacity: .85; }
+.ev time small { font-size: var(--fs-xs); }
 .ev .tag { font-size: var(--fs-xs); padding: 0 8px; border-radius: 999px; text-align: center; background: var(--code-bg); color: var(--muted); }
 .ev .txt { overflow-wrap: anywhere; }
 .ev .meta { color: var(--muted); font-size: var(--fs-xs); white-space: nowrap; font-variant-numeric: tabular-nums; }

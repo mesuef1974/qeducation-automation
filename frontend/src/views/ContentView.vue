@@ -239,7 +239,7 @@ const imageUrl = (p: ContentProposal) => `/api/neo/proposals/content/${p.id}/ima
 
 <style scoped>
 .lesson { gap: 10px; }
-.lesson.old { opacity: .7; }
+.lesson.old { background: var(--bg); } /* الدرس القديم أهدأ بالخلفية لا بالشفافية (التباين) */
 .l-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: start; gap: 10px; }
 .l-head h2 { font-size: var(--fs-lg); margin: 0; }
 .l-head small { display: flex; flex-wrap: wrap; gap: 4px; margin-block-start: 4px; }

@@ -162,7 +162,7 @@ const weeklySub = computed(() => (props.autoApprove
       <rect v-if="active === s.key" class="halo" x="-7" y="-7" :width="BW + 14" :height="BH + 14" rx="20" />
       <rect :width="BW" :height="BH" rx="14" />
       <circle v-if="active === s.key" cx="16" cy="16" r="5" class="dot" />
-      <g v-else-if="tone(s.key) === 'done'" class="tick" aria-label="مرّت بها المهمة">
+      <g v-else-if="tone(s.key) === 'done'" class="tick" role="img" aria-label="مرّت بها المهمة">
         <circle cx="17" cy="17" r="8" />
         <path d="M13,17 l3,3 l5,-6" />
       </g>

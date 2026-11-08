@@ -4,9 +4,11 @@ import { onMounted, onUnmounted } from "vue";
 import AppTopbar from "@/components/AppTopbar.vue";
 import ConfirmDialog from "@/components/ConfirmDialog.vue";
 import JobDock from "@/components/JobDock.vue";
+import { useScrollRegions } from "@/composables/useScrollRegions";
 import { useClassesStore } from "@/stores/classes";
 import { useJobsStore } from "@/stores/jobs";
 
+useScrollRegions();
 const jobs = useJobsStore();
 const classes = useClassesStore();
 let off: (() => void) | undefined;

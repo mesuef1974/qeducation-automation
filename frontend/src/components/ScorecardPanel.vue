@@ -115,7 +115,7 @@ onMounted(load);
               <td>{{ t.title }}</td>
               <td>{{ AREAS[t.area] }}</td>
               <td>
-                <span class="steps" :aria-label="`${t.level} من 4، والمستهدف ${t.target}`">
+                <span class="steps" role="img" :aria-label="`${t.level} من 4، والمستهدف ${t.target}`">
                   <i v-for="n in 4" :key="n" :class="{ on: n <= t.level, goal: n > t.level && n <= t.target }" />
                 </span>
                 {{ t.level }} ← {{ t.target }}

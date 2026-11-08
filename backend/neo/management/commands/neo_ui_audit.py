@@ -6,6 +6,7 @@ python manage.py neo_ui_audit --update-baseline   → يعتمد اللقطات 
 لا لقطات ولا HTML لصفحات التطبيق (فيها أسماء طلاب): يُبلَّغ بقاعدة axe ومحدد العنصر وعدد المخالفات فقط؛
 اللقطات المرجعية لصفحة نظام التصميم وحدها لأنها ثابتة بلا بيانات شخصية.
 """
+import re
 from pathlib import Path
 
 from django.conf import settings
@@ -25,9 +26,13 @@ BASELINE = settings.PROJECT_ROOT / "frontend" / "tests" / "baseline"
 OUT = settings.PROJECT_ROOT / ".local" / "ui_audit"
 
 
+def _target(n: dict) -> str:
+    return re.sub(r'\[([\w-]+)="[^"]*"\]', r'[\1]', str(n['target'][0]))  # قيم السمات قد تحمل أسماء
+
+
 def judge(violations: list[dict], overflow: int, width: int) -> list[str]:
     """مخالفات تُفشل التدقيق: axe الجسيمة، وتجاوز أفقي. لا ينقل HTML (قد يحمل أسماء)."""
-    problems = [f"{v['id']} [{v['impact']}] × {len(v['nodes'])}: {', '.join(str(n['target'][0]) for n in v['nodes'][:3])}"
+    problems = [f"{v['id']} [{v['impact']}] × {len(v['nodes'])}: {', '.join(_target(n) for n in v['nodes'][:3])}"
                 for v in violations if v["impact"] in BLOCKING]
     if overflow > 1:
         problems.append(f"تجاوز أفقي: عرض المستند أكبر من الشاشة بـ {overflow}px (العرض {width})")
