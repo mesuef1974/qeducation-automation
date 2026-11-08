@@ -10,6 +10,7 @@ const cases: [string, RegExp][] = [
   ["Page.goto: net::ERR_INTERNET_DISCONNECTED at https://x", /تعذّر الاتصال/],
   ["Target page, context or browser has been closed", /أُغلق المتصفح/],
   ["BrowserType.launch: Executable doesn't exist at C:/x/msedge.exe", /تشغيل متصفح Edge/],
+  ["APIRequestContext.get: getaddrinfo ENOTFOUND qeducation.edu.gov.qa", /تعذّر الاتصال/],
   ["database is locked", /قاعدة البيانات مشغولة/],
 ];
 

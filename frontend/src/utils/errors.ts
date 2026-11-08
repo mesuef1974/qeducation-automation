@@ -16,7 +16,7 @@ const RULES: { test: RegExp; make: (m: RegExpMatchArray) => ErrorInfo }[] = [
                     hint: "قد تكون الصفحة تغيّرت أو بطؤها شديد. أعد المحاولة، فإن تكرر فراجع الصفحة على المنصة." }),
   },
   {
-    test: /net::ERR_(INTERNET_DISCONNECTED|NAME_NOT_RESOLVED|CONNECTION_\w+|NETWORK_CHANGED)/,
+    test: /net::ERR_(INTERNET_DISCONNECTED|NAME_NOT_RESOLVED|CONNECTION_\w+|NETWORK_CHANGED)|getaddrinfo (?:ENOTFOUND|EAI_AGAIN)|ECONNREFUSED|ECONNRESET/,
     make: () => ({ summary: "تعذّر الاتصال بالمنصة", hint: "تحقق من الإنترنت ثم أعد المحاولة." }),
   },
   {
