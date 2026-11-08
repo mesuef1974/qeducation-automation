@@ -6,12 +6,15 @@ import { defineConfig } from "vite";
 // خادم Django المحلي؛ أثناء التطوير يمرَّر إليه /api و/admin و/static و/docs
 const BACKEND = "http://127.0.0.1:8777";
 
-// منطق الثيم مصدره الوحيد docs/assets/theme.js: يُدمج في <head> ليُطبَّق قبل الرسم (بلا وميض) كما في صفحات docs
+// منطق الثيم ومناطق التمرير مصدره الوحيد docs/assets (theme.js وscroll-regions.js): يُدمجان في <head> كما في صفحات docs
+// (الثيم قبل الرسم بلا وميض)
+const SHARED = ["theme.js", "scroll-regions.js"];
 const inlineTheme = () => ({
-  name: "inline-theme",
+  name: "inline-shared-scripts",
   transformIndexHtml: (html: string) =>
     html.replace("<!--theme-core-->",
-      `<script>${readFileSync(fileURLToPath(new URL("../docs/assets/theme.js", import.meta.url)), "utf-8")}</script>`),
+      SHARED.map((f) => `<script>${readFileSync(fileURLToPath(new URL(`../docs/assets/${f}`, import.meta.url)), "utf-8")}</script>`)
+        .join(String.fromCharCode(10))),
 });
 
 export default defineConfig({
