@@ -54,6 +54,9 @@
   --brand-deep: #6E102C;
   --brand-tint: #F3D7DF;
   --on-brand: #FFFFFF;
+  /* أحمر صلب للحذف عليه نص أبيض في الثيمين (لوحة الإدارة) */
+  --danger-solid: #B3261E;
+  --danger-solid-hover: #8E1E18;
 
   --bg: #F6F4F5;
   --surface: #FFFFFF;

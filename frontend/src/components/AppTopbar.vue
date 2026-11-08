@@ -86,7 +86,7 @@ async function login() {
       <span v-else-if="jobs.session?.worker_busy" class="pill read"><i class="spinner" aria-hidden="true" />العامل يعمل</span>
       <span v-else class="pill ok" :title="`آخر اتصال بالمنصة: ${fmtWhen(jobs.session?.checked_at)}`"><span class="sess">الجلسة سليمة</span></span>
 
-      <button class="theme-toggle" type="button" :data-mode="theme" :aria-label="`الثيم: ${THEME_LABEL[theme]}. اضغط للتبديل`"
+      <button class="theme-toggle" data-vue type="button" :data-mode="theme" :aria-label="`الثيم: ${THEME_LABEL[theme]}. اضغط للتبديل`"
               @click="next">
         <svg class="i-auto" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
           <circle cx="12" cy="12" r="9" /><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor" />

@@ -54,3 +54,49 @@ def test_no_text_below_12px():
 
 def test_woff2_served_from_docs(db, client):
     assert client.get("/docs/assets/fonts/ibm-plex-sans-arabic-arabic-400-normal.woff2").status_code == 200
+
+
+# ---- التدقيق الآلي وتوحيد الثيم ----
+
+def test_ui_audit_judge_blocks_serious_and_overflow():
+    from neo.management.commands.neo_ui_audit import judge
+
+    v = [{"id": "color-contrast", "impact": "serious", "nodes": [{"target": [".pill"]}, {"target": ["td"]}]},
+         {"id": "region", "impact": "moderate", "nodes": [{"target": ["div"]}]}]
+    out = judge(v, overflow=0, width=375)
+    assert len(out) == 1 and "color-contrast" in out[0] and ".pill" in out[0]  # المتوسط لا يُفشل، ولا HTML
+    assert judge([], overflow=2, width=320) and not judge([], overflow=1, width=320)
+
+
+def test_ui_audit_diff_ratio(tmp_path):
+    from PIL import Image
+
+    from neo.management.commands.neo_ui_audit import diff_ratio
+
+    a, b, c = tmp_path / "a.png", tmp_path / "b.png", tmp_path / "c.png"
+    Image.new("RGB", (10, 10), "white").save(a)
+    Image.new("RGB", (10, 10), "white").save(b)
+    img = Image.new("RGB", (10, 10), "white")
+    img.paste("black", (0, 0, 5, 10))
+    img.save(c)
+    assert diff_ratio(a, b) == 0 and diff_ratio(a, c) == 0.5
+    Image.new("RGB", (4, 4)).save(tmp_path / "d.png")
+    assert diff_ratio(a, tmp_path / "d.png") == 1.0
+
+
+def test_theme_logic_has_a_single_source():
+    """منطق الثيم في docs/assets/theme.js وحده؛ Vue وindex.html يستعملانه ولا يكرّرانه."""
+    use = (SRC / "composables" / "useTheme.ts").read_text(encoding="utf-8")
+    index = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
+    assert "localStorage" not in use and "NeoTheme" in use
+    assert "localStorage" not in index and "<!--theme-core-->" in index
+    core = (ASSETS / "theme.js").read_text(encoding="utf-8")
+    assert "window.NeoTheme" in core and core.count('getItem(KEY)') == 1
+
+
+def test_design_system_page_uses_only_shared_css():
+    page = (ROOT / "docs" / "design-system.html").read_text(encoding="utf-8")
+    for css in ("tokens.css", "pages.css", "components.css"):
+        assert f"assets/{css}" in page
+    assert "fonts.googleapis" not in page
+    assert not re.search(r"font-size:\s*[0-9.]+px", page) and not re.search(r"#[0-9a-fA-F]{6}\b", page.split("<script>")[0])

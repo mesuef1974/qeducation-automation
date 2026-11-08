@@ -1,6 +1,8 @@
 /*
- * مبدّل الثيم: تلقائي ← نهاري ← ليلي. يحفظ الاختيار بالمفتاح "theme" وبالقيم نفسها
- * التي تستعملها لوحة إدارة Django. يُحمَّل في <head> دون defer ليُطبَّق الثيم قبل الرسم.
+ * الثيم: المصدر الوحيد لمنطقه في المشروع كله (صفحات docs وواجهة Vue عبر window.NeoTheme، ولوحة Django بالمفتاح نفسه).
+ * تلقائي ← نهاري ← ليلي. المفتاح "theme" والقيم auto | light | dark كما في لوحة إدارة Django.
+ * يُحمَّل في <head> دون defer ليُطبَّق الثيم قبل الرسم؛ وفي الواجهة يُدمج داخل index.html (vite.config.ts).
+ * يربط أي .theme-toggle ليس عليه data-vue (زر Vue يرسم نفسه ويستدعي NeoTheme.next).
  */
 (function () {
   var KEY = "theme", ORDER = ["auto", "light", "dark"];
@@ -15,23 +17,31 @@
 
   function apply() {
     document.documentElement.setAttribute("data-theme", current);
-    document.querySelectorAll(".theme-toggle").forEach(function (b) {
+    document.querySelectorAll(".theme-toggle:not([data-vue])").forEach(function (b) {
       b.setAttribute("data-mode", current);
       b.setAttribute("aria-label", "الثيم: " + LABEL[current] + ". اضغط للتبديل");
       var l = b.querySelector(".lbl"); if (l) l.textContent = LABEL[current];
     });
+    document.dispatchEvent(new CustomEvent("neo-theme", { detail: current }));
   }
+
+  function set(value) {
+    if (ORDER.indexOf(value) < 0) return;
+    current = value;
+    try { localStorage.setItem(KEY, current); } catch (e) { /* يبقى للصفحة الحالية */ }
+    apply();
+  }
+
+  function next() { set(ORDER[(ORDER.indexOf(current) + 1) % ORDER.length]); }
+
+  window.NeoTheme = { order: ORDER, label: LABEL, get: function () { return current; }, set: set, next: next };
   apply();
 
   document.addEventListener("DOMContentLoaded", function () {
-    document.querySelectorAll(".theme-toggle").forEach(function (b) {
+    document.querySelectorAll(".theme-toggle:not([data-vue])").forEach(function (b) {
       b.type = "button";
       b.innerHTML = ICONS + '<span class="lbl"></span>';
-      b.addEventListener("click", function () {
-        current = ORDER[(ORDER.indexOf(current) + 1) % ORDER.length];
-        try { localStorage.setItem(KEY, current); } catch (e) { /* يبقى للصفحة الحالية */ }
-        apply();
-      });
+      b.addEventListener("click", next);
     });
     apply();
   });

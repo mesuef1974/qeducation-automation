@@ -1,30 +1,17 @@
 import { ref } from "vue";
 
-// العقد نفسه في docs/assets/theme.js ولوحة إدارة Django: المفتاح "theme" والقيم auto | light | dark
+// المنطق كله في docs/assets/theme.js (يُدمج في index.html قبل الرسم)؛ هنا ربطه بـ Vue فقط
 export type Theme = "auto" | "light" | "dark";
-const ORDER: Theme[] = ["auto", "light", "dark"];
-export const THEME_LABEL: Record<Theme, string> = { auto: "تلقائي", light: "نهاري", dark: "ليلي" };
+interface NeoThemeApi { label: Record<Theme, string>; get(): Theme; next(): void }
+const core = (window as unknown as { NeoTheme: NeoThemeApi }).NeoTheme;
 
-function saved(): Theme {
-  try {
-    const t = localStorage.getItem("theme") as Theme | null;
-    return t && ORDER.includes(t) ? t : "auto";
-  } catch {
-    return "auto";
-  }
-}
+export const THEME_LABEL = core.label;
 
-const theme = ref<Theme>(saved());
+const theme = ref<Theme>(core.get());
+document.addEventListener("neo-theme", (e) => {
+  theme.value = (e as CustomEvent<Theme>).detail;
+});
 
 export function useTheme() {
-  function next() {
-    theme.value = ORDER[(ORDER.indexOf(theme.value) + 1) % ORDER.length];
-    try {
-      localStorage.setItem("theme", theme.value);
-    } catch {
-      /* بلا تخزين يبقى الاختيار للصفحة الحالية */
-    }
-    document.documentElement.setAttribute("data-theme", theme.value);
-  }
-  return { theme, next };
+  return { theme, next: () => core.next() };
 }

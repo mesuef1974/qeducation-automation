@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="ar" dir="rtl" data-theme="auto">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>نظام التصميم · أتمتة منصة قطر للتعليم</title>
+<link rel="stylesheet" href="assets/tokens.css">
+<link rel="stylesheet" href="assets/pages.css">
+<link rel="stylesheet" href="assets/components.css">
+<script src="assets/theme.js"></script>
+<style>
+  /* خاص بهذه الصفحة فقط: تخطيط العرض. كل لون وحجم من الرموز، فالصفحة لا تتقادم عن tokens.css */
+  main { max-width: 1040px; margin-inline: auto; padding-block: 24px 96px; display: grid; gap: 40px; }
+  section { display: grid; gap: 16px; min-width: 0; }
+  .grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 200px), 1fr)); }
+  .sw { display: grid; gap: 6px; padding: 10px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
+  .sw i { display: block; block-size: 36px; border-radius: 8px; border: 1px solid var(--line); }
+  .sw code { direction: ltr; justify-self: start; }
+  .row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-3); }
+  .scale { display: grid; gap: 6px; }
+  .scale div { display: grid; grid-template-columns: 110px 1fr; align-items: baseline; gap: 12px; }
+  .scale code { justify-self: start; }
+  .space i { display: inline-block; block-size: 16px; background: var(--brand); border-radius: 3px; }
+  .ok-t { color: var(--ok); font-weight: 600; } .bad-t { color: var(--bad); font-weight: 600; }
+  .demo-bar { position: static; }
+  .spinner { animation: none; }
+  .specimen { font-family: var(--f-display); font-size: var(--fs-3xl); }
+</style>
+</head>
+<body>
+<div class="topbar demo-bar" style="position: static;">
+  <div class="in">
+    <a class="mark" href="design-system.html">نظام التصميم</a>
+    <nav aria-label="أقسام الصفحة">
+      <a href="#colors">الألوان</a><a href="#type">الطباعة</a><a href="#space">المسافات</a><a href="#parts">المكوّنات</a>
+    </nav>
+    <button class="theme-toggle" type="button"></button>
+  </div>
+</div>
+
+<main id="main">
+  <header style="display:grid; gap:8px">
+    <span class="eyebrow">مرجع حي · يُبنى من tokens.css وpages.css وcomponents.css</span>
+    <h1>نظام التصميم</h1>
+    <p class="muted">كل ما يظهر هنا يأتي من ملفات الهوية نفسها، فلا يتقادم. بدّل الثيم من الأعلى لترى الألوان والتباين في الحالتين.</p>
+  </header>
+
+  <section id="colors" aria-labelledby="h-colors">
+    <h2 id="h-colors">الألوان</h2>
+    <div class="grid" id="swatches"></div>
+    <h3>التباين (يُحسب حيًا للثيم الحالي)</h3>
+    <div class="table-wrap"><table>
+      <thead><tr><th>الزوج</th><th>النسبة</th><th>الحد</th><th>النتيجة</th></tr></thead>
+      <tbody id="contrast"></tbody>
+    </table></div>
+  </section>
+
+  <section id="type" aria-labelledby="h-type">
+    <h2 id="h-type">الطباعة</h2>
+    <div class="grid">
+      <div class="card"><h3>العناوين</h3><p class="specimen">Reem Kufi</p><p class="muted">خط العناوين: 500 و700.</p></div>
+      <div class="card"><h3>النص</h3><p style="font-size: var(--fs-lg)">IBM Plex Sans Arabic</p><p class="muted">400 و500 و600 و700، ارتفاع السطر 1.8.</p></div>
+      <div class="card"><h3>الأكواد</h3><p><code>IBM Plex Mono 400</code></p><p class="muted">دائمًا <code>dir="ltr"</code> ومعزول.</p></div>
+    </div>
+    <div class="card scale" aria-label="مقياس الأحجام">
+      <div><code>--fs-xs</code><span style="font-size: var(--fs-xs)">12 · أصغر نص مسموح: تسميات وتواريخ</span></div>
+      <div><code>--fs-sm</code><span style="font-size: var(--fs-sm)">13 · شارات وملاحظات</span></div>
+      <div><code>--fs-base</code><span style="font-size: var(--fs-base)">14 · نص الواجهة والأزرار</span></div>
+      <div><code>--fs-md</code><span style="font-size: var(--fs-md)">15 · نص الجداول</span></div>
+      <div><code>--fs-body</code><span style="font-size: var(--fs-body)">16 · نص القراءة</span></div>
+      <div><code>--fs-lg</code><span style="font-size: var(--fs-lg)">18 · عنوان بطاقة</span></div>
+      <div><code>--fs-xl</code><span style="font-size: var(--fs-xl)">20 · عنوان قسم</span></div>
+      <div><code>--fs-2xl</code><span style="font-size: var(--fs-2xl)">24 · عنوان صفحة فرعية</span></div>
+      <div><code>--fs-3xl</code><span style="font-size: var(--fs-3xl)">28 · أرقام بارزة</span></div>
+    </div>
+  </section>
+
+  <section id="space" aria-labelledby="h-space">
+    <h2 id="h-space">المسافات والظل ونصف القطر</h2>
+    <div class="card space">
+      <div class="row"><code>--sp-1</code><i style="inline-size: var(--sp-1)"></i><span class="muted">4</span></div>
+      <div class="row"><code>--sp-2</code><i style="inline-size: var(--sp-2)"></i><span class="muted">8</span></div>
+      <div class="row"><code>--sp-3</code><i style="inline-size: var(--sp-3)"></i><span class="muted">12</span></div>
+      <div class="row"><code>--sp-4</code><i style="inline-size: var(--sp-4)"></i><span class="muted">16</span></div>
+      <div class="row"><code>--sp-5</code><i style="inline-size: var(--sp-5)"></i><span class="muted">24</span></div>
+      <div class="row"><code>--sp-6</code><i style="inline-size: var(--sp-6)"></i><span class="muted">32</span></div>
+      <div class="row"><code>--shadow-sm</code><span class="pill info" style="box-shadow: var(--shadow-sm)">ظل صغير</span>
+        <code>--radius</code><span class="muted">12px للبطاقات</span></div>
+    </div>
+  </section>
+
+  <section id="parts" aria-labelledby="h-parts">
+    <h2 id="h-parts">المكوّنات</h2>
+
+    <h3>الأزرار</h3>
+    <div class="row">
+      <button class="btn primary" type="button">اعتمد</button>
+      <button class="btn" type="button">إلغاء</button>
+      <button class="btn danger" type="button">احذف</button>
+      <button class="btn ghost" type="button">تجاهل</button>
+      <button class="btn" type="button" disabled>معطّل</button>
+      <button class="btn sm" type="button">صغير</button>
+    </div>
+
+    <h3>التبويبات والفلاتر</h3>
+    <div class="seg" role="group" aria-label="مثال">
+      <button type="button" class="on">التواريخ</button><button type="button">الإسناد</button><button type="button">النشر والنقاط</button>
+    </div>
+
+    <h3>الشارات</h3>
+    <div class="row">
+      <span class="pill ok">سليمة</span><span class="pill warn">تحتاج نظرك</span><span class="pill bad">توقفت</span>
+      <span class="pill info">للمراجعة</span><span class="pill read">قراءة</span><span class="pill prep">تحضير</span>
+    </div>
+
+    <h3>الحقول</h3>
+    <div class="row controls">
+      <label for="ds-sel" class="muted">الصف</label>
+      <select id="ds-sel"><option>كل الصفوف</option><option>الرياضيات 10/3</option></select>
+      <label for="ds-q" class="muted">بحث</label>
+      <input id="ds-q" type="search" placeholder="اسم الدرس">
+      <label><input type="checkbox" checked> اعتمد الكل</label>
+    </div>
+
+    <h3>الصناديق</h3>
+    <div class="grid">
+      <div class="card"><h3>بطاقة</h3><p>حاوية محتوى بحدود خفيفة ونصف قطر 12.</p></div>
+      <div class="callout"><b>ملاحظة</b><p>للتنبيه العام بلون الهوية.</p></div>
+      <div class="note-box">تنبيه يحتاج انتباهًا قبل المتابعة.</div>
+      <div class="error-box"><b>انتهت مهلة فتح صفحة على المنصة (30 ثانية).</b> المنصة بطيئة. أعد المحاولة بعد دقائق.
+        <details><summary class="muted">التفاصيل التقنية</summary><code dir="ltr">Page.goto: Timeout 30000ms exceeded.</code></details></div>
+      <div class="empty">لا شيء بانتظار المراجعة.</div>
+      <div class="card"><span><i class="spinner" aria-hidden="true"></i> العامل يعمل</span></div>
+    </div>
+
+    <h3>الجدول</h3>
+    <div class="table-wrap"><table>
+      <thead><tr><th>الدرس</th><th>الموعد</th><th>الحالة</th></tr></thead>
+      <tbody>
+        <tr><td>الاقترانات الأسية</td><td>الأحد 11:00</td><td><span class="pill ok">مطبّق</span></td></tr>
+        <tr><td>المتتاليات الحسابية</td><td>الاثنين 09:30</td><td><span class="pill warn">ينتظر</span></td></tr>
+        <tr><td>النهايات</td><td>الثلاثاء 10:15</td><td><span class="pill bad">توقف</span></td></tr>
+      </tbody>
+    </table></div>
+  </section>
+
+  <footer class="page-foot">تُحدَّث هذه الصفحة تلقائيًا مع الرموز. الخطوط محلية (OFL) في <code>docs/assets/fonts</code>.</footer>
+</main>
+
+<script>
+(function () {
+  var cs = function () { return getComputedStyle(document.documentElement); };
+  function val(n) { return cs().getPropertyValue(n).trim(); }
+  function rgb(h) { h = h.replace("#", ""); return [0, 2, 4].map(function (i) { return parseInt(h.substr(i, 2), 16) / 255; }); }
+  function lum(h) { var c = rgb(h).map(function (v) { return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }); return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]; }
+  function ratio(a, b) { var x = lum(a), y = lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); }
+
+  var TOKENS = ["--brand", "--brand-deep", "--brand-tint", "--maroon", "--maroon-soft", "--slate", "--slate-soft", "--ok", "--ok-soft", "--warn", "--warn-soft", "--bad", "--bad-soft", "--fg", "--muted", "--bg", "--surface", "--line", "--line-strong", "--code-bg"];
+  var PAIRS = [
+    ["--fg", "--bg", 4.5, "النص على الخلفية"], ["--muted", "--surface", 4.5, "النص الخافت على السطح"],
+    ["--maroon", "--surface", 4.5, "الروابط والعناوين"], ["--on-brand", "--brand", 4.5, "الزر الأساسي"],
+    ["--ok", "--ok-soft", 4.5, "شارة سليمة"], ["--warn", "--warn-soft", 4.5, "شارة تنبيه"],
+    ["--bad", "--bad-soft", 4.5, "شارة خطأ"], ["--slate", "--slate-soft", 4.5, "شارة قراءة"],
+    ["--line-strong", "--surface", 3, "حد عنصر التحكم"]
+  ];
+  function render() {
+    document.getElementById("swatches").innerHTML = TOKENS.map(function (t) {
+      return '<div class="sw"><i style="background: var(' + t + ')"></i><b>' + t + '</b><code>' + val(t) + '</code></div>';
+    }).join("");
+    document.getElementById("contrast").innerHTML = PAIRS.map(function (p) {
+      var r = ratio(val(p[0]), val(p[1])), pass = r >= p[2];
+      return "<tr><td>" + p[3] + ' <code>' + p[0] + " / " + p[1] + "</code></td><td>" + r.toFixed(2) + ":1</td><td>" + p[2] +
+        "</td><td class=\"" + (pass ? "ok-t" : "bad-t") + "\">" + (pass ? "ينجح" : "يفشل") + "</td></tr>";
+    }).join("");
+  }
+  render();
+  document.addEventListener("neo-theme", render);
+  if (window.matchMedia) window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", render);
+})();
+</script>
+</body>
+</html>

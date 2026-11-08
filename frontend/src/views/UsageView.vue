@@ -313,7 +313,7 @@ h2 { font-size: var(--fs-lg); margin: 0 0 10px; }
 .date input { font: inherit; padding: 4px 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--fg); }
 .chip { font: var(--fs-sm)/1.2 inherit; padding: 5px 10px; border-radius: 99px; border: 1px solid var(--line);
         background: var(--surface); color: var(--fg); cursor: pointer; }
-.chip.on { background: var(--slate); border-color: var(--slate); color: var(--on-brand, #fff); }
+.chip.on { background: var(--slate); border-color: var(--slate); color: var(--on-brand); }
 .chip.fable.on { background: var(--maroon); border-color: var(--maroon); }
 
 .daily { display: grid; gap: 6px; }

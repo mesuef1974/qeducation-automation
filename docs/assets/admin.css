@@ -47,8 +47,8 @@ html:root {
   --default-button-hover-bg: var(--brand);
   --close-button-bg: var(--muted);
   --close-button-hover-bg: var(--fg);
-  --delete-button-bg: #B3261E;
-  --delete-button-hover-bg: #8E1E18;
+  --delete-button-bg: var(--danger-solid);
+  --delete-button-hover-bg: var(--danger-solid-hover);
 
   --object-tools-fg: var(--on-brand);
   --object-tools-bg: var(--muted);
