@@ -139,7 +139,7 @@ const missing = (k: PlatformClass) => (k.overview.last_verify?.summary.missing_p
 .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 0; }
 .stats div { background: var(--bg); border-radius: 10px; padding: 8px 12px; }
 .stats dt { font-size: var(--fs-xs); color: var(--muted); }
-.stats dd { margin: 0; font: 700 var(--fs-xl) var(--f-display); }
+.stats dd { margin: 0; font: 400 var(--fs-xl) var(--f-mono); }
 .stats dd.warn { color: var(--warn); }
 .verify { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; font-size: var(--fs-base); }
 .verify .btn { margin-inline-start: auto; }

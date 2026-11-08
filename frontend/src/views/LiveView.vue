@@ -486,12 +486,12 @@ const statusTone = (s: string) => (s === "done" ? "ok" : s === "failed" ? "bad" 
 .hero.ok { border-inline-start-color: var(--ok); }
 .hero.bad { border-inline-start-color: var(--bad); }
 .hero-top { display: flex; justify-content: space-between; align-items: start; gap: 16px; flex-wrap: wrap; }
-.title h2 { font: 700 clamp(20px, 3vw, 26px) var(--f-display); margin: 2px 0; }
+.title h2 { font-size: clamp(20px, 3vw, 26px); margin: 2px 0; }
 .title p { margin: 0; }
 .eyebrow { display: inline-flex; align-items: center; gap: 8px; font-size: var(--fs-sm); color: var(--muted); }
 .pulse { inline-size: 8px; block-size: 8px; border-radius: 50%; background: var(--brand); animation: ping 1.4s infinite; }
 .timer { display: grid; justify-items: end; }
-.clock { font-size: clamp(28px, 5vw, 40px); font-weight: 600; line-height: 1; letter-spacing: .5px; direction: ltr; }
+.clock { font-size: clamp(28px, 5vw, 40px); font-weight: 400; line-height: 1; letter-spacing: .5px; direction: ltr; }
 .timer small { color: var(--muted); font-size: var(--fs-xs); }
 .now { display: grid; gap: 2px; }
 .stage-now { font-weight: 700; font-size: var(--fs-body); }
@@ -520,7 +520,7 @@ const statusTone = (s: string) => (s === "done" ? "ok" : s === "failed" ? "bad" 
 @media (max-width: 560px) { .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .kpis div { background: var(--bg); border-radius: 10px; padding: 8px 12px; }
 .kpis dt { font-size: var(--fs-xs); color: var(--muted); }
-.kpis dd { margin: 0; font-size: var(--fs-2xl); font-weight: 600; }
+.kpis dd { margin: 0; font-size: var(--fs-2xl); font-weight: 400; }
 .kpis .sub { display: block; color: var(--muted); font-size: var(--fs-xs); font-weight: 400; } /* dd لا small: القائمة التعريفية لا تقبل غيرهما */
 .kpis .warn dd { color: var(--warn); }
 .kpis .bad dd { color: var(--bad); }
