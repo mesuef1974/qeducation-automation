@@ -20,7 +20,8 @@ const info = computed(() => explainError(props.text));
 </template>
 
 <style scoped>
-.err-text { overflow-wrap: anywhere; }
+.err-text { overflow-wrap: anywhere; min-inline-size: 0; }
+.tech { max-inline-size: 100%; }
 .tech summary { cursor: pointer; font-size: var(--fs-sm); }
 .raw { display: block; margin-block-start: var(--sp-1); white-space: pre-wrap; overflow-wrap: anywhere; }
 </style>

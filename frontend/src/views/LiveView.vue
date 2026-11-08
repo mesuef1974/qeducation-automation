@@ -524,7 +524,7 @@ const statusTone = (s: string) => (s === "done" ? "ok" : s === "failed" ? "bad" 
 .kpis .sub { display: block; color: var(--muted); font-size: var(--fs-xs); font-weight: 400; } /* dd لا small: القائمة التعريفية لا تقبل غيرهما */
 .kpis .warn dd { color: var(--warn); }
 .kpis .bad dd { color: var(--bad); }
-.result { border-radius: 10px; padding: 10px 14px; font-size: var(--fs-base); }
+.result { border-radius: 10px; padding: 10px 14px; font-size: var(--fs-base); overflow-wrap: anywhere; min-inline-size: 0; }
 .result.ok { background: var(--ok-soft); }
 .result.bad { background: var(--bad-soft); }
 
