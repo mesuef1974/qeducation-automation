@@ -130,17 +130,17 @@ const missing = (k: PlatformClass) => (k.overview.last_verify?.summary.missing_p
 
 <style scoped>
 .prep-card { gap: 18px; }
-.prep-card h2 { font-size: 20px; margin: 0; }
+.prep-card h2 { font-size: var(--fs-xl); margin: 0; }
 .klass { gap: 16px; }
 .k-head { display: flex; justify-content: space-between; align-items: start; gap: 12px; }
-.k-head h2 { font-size: 22px; }
-.today h3 { font-size: 14px; color: var(--muted); margin-block: 6px 2px; }
+.k-head h2 { font-size: var(--fs-2xl); }
+.today h3 { font-size: var(--fs-base); color: var(--muted); margin-block: 6px 2px; }
 .lessons { list-style: none; padding: 0; gap: 2px; }
 .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 0; }
 .stats div { background: var(--bg); border-radius: 10px; padding: 8px 12px; }
-.stats dt { font-size: 12.5px; color: var(--muted); }
-.stats dd { margin: 0; font: 700 20px var(--f-display); }
+.stats dt { font-size: var(--fs-xs); color: var(--muted); }
+.stats dd { margin: 0; font: 700 var(--fs-xl) var(--f-display); }
 .stats dd.warn { color: var(--warn); }
-.verify { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; font-size: 14px; }
+.verify { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; font-size: var(--fs-base); }
 .verify .btn { margin-inline-start: auto; }
 </style>

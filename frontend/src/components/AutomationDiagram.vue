@@ -253,8 +253,8 @@ svg { inline-size: 100%; min-inline-size: 880px; block-size: auto; display: bloc
 .band.bad { stroke: var(--bad); fill: var(--bad-soft); }
 .band.run { stroke: var(--maroon); stroke-width: 3; }
 .valves { border: 1px solid var(--line); border-radius: 12px; background: var(--code-bg); padding: 10px 14px; }
-.valves h3 { margin: 0 0 6px; font-size: 15px; }
-.valves ul { margin: 0; padding-inline-start: 18px; display: grid; gap: 4px 24px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); font-size: 14px; }
+.valves h3 { margin: 0 0 6px; font-size: var(--fs-md); }
+.valves ul { margin: 0; padding-inline-start: 18px; display: grid; gap: 4px 24px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); font-size: var(--fs-base); }
 
 @keyframes pulse { 50% { opacity: .2; } }
 @keyframes march { from { stroke-dashoffset: 15; } to { stroke-dashoffset: 0; } }

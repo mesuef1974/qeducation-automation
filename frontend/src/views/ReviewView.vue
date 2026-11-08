@@ -300,6 +300,6 @@ const asPublish = (p: Proposal) => p as PublishProposal;
 .err { display: block; color: var(--bad); }
 .ev small { display: block; }
 .exp { display: block; }
-.rule { margin: 0; font-size: 13px; }
+.rule { margin: 0; font-size: var(--fs-sm); }
 .as-link { text-decoration: none; display: inline-block; margin-block-start: 4px; }
 </style>

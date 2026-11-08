@@ -5,6 +5,7 @@ import type { Job } from "@/api/types";
 import { firstLine, jobTarget } from "@/domain";
 import { useClassesStore } from "@/stores/classes";
 import { useJobsStore } from "@/stores/jobs";
+import { explainError } from "@/utils/errors";
 
 const jobs = useJobsStore();
 const classes = useClassesStore();
@@ -18,7 +19,7 @@ const queue = computed(() => [...jobs.active].sort((a, b) =>
 const target = (j: Job) => jobTarget(j.kind, j.params, classes.name);
 
 function outcome(j: Job): string {
-  if (j.status === "failed") return firstLine(j.error) || j.error_label;
+  if (j.status === "failed") return explainError(j.error).summary ?? (firstLine(j.error) || j.error_label);
   const bad = j.runs.filter((r) => !r.ok);
   return bad.length ? `انتهت مع ${bad.length} عملية تحتاج مراجعة` : `${j.runs.length} عملية سليمة`;
 }
@@ -79,9 +80,9 @@ watch(() => jobs.finished.length, () => {
 .toast.failed { border-inline-start: 4px solid var(--bad); }
 .toast.done { border-inline-start: 4px solid var(--ok); }
 .toast.down { border-inline-start: 4px solid var(--warn); }
-.toast.more { justify-content: center; font-size: 13px; color: var(--muted); text-decoration: none; }
+.toast.more { justify-content: center; font-size: var(--fs-sm); color: var(--muted); text-decoration: none; }
 .toast.more:hover { color: var(--maroon); }
 .txt { display: grid; flex: 1; min-inline-size: 0; line-height: 1.5; }
 .txt small { color: var(--muted); overflow-wrap: anywhere; }
-.close { border: 0; background: none; color: var(--muted); font-size: 20px; cursor: pointer; line-height: 1; }
+.close { border: 0; background: none; color: var(--muted); font-size: var(--fs-xl); cursor: pointer; line-height: 1; }
 </style>

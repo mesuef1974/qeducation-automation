@@ -14,7 +14,7 @@ from django.views.decorators.clickjacking import xframe_options_sameorigin
 from django.views.static import serve
 
 # ما يُخدم من docs/: صفحات الويب وما تحتاجه فقط، لا ملفات Markdown ولا غيرها
-DOCS_SUFFIXES = {".html", ".css", ".js", ".jpg", ".jpeg", ".png", ".svg", ".webp"}
+DOCS_SUFFIXES = {".html", ".css", ".js", ".jpg", ".jpeg", ".png", ".svg", ".webp", ".woff2"}
 
 
 def _file_in(root: Path, path: str) -> bool:

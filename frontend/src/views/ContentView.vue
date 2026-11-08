@@ -5,6 +5,7 @@ import { onBeforeRouteLeave, useRoute, useRouter } from "vue-router";
 import { neo } from "@/api/neo";
 import type { ContentProposal } from "@/api/types";
 import { useConfirm } from "@/composables/useConfirm";
+import ErrorText from "@/components/ErrorText.vue";
 import { TONE } from "@/domain";
 import { useClassesStore } from "@/stores/classes";
 import { useJobsStore } from "@/stores/jobs";
@@ -212,7 +213,7 @@ const imageUrl = (p: ContentProposal) => `/api/neo/proposals/content/${p.id}/ima
           <b>{{ p.kind_label }}</b>
           <span class="pill" :class="TONE[p.status]">{{ p.status_label }}</span>
           <span v-if="p.status === 'approved' && p.evidence.expires_at" class="muted exp">يسقط الاعتماد {{ fmtWhen(p.evidence.expires_at) }}</span>
-          <span v-if="p.error" class="err">{{ p.error }}</span>
+          <span v-if="p.error" class="err"><ErrorText :text="p.error" /></span>
           <span class="grow" />
           <template v-if="p.status === 'pending'">
             <button v-if="drafts[p.id] !== undefined" class="btn sm" @click="save(p)">احفظ التعديل</button>
@@ -240,15 +241,15 @@ const imageUrl = (p: ContentProposal) => `/api/neo/proposals/content/${p.id}/ima
 .lesson { gap: 10px; }
 .lesson.old { opacity: .7; }
 .l-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: start; gap: 10px; }
-.l-head h2 { font-size: 18px; margin: 0; }
+.l-head h2 { font-size: var(--fs-lg); margin: 0; }
 .l-head small { display: flex; flex-wrap: wrap; gap: 4px; margin-block-start: 4px; }
 .actions { display: flex; flex-wrap: wrap; gap: 6px; }
 .props { display: grid; gap: 12px; }
 .prop { display: grid; gap: 8px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg); }
 .p-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .grow { flex: 1; }
-.err { color: var(--bad); font-size: 13px; }
-.exp { font-size: 13px; }
-textarea { inline-size: 100%; font: 14px/1.6 var(--f-body); padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--fg); resize: vertical; }
+.err { color: var(--bad); font-size: var(--fs-sm); }
+.exp { font-size: var(--fs-sm); }
+textarea { inline-size: 100%; font: var(--fs-base)/1.6 var(--f-body); padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--fg); resize: vertical; }
 .tile { inline-size: min(100%, 320px); border-radius: 8px; border: 1px solid var(--line); }
 </style>

@@ -56,7 +56,7 @@ async function login() {
 <template>
   <div class="topbar">
     <div class="in">
-      <RouterLink class="mark" to="/">أتمتة منصة قطر للتعليم</RouterLink>
+      <RouterLink class="mark" to="/"><span class="mark-long">أتمتة منصة قطر للتعليم</span><span class="mark-short">أتمتة قطر</span></RouterLink>
       <nav aria-label="الأقسام">
         <RouterLink to="/">اليوم</RouterLink>
         <RouterLink to="/review">
@@ -84,7 +84,7 @@ async function login() {
         {{ loginQueued ? "نافذة الدخول مطلوبة" : "انتهت الجلسة · سجّل الدخول" }}
       </button>
       <span v-else-if="jobs.session?.worker_busy" class="pill read"><i class="spinner" aria-hidden="true" />العامل يعمل</span>
-      <span v-else class="pill ok" :title="`آخر اتصال بالمنصة: ${fmtWhen(jobs.session?.checked_at)}`">الجلسة سليمة</span>
+      <span v-else class="pill ok" :title="`آخر اتصال بالمنصة: ${fmtWhen(jobs.session?.checked_at)}`"><span class="sess">الجلسة سليمة</span></span>
 
       <button class="theme-toggle" type="button" :data-mode="theme" :aria-label="`الثيم: ${THEME_LABEL[theme]}. اضغط للتبديل`"
               @click="next">
@@ -109,9 +109,9 @@ async function login() {
 <style scoped>
 .count {
   display: inline-grid; place-items: center; min-inline-size: 20px; block-size: 20px; padding-inline: 6px;
-  border-radius: 999px; background: var(--brand); color: var(--on-brand); font-size: 12px; margin-inline-start: 4px;
+  border-radius: 999px; background: var(--brand); color: var(--on-brand); font-size: var(--fs-xs); margin-inline-start: 4px;
 }
-.as-btn { border: 0; cursor: pointer; font: inherit; font-size: 13px; }
+.as-btn { border: 0; cursor: pointer; font: inherit; font-size: var(--fs-sm); }
 .live-link { display: inline-flex; align-items: center; gap: 6px; }
 .live-dot { inline-size: 8px; block-size: 8px; border-radius: 50%; background: var(--ok); }
 .live-dot.on { background: var(--brand); box-shadow: 0 0 0 0 var(--brand); animation: live-ping 1.4s infinite; }

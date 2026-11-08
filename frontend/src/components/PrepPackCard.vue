@@ -2,6 +2,7 @@
 import { computed, reactive, ref } from "vue";
 
 import type { PlatformClass, PrepLesson, PrepRun } from "@/api/types";
+import ErrorText from "@/components/ErrorText.vue";
 import { useJobsStore } from "@/stores/jobs";
 import { fmtDay, fmtShort, fmtStamp } from "@/utils/format";
 
@@ -93,7 +94,7 @@ async function copyRow() {
         <span v-if="last.same_as_previous === true" class="pill info">مطابقة للتشغيل السابق</span>
         <span v-else-if="last.same_as_previous === false" class="pill warn">تختلف عن التشغيل السابق</span>
       </p>
-      <div v-if="last.error" class="error-box">{{ last.error }}</div>
+      <div v-if="last.error" class="error-box"><ErrorText :text="last.error" /></div>
       <template v-else>
         <p v-if="last.folder" class="folder"><span class="muted">المجلد:</span> <code>{{ last.folder }}</code>
           <span class="muted">· {{ last.files }} ملفًا، نُزّل منها {{ last.downloads }}</span></p>
@@ -165,11 +166,11 @@ async function copyRow() {
 
 <style scoped>
 .prep { display: grid; gap: 10px; }
-.status { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0; font-size: 14px; }
-.folder { margin: 0; font-size: 13.5px; overflow-wrap: anywhere; }
+.status { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0; font-size: var(--fs-base); }
+.folder { margin: 0; font-size: var(--fs-sm); overflow-wrap: anywhere; }
 .folder code { direction: ltr; unicode-bidi: plaintext; }
-.notes { display: flex; flex-wrap: wrap; gap: 4px 8px; font-size: 13px; }
+.notes { display: flex; flex-wrap: wrap; gap: 4px 8px; font-size: var(--fs-sm); }
 .message { display: grid; gap: 6px; }
 .msg-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
-.checks { list-style: none; padding: 0; margin: 0; display: grid; gap: 4px; font-size: 14px; }
+.checks { list-style: none; padding: 0; margin: 0; display: grid; gap: 4px; font-size: var(--fs-base); }
 </style>

@@ -152,12 +152,12 @@ onMounted(load);
 
 <style scoped>
 .grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr)); }
-.crit h3 { margin: 0; font-size: 16px; }
+.crit h3 { margin: 0; font-size: var(--fs-body); }
 .row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-.nums b { font-size: 26px; }
+.nums b { font-size: var(--fs-3xl); }
 .nums small, .detail, .muted { color: var(--muted); }
-.detail { margin: 0; font-size: 13px; }
-.next { margin: 0; font-size: 13px; color: var(--maroon); }
+.detail { margin: 0; font-size: var(--fs-sm); }
+.next { margin: 0; font-size: var(--fs-sm); color: var(--maroon); }
 .delta { color: var(--ok); }
 .delta.down { color: var(--bad); }
 .bar { block-size: 8px; border-radius: 999px; background: var(--code-bg); overflow: hidden; }

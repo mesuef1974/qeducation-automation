@@ -291,7 +291,7 @@ const maxTok = (rows: { tokens: number }[]) => Math.max(1, ...rows.map((r) => r.
 
 <style scoped>
 .head-side { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-h2 { font-size: 17px; margin: 0 0 10px; }
+h2 { font-size: var(--fs-lg); margin: 0 0 10px; }
 .card { display: grid; gap: 8px; }
 .c-head { display: flex; justify-content: space-between; align-items: start; gap: 10px; }
 .c-head h2 { margin: 0; }
@@ -303,15 +303,15 @@ h2 { font-size: 17px; margin: 0 0 10px; }
 .limits h2 { margin: 0; }
 .lim { display: grid; gap: 6px; }
 .lim-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; }
-.lim-val { margin-inline-start: auto; font-size: 22px; font-variant-numeric: tabular-nums; }
+.lim-val { margin-inline-start: auto; font-size: var(--fs-2xl); font-variant-numeric: tabular-nums; }
 .fams { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
-.fams li { display: grid; grid-template-columns: 64px 1fr auto; align-items: center; gap: 10px; font-size: 14px; }
+.fams li { display: grid; grid-template-columns: 64px 1fr auto; align-items: center; gap: 10px; font-size: var(--fs-base); }
 
 .filters { display: grid; gap: 8px; border-block: 1px solid var(--line); padding-block: 12px; }
 .filters .row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
-.date { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; }
+.date { display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-base); }
 .date input { font: inherit; padding: 4px 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--fg); }
-.chip { font: 13px/1.2 inherit; padding: 5px 10px; border-radius: 99px; border: 1px solid var(--line);
+.chip { font: var(--fs-sm)/1.2 inherit; padding: 5px 10px; border-radius: 99px; border: 1px solid var(--line);
         background: var(--surface); color: var(--fg); cursor: pointer; }
 .chip.on { background: var(--slate); border-color: var(--slate); color: var(--on-brand, #fff); }
 .chip.fable.on { background: var(--maroon); border-color: var(--maroon); }
@@ -319,32 +319,32 @@ h2 { font-size: 17px; margin: 0 0 10px; }
 .daily { display: grid; gap: 6px; }
 .plot { position: relative; block-size: 220px; margin-inline-end: 52px; }
 .grid { position: absolute; inset-inline: 0; border-block-start: 1px dashed var(--line); }
-.grid span { position: absolute; inset-inline-end: -52px; transform: translateY(-50%); font-size: 12px; color: var(--muted); }
+.grid span { position: absolute; inset-inline-end: -52px; transform: translateY(-50%); font-size: var(--fs-xs); color: var(--muted); }
 .bars { position: absolute; inset: 0; display: flex; align-items: flex-end; gap: 2px; border-block-end: 1px solid var(--muted); }
 .col { flex: 1; block-size: 100%; display: flex; align-items: flex-end; outline: none; }
 .col i { display: block; inline-size: 100%; max-inline-size: 22px; margin-inline: auto; border-radius: 4px 4px 0 0;
          background: var(--slate); min-block-size: 2px; transition: background .15s; }
 .col i.zero { background: var(--line); }
 .col:hover i, .col:focus-visible i { background: var(--maroon); }
-.tip { position: absolute; inset-block-start: 4px; inset-inline-start: 4px; display: grid; gap: 2px; font-size: 13px;
+.tip { position: absolute; inset-block-start: 4px; inset-inline-start: 4px; display: grid; gap: 2px; font-size: var(--fs-sm);
        background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; pointer-events: none;
        box-shadow: 0 2px 8px rgb(0 0 0 / .08); }
-.axis { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); margin-inline-end: 52px; }
+.axis { display: flex; justify-content: space-between; font-size: var(--fs-xs); color: var(--muted); margin-inline-end: 52px; }
 
 .months { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
-.months li { display: grid; grid-template-columns: 140px 1fr minmax(150px, auto); align-items: center; gap: 12px; font-size: 14px; }
+.months li { display: grid; grid-template-columns: 140px 1fr minmax(150px, auto); align-items: center; gap: 12px; font-size: var(--fs-base); }
 .months .track { block-size: 14px; }
 .months .val, .hbars .val { font-variant-numeric: tabular-nums; white-space: nowrap; }
 
 .two { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 380px), 1fr)); }
 .hbars { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
-.hbars li { display: grid; grid-template-columns: minmax(90px, 34%) 1fr auto; align-items: center; gap: 4px 10px; font-size: 14px; }
+.hbars li { display: grid; grid-template-columns: minmax(90px, 34%) 1fr auto; align-items: center; gap: 4px 10px; font-size: var(--fs-base); }
 .hbars .track { block-size: 12px; }
-.hbars .sub { grid-column: 1 / -1; font-size: 12px; }
+.hbars .sub { grid-column: 1 / -1; font-size: var(--fs-xs); }
 
 .split { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 190px), 1fr)); }
 .part { display: grid; gap: 2px; padding: 8px 12px; border: 1px solid var(--line); border-radius: 10px; }
-.part b { font-size: 20px; font-variant-numeric: tabular-nums; }
+.part b { font-size: var(--fs-xl); font-variant-numeric: tabular-nums; }
 .num { font-variant-numeric: tabular-nums; }
 @media (max-width: 640px) { .months li { grid-template-columns: 1fr auto; } .months .track { grid-column: 1 / -1; grid-row: 2; } }
 </style>

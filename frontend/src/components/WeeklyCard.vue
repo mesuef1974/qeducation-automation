@@ -2,6 +2,7 @@
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 
 import { neo } from "@/api/neo";
+import ErrorText from "@/components/ErrorText.vue";
 import type { WeeklyReport, WeeklyStage, WeeklyState } from "@/api/types";
 import { STAGES } from "@/domain";
 import { useClassesStore } from "@/stores/classes";
@@ -98,7 +99,7 @@ onBeforeUnmount(stop);
           {{ last.status === "done" && report.attention ? `تمت · ${report.attention} تحتاج نظرك` : last.status_label }}
         </span>
         <span class="muted">{{ fmtStamp(last.finished_at ?? last.created_at) }}</span>
-        <span v-if="last.error" class="err">{{ last.error }}</span>
+        <span v-if="last.error" class="err"><ErrorText :text="last.error" /></span>
         <button v-if="unread" class="btn sm" @click="markRead">قرأته</button>
       </p>
       <div v-if="report.classes" class="grid">
@@ -129,10 +130,10 @@ onBeforeUnmount(stop);
 .weekly { gap: 12px; }
 .weekly.unread { border-color: var(--brand); box-shadow: 0 0 0 2px color-mix(in srgb, var(--brand) 22%, transparent); }
 .head { display: flex; justify-content: space-between; align-items: start; gap: 12px; }
-.head h2 { font-size: 20px; margin: 0; }
-.status { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0; font-size: 14px; }
+.head h2 { font-size: var(--fs-xl); margin: 0; }
+.status { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0; font-size: var(--fs-base); }
 .err { color: var(--bad); }
 .left { margin: 0; }
 .grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); }
-.klass ul { list-style: none; padding: 0; margin: 6px 0 0; display: grid; gap: 4px; font-size: 14px; }
+.klass ul { list-style: none; padding: 0; margin: 6px 0 0; display: grid; gap: 4px; font-size: var(--fs-base); }
 </style>

@@ -4,6 +4,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue"
 import { neo } from "@/api/neo";
 import type { LiveEvent, LiveFeed, LiveKind } from "@/api/types";
 import AutomationDiagram from "@/components/AutomationDiagram.vue";
+import ErrorText from "@/components/ErrorText.vue";
 import { useAutomationStatus } from "@/composables/useAutomationStatus";
 import { useJobsStore } from "@/stores/jobs";
 import { isNode, KIND_NODE, NODES, type NodeKey, type NodeNote, type Signal } from "@/utils/automation";
@@ -362,7 +363,7 @@ const statusTone = (s: string) => (s === "done" ? "ok" : s === "failed" ? "bad" 
             <b>{{ ended.status === "done" ? "انتهت" : "توقفت" }}</b> {{ ended.text }}
           </div>
           <div v-else-if="!running && job.status === 'failed'" class="result bad">
-            <b>توقفت</b> {{ job.error_label }}: {{ job.error }}
+            <b>توقفت</b> {{ job.error_label }}: <ErrorText :text="job.error" />
           </div>
           <button v-if="pinned" class="btn sm" @click="watchJob(null)">العودة إلى المباشر</button>
         </template>
@@ -466,7 +467,7 @@ const statusTone = (s: string) => (s === "done" ? "ok" : s === "failed" ? "bad" 
   background: var(--surface); border: 1px solid var(--line);
 }
 .beacon div { display: grid; line-height: 1.3; }
-.beacon small { color: var(--muted); font-size: 12px; }
+.beacon small { color: var(--muted); font-size: var(--fs-xs); }
 .beacon .dot { inline-size: 12px; block-size: 12px; border-radius: 50%; background: var(--muted); flex: none; }
 .beacon.ok .dot { background: var(--ok); }
 .beacon.bad { border-color: var(--bad); }
@@ -477,7 +478,7 @@ const statusTone = (s: string) => (s === "done" ? "ok" : s === "failed" ? "bad" 
 .layout { display: grid; gap: 16px; grid-template-columns: minmax(0, 1fr) minmax(260px, 340px); align-items: start; }
 @media (max-width: 980px) { .layout { grid-template-columns: 1fr; } }
 .main, .side { display: grid; gap: 16px; min-inline-size: 0; }
-.card h2 { font-size: 17px; margin: 0; display: flex; align-items: baseline; gap: 8px; }
+.card h2 { font-size: var(--fs-lg); margin: 0; display: flex; align-items: baseline; gap: 8px; }
 
 /* المهمة */
 .hero { gap: 14px; border-inline-start: 5px solid var(--line); }
@@ -487,27 +488,27 @@ const statusTone = (s: string) => (s === "done" ? "ok" : s === "failed" ? "bad" 
 .hero-top { display: flex; justify-content: space-between; align-items: start; gap: 16px; flex-wrap: wrap; }
 .title h2 { font: 700 clamp(20px, 3vw, 26px) var(--f-display); margin: 2px 0; }
 .title p { margin: 0; }
-.eyebrow { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
+.eyebrow { display: inline-flex; align-items: center; gap: 8px; font-size: var(--fs-sm); color: var(--muted); }
 .pulse { inline-size: 8px; block-size: 8px; border-radius: 50%; background: var(--brand); animation: ping 1.4s infinite; }
 .timer { display: grid; justify-items: end; }
 .clock { font-size: clamp(28px, 5vw, 40px); font-weight: 600; line-height: 1; letter-spacing: .5px; direction: ltr; }
-.timer small { color: var(--muted); font-size: 12.5px; }
+.timer small { color: var(--muted); font-size: var(--fs-xs); }
 .now { display: grid; gap: 2px; }
-.stage-now { font-weight: 700; font-size: 16px; }
-.step-now { color: var(--muted); font-size: 14px; overflow-wrap: anywhere; min-block-size: 1.4em; }
+.stage-now { font-weight: 700; font-size: var(--fs-body); }
+.step-now { color: var(--muted); font-size: var(--fs-base); overflow-wrap: anywhere; min-block-size: 1.4em; }
 .bar { block-size: 10px; border-radius: 999px; background: var(--code-bg); overflow: hidden; position: relative; }
 .bar i { display: block; block-size: 100%; background: var(--brand); border-radius: inherit; transition: inline-size .6s ease; }
 .hero.ok .bar i { background: var(--ok); }
 .hero.bad .bar i { background: var(--bad); }
 .bar.indeterminate i { inline-size: 35% !important; position: absolute; inset-inline-start: -35%; animation: slide 1.4s ease-in-out infinite; }
-.bar-meta { display: flex; justify-content: space-between; font-size: 13px; color: var(--muted); margin-block-start: -6px; }
+.bar-meta { display: flex; justify-content: space-between; font-size: var(--fs-sm); color: var(--muted); margin-block-start: -6px; }
 .stages { list-style: none; padding: 0; margin: 0; display: flex; flex-wrap: wrap; gap: 8px; }
 .stages li {
   display: inline-flex; align-items: center; gap: 8px; padding: 5px 12px 5px 8px; border-radius: 999px;
-  background: var(--code-bg); font-size: 13px; max-inline-size: 100%;
+  background: var(--code-bg); font-size: var(--fs-sm); max-inline-size: 100%;
 }
 .stages .n {
-  display: inline-grid; place-items: center; inline-size: 20px; block-size: 20px; border-radius: 50%; font-size: 11px;
+  display: inline-grid; place-items: center; inline-size: 20px; block-size: 20px; border-radius: 50%; font-size: var(--fs-xs);
   background: var(--surface); border: 1px solid var(--line); flex: none;
 }
 .stages .st { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -518,20 +519,20 @@ const statusTone = (s: string) => (s === "done" ? "ok" : s === "failed" ? "bad" 
 .kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin: 0; }
 @media (max-width: 560px) { .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .kpis div { background: var(--bg); border-radius: 10px; padding: 8px 12px; }
-.kpis dt { font-size: 12.5px; color: var(--muted); }
-.kpis dd { margin: 0; font-size: 22px; font-weight: 600; }
-.kpis .sub { display: block; color: var(--muted); font-size: 11.5px; }
+.kpis dt { font-size: var(--fs-xs); color: var(--muted); }
+.kpis dd { margin: 0; font-size: var(--fs-2xl); font-weight: 600; }
+.kpis .sub { display: block; color: var(--muted); font-size: var(--fs-xs); }
 .kpis .warn dd { color: var(--warn); }
 .kpis .bad dd { color: var(--bad); }
-.result { border-radius: 10px; padding: 10px 14px; font-size: 14px; }
+.result { border-radius: 10px; padding: 10px 14px; font-size: var(--fs-base); }
 .result.ok { background: var(--ok-soft); }
 .result.bad { background: var(--bad-soft); }
 
 /* الرسم الحي */
 .flow-card { gap: 6px; }
 .flow-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px; }
-.flow-head .where { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; color: var(--maroon); }
-.legend { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; font-size: 12.5px; color: var(--muted); }
+.flow-head .where { display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-sm); font-weight: 600; color: var(--maroon); }
+.legend { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; font-size: var(--fs-xs); color: var(--muted); }
 .legend span { display: inline-flex; align-items: center; gap: 6px; }
 .sw { inline-size: 10px; block-size: 10px; border-radius: 50%; }
 .sw.read { background: var(--slate); box-shadow: 0 0 6px var(--slate); }
@@ -543,15 +544,15 @@ const statusTone = (s: string) => (s === "done" ? "ok" : s === "failed" ? "bad" 
 .feed-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px; }
 .log {
   list-style: none; margin: 0; padding: 6px 0; block-size: min(56vh, 520px); overflow-y: auto;
-  background: var(--bg); border: 1px solid var(--line); border-radius: 10px; font-size: 13.5px;
+  background: var(--bg); border: 1px solid var(--line); border-radius: 10px; font-size: var(--fs-sm);
 }
 .ev { display: grid; grid-template-columns: 96px 74px minmax(0, 1fr) auto; gap: 10px; align-items: baseline; padding: 4px 12px; }
 .ev:hover { background: var(--surface); }
-.ev time { display: grid; color: var(--muted); font-size: 12px; line-height: 1.3; }
-.ev time small { font-size: 11px; opacity: .85; }
-.ev .tag { font-size: 11.5px; padding: 0 8px; border-radius: 999px; text-align: center; background: var(--code-bg); color: var(--muted); }
+.ev time { display: grid; color: var(--muted); font-size: var(--fs-xs); line-height: 1.3; }
+.ev time small { font-size: var(--fs-xs); opacity: .85; }
+.ev .tag { font-size: var(--fs-xs); padding: 0 8px; border-radius: 999px; text-align: center; background: var(--code-bg); color: var(--muted); }
 .ev .txt { overflow-wrap: anywhere; }
-.ev .meta { color: var(--muted); font-size: 12px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.ev .meta { color: var(--muted); font-size: var(--fs-xs); white-space: nowrap; font-variant-numeric: tabular-nums; }
 .ev.stage { background: var(--maroon-soft); margin-block: 4px; }
 .ev.stage .tag { background: var(--brand); color: var(--on-brand); }
 .ev.stage .txt { font-weight: 700; color: var(--maroon); }
@@ -568,10 +569,10 @@ const statusTone = (s: string) => (s === "done" ? "ok" : s === "failed" ? "bad" 
 @media (max-width: 560px) { .ev { grid-template-columns: 92px minmax(0, 1fr); } .ev .tag, .ev .meta { display: none; } }
 
 /* الجانب */
-.jobs { list-style: none; padding: 0; margin: 0; display: grid; gap: 6px; font-size: 14px; }
+.jobs { list-style: none; padding: 0; margin: 0; display: grid; gap: 6px; font-size: var(--fs-base); }
 .jobs > li { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .jobs > li div { display: grid; min-inline-size: 0; }
-.jobs small { color: var(--muted); font-size: 12px; overflow-wrap: anywhere; }
+.jobs small { color: var(--muted); font-size: var(--fs-xs); overflow-wrap: anywhere; }
 .jobs .row {
   inline-size: 100%; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 8px; align-items: center;
   padding: 6px 8px; border: 1px solid transparent; border-radius: 10px; background: none; font: inherit; color: inherit;
@@ -579,7 +580,7 @@ const statusTone = (s: string) => (s === "done" ? "ok" : s === "failed" ? "bad" 
 }
 .jobs .row:hover, .jobs .sel .row { border-color: var(--line); background: var(--bg); }
 .jobs .what { display: grid; min-inline-size: 0; }
-.jobs .when { display: grid; justify-items: end; font-size: 13px; }
+.jobs .when { display: grid; justify-items: end; font-size: var(--fs-sm); }
 
 @keyframes ping { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--brand) 55%, transparent); } 100% { box-shadow: 0 0 0 9px transparent; } }
 @keyframes slide { from { inset-inline-start: -35%; } to { inset-inline-start: 100%; } }

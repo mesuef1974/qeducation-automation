@@ -3,8 +3,10 @@ import { onUnmounted, ref, watch } from "vue";
 
 import { neo } from "@/api/neo";
 import type { Job, Run } from "@/api/types";
+import ErrorText from "@/components/ErrorText.vue";
 import RunNotes from "@/components/RunNotes.vue";
 import { firstLine, jobTarget, TONE } from "@/domain";
+import { explainError } from "@/utils/errors";
 import { useClassesStore } from "@/stores/classes";
 import { useJobsStore } from "@/stores/jobs";
 import { fmtStamp } from "@/utils/format";
@@ -94,10 +96,10 @@ const target = (j: Job) => jobTarget(j.kind, j.params, classes.name) || "-";
                 <b class="err">{{ j.error_label }}</b>
                 <!-- خطأ المنصة قد يحمل سجل الطلب كاملًا: سطره الأول هنا، والباقي عند الطلب -->
                 <details v-if="j.error.includes('\n') || j.error.length > 120" class="more">
-                  <summary class="muted">{{ firstLine(j.error) }}</summary>
+                  <summary class="muted">{{ explainError(j.error).summary ?? firstLine(j.error) }}</summary>
                   <pre class="json">{{ j.error }}</pre>
                 </details>
-                <small v-else class="muted">{{ j.error }}</small>
+                <small v-else class="muted"><ErrorText :text="j.error" /></small>
               </template>
               <span v-for="r in j.runs" :key="r.id" class="pill" :class="r.ok ? 'prep' : 'bad'">
                 {{ r.kind_label }} #{{ r.id }}
@@ -159,8 +161,8 @@ const target = (j: Job) => jobTarget(j.kind, j.params, classes.name) || "-";
 <style scoped>
 .err { color: var(--bad); }
 .detail { display: grid; gap: 8px; }
-.detail summary { cursor: pointer; font-size: 13px; }
+.detail summary { cursor: pointer; font-size: var(--fs-sm); }
 td .pill { margin-inline-end: 4px; }
-.more summary { cursor: pointer; font-size: 13px; }
+.more summary { cursor: pointer; font-size: var(--fs-sm); }
 .more pre { margin-block-start: 6px; white-space: pre-wrap; overflow-wrap: anywhere; max-inline-size: 60ch; }
 </style>
