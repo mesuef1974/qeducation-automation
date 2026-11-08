@@ -8,7 +8,7 @@
     (root || document).querySelectorAll(SELECTOR).forEach(function (el) {
       if (el.scrollWidth > el.clientWidth + 1 || el.scrollHeight > el.clientHeight + 1) {
         el.tabIndex = 0;
-        el.setAttribute("role", "group");
+        if (!/^(UL|OL|TABLE)$/.test(el.tagName)) el.setAttribute("role", "group"); // لا نغيّر دور القوائم والجداول
         if (!el.getAttribute("aria-label")) el.setAttribute("aria-label", NAME);
       } else if (el.getAttribute("aria-label") === NAME) {
         el.removeAttribute("tabindex");
