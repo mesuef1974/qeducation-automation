@@ -9,10 +9,14 @@ body {
   padding-inline: max(16px, env(safe-area-inset-left, 0px));
   transition: background-color .2s, color .2s;
 }
-h1, h2, h3 { font-family: var(--f-display); font-weight: 700; line-height: 1.35; text-wrap: balance; margin: 0; }
+h1, h2, h3 { line-height: 1.35; text-wrap: balance; margin: 0; }
+/* أدوار الخطوط (tokens.css): الرئيسي، الفرعي، وعنوان البطاقة */
+h1 { font-family: var(--f-display); font-weight: var(--fw-display); }
+h2 { font-family: var(--f-h2); font-weight: var(--fw-h2); }
+h3, .card h2, .card h3 { font-family: var(--f-sub); font-weight: var(--fw-sub); }
 h1 { font-size: clamp(28px, 5vw, 42px); }
 h2 { font-size: var(--fs-2xl); color: var(--maroon); }
-h3 { font-size: var(--fs-lg); font-weight: 500; }
+h3 { font-size: var(--fs-lg); }
 p { margin: 0; }
 a { color: var(--maroon); }
 /* تركيز لوحة المفاتيح لكل عناصر التحكم (WCAG 2.4.7) */

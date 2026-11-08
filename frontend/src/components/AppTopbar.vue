@@ -111,7 +111,7 @@ async function login() {
   display: inline-grid; place-items: center; min-inline-size: 20px; block-size: 20px; padding-inline: 6px;
   border-radius: 999px; background: var(--brand); color: var(--on-brand); font-size: var(--fs-xs); margin-inline-start: 4px;
 }
-.as-btn { border: 0; cursor: pointer; font: inherit; font-size: var(--fs-sm); }
+.as-btn { border: 0; cursor: pointer; font: inherit; font-family: var(--f-ui); font-size: var(--fs-sm); }
 .live-link { display: inline-flex; align-items: center; gap: 6px; }
 .live-dot { inline-size: 8px; block-size: 8px; border-radius: 50%; background: var(--ok); }
 .live-dot.on { background: var(--brand); box-shadow: 0 0 0 0 var(--brand); animation: live-ping 1.4s infinite; }

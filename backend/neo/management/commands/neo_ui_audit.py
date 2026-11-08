@@ -46,7 +46,7 @@ def diff_ratio(a: Path, b: Path) -> float:
         if x.size != y.size:
             return 1.0
         box = ImageChops.difference(x, y).convert("L").point(lambda v: 255 if v > 8 else 0)
-        changed = sum(1 for p in box.getdata() if p)
+        changed = box.histogram()[255]
         return changed / (x.size[0] * x.size[1])
 
 

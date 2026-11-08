@@ -49,4 +49,7 @@ a.pill, button.pill { min-block-size: 24px; }
 @keyframes spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .spinner { animation-duration: 3s; } }
 
+/* الواجهة: الأزرار والحقول والشارات والتنقل بخط --f-ui (يأتي بعد التعريفات أعلاه فيغلب font: inherit) */
+button, select, input, textarea, .btn, .seg button, .seg a, .pill, .theme-toggle, .topbar nav a { font-family: var(--f-ui); }
+
 pre.json { margin: 0; padding: 12px; background: var(--code-bg); border-radius: 8px; overflow-x: auto; font: var(--fs-xs)/1.6 var(--f-mono); direction: ltr; text-align: start; }

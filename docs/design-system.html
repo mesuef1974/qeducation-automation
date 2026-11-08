@@ -25,7 +25,6 @@
   .ok-t { color: var(--ok); font-weight: 600; } .bad-t { color: var(--bad); font-weight: 600; }
   .demo-bar { position: static; }
   .spinner { animation: none; }
-  .specimen { font-family: var(--f-display); font-size: var(--fs-3xl); }
 </style>
 </head>
 <body>
@@ -58,10 +57,13 @@
 
   <section id="type" aria-labelledby="h-type">
     <h2 id="h-type">الطباعة</h2>
-    <div class="grid">
-      <div class="card"><h3>العناوين</h3><p class="specimen">Reem Kufi</p><p class="muted">خط العناوين: 500 و700.</p></div>
-      <div class="card"><h3>النص</h3><p style="font-size: var(--fs-lg)">IBM Plex Sans Arabic</p><p class="muted">400 و500 و600 و700، ارتفاع السطر 1.8.</p></div>
-      <div class="card"><h3>الأكواد</h3><p><code>IBM Plex Mono 400</code></p><p class="muted">دائمًا <code>dir="ltr"</code> ومعزول.</p></div>
+    <div class="grid" aria-label="أدوار الخطوط">
+      <div class="card"><h3>العناوين الرئيسية</h3><p style="font-family: var(--f-display); font-weight: var(--fw-display); font-size: var(--fs-2xl)">Cairo · الدورة الأسبوعية</p><p class="muted"><code>--f-display</code> · h1 والأرقام البارزة.</p></div>
+      <div class="card"><h3>العناوين الفرعية</h3><p style="font-family: var(--f-h2); font-weight: var(--fw-h2); font-size: var(--fs-2xl)">El Messiri · حزمة التحضير</p><p class="muted"><code>--f-h2</code> · أقسام h2.</p></div>
+      <div class="card"><h3>عناوين البطاقات</h3><p style="font-family: var(--f-sub); font-weight: var(--fw-sub); font-size: var(--fs-xl)">Tajawal · الرياضيات 10/3</p><p class="muted"><code>--f-sub</code> · h3 وكل عنوان داخل بطاقة.</p></div>
+      <div class="card"><h3>نص البطاقات والقراءة</h3><p style="font-size: var(--fs-lg)">IBM Plex Sans Arabic · جُلبت الدروس وتحقّق العامل منها.</p><p class="muted"><code>--f-body</code> · 400 إلى 700، ارتفاع السطر 1.8.</p></div>
+      <div class="card"><h3>الواجهة</h3><p style="font-family: var(--f-ui); font-size: var(--fs-lg)">Tajawal · اعتمد الكل · تحتاج نظرك</p><p class="muted"><code>--f-ui</code> · أزرار وحقول وشارات وتنقل.</p></div>
+      <div class="card"><h3>الأكواد والأرقام</h3><p><code>Fira Code · job #160 · 11:59</code></p><p class="muted"><code>--f-mono</code> · دائمًا <code>dir="ltr"</code> ومعزول.</p></div>
     </div>
     <div class="card scale" aria-label="مقياس الأحجام">
       <div><code>--fs-xs</code><span style="font-size: var(--fs-xs)">12 · أصغر نص مسموح: تسميات وتواريخ</span></div>

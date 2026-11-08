@@ -1,6 +1,5 @@
 """الهوية البصرية: خطوط محلية بلا طلب خارجي، ومقياس أحجام واحد في tokens.css."""
 import re
-from pathlib import Path
 
 from django.conf import settings
 
@@ -21,12 +20,25 @@ def test_fonts_are_local_and_every_face_file_exists():
     css = (ASSETS / "tokens.css").read_text(encoding="utf-8")
     assert "fonts.googleapis" not in css and "@import" not in css
     urls = re.findall(r'url\("\./(fonts/[^"]+\.woff2)"\)', css)
-    assert len(urls) == 14
+    assert urls and len(urls) == len(set(urls))
     missing = [u for u in urls if not (ASSETS / u).is_file()]
     assert not missing, missing
-    assert all(Path(u).stat().st_size > 1000 for u in (ASSETS / u for u in urls))
-    for lic in ("IBM-Plex-Sans-Arabic", "Reem-Kufi", "IBM-Plex-Mono"):  # رخصة OFL تُرفق مع الخطوط
-        assert (ASSETS / "fonts" / f"LICENSE-{lic}.txt").is_file()
+    assert all((ASSETS / u).stat().st_size > 1000 for u in urls)
+    on_disk = {f"fonts/{p.name}" for p in (ASSETS / "fonts").glob("*.woff2")}
+    assert on_disk == set(urls), f"ملفات خطوط غير مستعملة أو ناقصة: {on_disk ^ set(urls)}"
+
+
+def test_every_font_role_has_faces_and_license():
+    """كل دور (--f-*) يبدأ بخط له @font-face ورخصة OFL مرفقة؛ والرموز الستة موجودة."""
+    css = (ASSETS / "tokens.css").read_text(encoding="utf-8")
+    roles = dict(re.findall(r'--f-(display|h2|sub|body|ui|mono):\s*"([^"]+)"', css))
+    assert set(roles) == {"display", "h2", "sub", "body", "ui", "mono"}
+    declared = set(re.findall(r'font-family:\s*"([^"]+)";\s*font-style', css))
+    assert set(roles.values()) <= declared, set(roles.values()) - declared
+    assert declared == set(roles.values()) | {"IBM Plex Sans Arabic"}, declared  # لا خط معرَّف بلا دور
+    licenses = {p.name for p in (ASSETS / "fonts").glob("LICENSE-*.txt")}
+    assert len(licenses) == len(declared), licenses  # رخصة لكل عائلة
+    assert re.search(r"--fw-display:\s*\d+;\s*--fw-h2:\s*\d+;\s*--fw-sub:\s*\d+", css)
 
 
 def test_no_third_party_hosts_in_pages():
