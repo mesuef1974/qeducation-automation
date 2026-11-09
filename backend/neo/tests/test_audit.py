@@ -50,6 +50,9 @@ class Client:
     def lesson_page_html(self, lms_id, lesson_id):
         return self.lesson_pages.get(lesson_id, "")
 
+    def lesson_tags(self, lms_id, lesson_id):
+        return ["كلمة"]
+
 
 def test_audit_records_and_feeds_scorecard(classes):
     k = classes[LMS]

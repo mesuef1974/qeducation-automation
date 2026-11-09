@@ -250,6 +250,7 @@ class ContentProposal(models.Model):
         SECTION = "section", "قسم تهيئة"
         ASSESSMENT = "assessment", "تقييم ذاتي التصحيح"
         OUTCOMES = "outcomes", "ربط نتاجات"
+        TAGS = "tags", "كلمات دلالية"
 
     Status = ProposalStatus
 
@@ -361,6 +362,7 @@ class LessonAudit(models.Model):
     image_default = models.BooleanField("صورة عامة")
     sections = models.JSONField("أنواع الأقسام", default=list)  # بترتيبها، مثل ["عرض", "فيديو", "تقييم"]
     has_outcomes = models.BooleanField("مربوط بنتاج")
+    has_tags = models.BooleanField("له كلمات دلالية", default=True)
     issues = models.JSONField("النواقص", default=list)  # رموز من domain.quality.ISSUES
     audited_at = models.DateTimeField("وقت التدقيق")
 

@@ -11,7 +11,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from curriculum.models import Lesson
-from neo.domain import assessment, question_bank
+from neo.domain import assessment, keywords, question_bank
 from neo.domain import content as gen
 from neo.domain.redact import scrub
 from neo.infrastructure import tile_image
@@ -23,7 +23,7 @@ from neo.services import live, safety
 Kind = ContentProposal.Kind
 # ما يُقترح لكل نقص يكشفه التدقيق
 BY_ISSUE = {"no_description": Kind.DESCRIPTION, "generic_image": Kind.IMAGE, "few_sections": Kind.SECTION,
-            "no_assessment": Kind.ASSESSMENT, "no_outcomes": Kind.OUTCOMES}
+            "no_assessment": Kind.ASSESSMENT, "no_outcomes": Kind.OUTCOMES, "no_tags": Kind.TAGS}
 
 
 def _context(pl: PlatformLesson, outcomes: list[tuple[str, str]], previous: PlatformLesson | None) -> gen.LessonContext:
@@ -77,7 +77,8 @@ class ContentService:
                     continue
                 payload = self._payload(kind, ctx, pl, (available or {}).get(pl.lms_lesson_id, []))
                 if payload is None:  # لا بنك أسئلة أو نتاجات لموضوع الدرس: لا نختلق شيئًا
-                    key = "بلا نتاجات في البنك" if kind == Kind.OUTCOMES else "بلا بنك أسئلة"
+                    key = ("بلا نتاجات في البنك" if kind == Kind.OUTCOMES else "بلا كلمات"
+                           if kind == Kind.TAGS else "بلا بنك أسئلة")
                     counts[key] = counts.get(key, 0) + 1
                     continue
                 drafts.append(ContentProposal(run=run, lesson=pl, kind=kind, payload=payload))
@@ -98,6 +99,9 @@ class ContentService:
             if not codes or len(chosen) != len(codes):
                 return None
             return {"outcomes": chosen, "text": "\n".join(f"{o['code']} {o['text']}" for o in chosen)}
+        if kind == Kind.TAGS:
+            tags = keywords.build(ctx.title, ctx.unit_title, [code for code, _ in ctx.outcomes])
+            return {"tags": tags, "text": "، ".join(tags)} if tags else None
         if kind == Kind.ASSESSMENT:
             qs = question_bank.questions_for(pl.title)
             if not qs:
@@ -153,6 +157,11 @@ class ContentService:
                             results[p.pk] = (ContentProposal.Status.SKIPPED, "له تقييم بالفعل")
                             continue
                         client.add_quiz(lms_id, lid, pay["name"], assessment.from_dicts(pay["questions"]))
+                    elif p.kind == Kind.TAGS:
+                        if client.lesson_tags(lms_id, lid):
+                            results[p.pk] = (ContentProposal.Status.SKIPPED, "له كلمات دلالية بالفعل")
+                            continue
+                        client.set_lesson_tags(lms_id, lid, pay["tags"])
                     elif p.kind == Kind.OUTCOMES:
                         if parse_outcomes(client.outcomes_html(lms_id, lid)):
                             results[p.pk] = (ContentProposal.Status.SKIPPED, "له نتاجات بالفعل")

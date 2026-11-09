@@ -30,6 +30,7 @@ from neo.infrastructure.parsers import (
     parse_points_games,
     parse_question_text,
     parse_sections,
+    parse_tags,
     parse_tiles,
 )
 from neo.services import live
@@ -255,6 +256,31 @@ class NeoClient:
             self.page.click("form[action*='/teacher_lesson/save/'] [name=commit]")
         if "/teacher_lesson/edit/" in self.page.url:
             raise PlatformError("رفضت المنصة حفظ الوصف")
+
+    def lesson_tags(self, lms_id: int, lesson_id: int) -> list[str]:
+        return parse_tags(self.get_html(f"/teacher_lesson/show_tags/{lms_id}?lesson_id={lesson_id}"))
+
+    def set_lesson_tags(self, lms_id: int, lesson_id: int, tags: list[str]) -> list[str]:
+        """يحفظ الكلمات عبر مسار الحفظ نفسه الذي يستدعيه زر «إضافة» (POST بالفاصلة اللاتينية)، ثم يعيد قراءتها.
+        لا كتابة إلا لدرس بلا كلمات (يتحقق المستدعي)؛ الكلمة لا تحوي فاصلة."""
+        if not tags or any("," in t or "،" in t for t in tags):
+            raise PlatformError("كلمات دلالية غير صالحة")
+        self._throttle()
+        self.page.goto(f"{BASE_URL}/teacher_lesson/edit_tags/{lms_id}?lesson_id={lesson_id}")
+        if is_login_url(self.page.url):
+            raise NotLoggedIn("انتهت الجلسة - شغّل: python manage.py neo_login")
+        status = self.page.evaluate("""async ([path, tags]) => {
+            const token = document.querySelector('meta[name=csrf-token]')?.content || '';
+            const body = new URLSearchParams({tags: tags.join(','), can_edit: 'true', hide_label: 'true', tag_group_id: '0'});
+            const r = await fetch(path, {method: 'POST', credentials: 'same-origin', body,
+                headers: {'X-CSRF-Token': token, 'X-Requested-With': 'XMLHttpRequest'}});
+            return r.status; }""", [f"/teacher_lesson/save_tags/{lms_id}?lesson_id={lesson_id}", tags])
+        if status != 200:
+            raise PlatformError(f"رفضت المنصة حفظ الكلمات الدلالية ({status})")
+        saved = self.lesson_tags(lms_id, lesson_id)
+        if set(saved) != set(tags):
+            raise PlatformError(f"بعد الحفظ ظهرت {len(saved)} من {len(tags)} كلمة")
+        return saved
 
     def section_names(self, lms_id: int, lesson_id: int) -> list[str]:
         return [s.title for s in parse_sections(self.lesson_page_html(lms_id, lesson_id))]

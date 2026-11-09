@@ -13,7 +13,7 @@ from rest_framework.pagination import LimitOffsetPagination
 from rest_framework.response import Response
 
 from neo.api import serializers as s
-from neo.domain import assessment
+from neo.domain import assessment, keywords
 from neo.models import (
     Job,
     PlatformClass,
@@ -184,6 +184,11 @@ class ProposalViewSet(viewsets.ReadOnlyModelViewSet):
                 prop.payload["questions"] = [q.as_dict() for q in assessment.parse_text(prop.payload["text"])]
             except ValueError as exc:
                 raise ValidationError({"text": str(exc)}) from exc
+        if prop.kind == "tags" and "text" in body.validated_data:
+            tags = keywords.parse_text(prop.payload["text"])
+            if not tags:
+                raise ValidationError({"text": "اكتب كلمة دلالية واحدة على الأقل"})
+            prop.payload["tags"] = tags
         prop.save(update_fields=["payload"])
         return Response(self.get_serializer(prop).data)
 

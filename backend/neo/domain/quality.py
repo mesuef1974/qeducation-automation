@@ -18,6 +18,7 @@ ISSUES = {
     "few_sections": f"أقل من {MIN_SECTIONS} أقسام",
     "no_assessment": "بلا تقييم",
     "no_outcomes": "بلا نتاج",
+    "no_tags": "بلا كلمات دلالية",
 }
 
 
@@ -27,6 +28,7 @@ class LessonQuality:
     description: str
     section_kinds: tuple[str, ...]  # أنواع الأقسام بترتيبها (تسميات SECTION_KINDS)
     has_outcomes: bool
+    has_tags: bool = True
 
     @property
     def has_assessment(self) -> bool:
@@ -44,4 +46,6 @@ class LessonQuality:
             found.append("no_assessment")
         if not self.has_outcomes:
             found.append("no_outcomes")
+        if not self.has_tags:
+            found.append("no_tags")
         return found

@@ -208,7 +208,7 @@ export interface AssignProposal extends ProposalBase {
 
 export interface ContentProposal extends ProposalBase {
   lesson: LessonRef;
-  kind: "description" | "image" | "section" | "assessment" | "outcomes";
+  kind: "description" | "image" | "section" | "assessment" | "outcomes" | "tags";
   kind_label: string;
   payload: Record<string, string | number>;
 }

@@ -74,7 +74,7 @@ const allApproved = computed(() => items.value.filter((p) => p.status === "appro
 const pending = (g: Group) => g.props.filter((p) => p.status === "pending" && p.evidence.sure);
 const unsure = (g: Group) => g.props.some((p) => p.status === "pending" && !p.evidence.sure);
 const approved = (g: Group) => g.props.filter((p) => p.status === "approved");
-const field = (p: ContentProposal) => (p.kind === "description" || p.kind === "assessment" || p.kind === "outcomes" ? "text" : p.kind === "section" ? "html" : "");
+const field = (p: ContentProposal) => (p.kind === "description" || p.kind === "assessment" || p.kind === "outcomes" || p.kind === "tags" ? "text" : p.kind === "section" ? "html" : "");
 /** النص المعروض: تعديلك غير المحفوظ ما دام الاقتراح قيد المراجعة، وإلا ما حُفظ فعلًا على الخادم */
 const text = (p: ContentProposal) =>
   (p.status === "pending" ? drafts.value[p.id] : undefined) ?? String(p.payload[field(p)] ?? "");
