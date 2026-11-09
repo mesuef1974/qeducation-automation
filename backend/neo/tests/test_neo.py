@@ -25,6 +25,14 @@ def test_parse_date_label():
     assert parse_date_label("", YEAR) == (None, None)
 
 
+def test_parse_lessons_accepts_h3_title_tag():
+    """المنصة بدّلت وسم العنوان من h2 إلى h3 (9 نوفمبر 2026)؛ يُقبل الوسمان."""
+    tile = '<div id="blockView"><div class="draggable" id="{i}"><div class="header"><{h} class="class_name evo-lesson-name">{i}. درس</{h}></div></div></div>'
+    for tag in ("h2", "h3"):
+        (lesson,) = parse_lessons(tile.format(i=7, h=tag), YEAR)
+        assert lesson.lms_lesson_id == 7 and lesson.position == 7
+
+
 def test_parse_lessons_html():
     lessons = parse_lessons((FIX / "lesson_list.html").read_text(encoding="utf-8"), YEAR)
     assert [(p.lms_lesson_id, p.position) for p in lessons] == [(16646488, 1), (17053908, 25), (17844998, 47)]

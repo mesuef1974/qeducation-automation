@@ -46,7 +46,7 @@ def parse_lessons(html: str, academic_year: str) -> list[ParsedLesson]:
         if lesson_id in seen:
             continue
         seen.add(lesson_id)
-        raw_title = tile.select_one("h2.class_name").get_text(" ", strip=True)
+        raw_title = tile.select_one(":is(h2, h3).class_name").get_text(" ", strip=True)
         pos = _POSITION.match(raw_title)
         label = tile.select_one(".label_box_wrap .label.box")
         d, period = parse_date_label(label.get_text(" ", strip=True), academic_year) if label else (None, None)
