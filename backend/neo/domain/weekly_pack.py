@@ -185,11 +185,12 @@ def link_title(link: FileLink) -> str:
 
 
 def note_role(link: FileLink) -> str:
-    """ملاحظات المعلم: ورقة العمل اسمها المرمّز يبدأ بـ wrq_ml أو mrj، وبقية الوورد تحضير، والعرض عرض الدرس."""
+    """ملاحظات المعلم: ورقة العمل اسمها المرمّز يبدأ بـ wrq_ml أو mrj أو عنوان رابطها «ورقة عمل…»، وبقية الوورد تحضير، والعرض عرض الدرس."""
     if link.ext == "pptx":
         return "presentation"
     if link.ext == "docx":
-        return "worksheet" if link.stem.lower().startswith(WORKSHEET_STEMS) else "prep"
+        coded = link.stem.lower().startswith(WORKSHEET_STEMS)
+        return "worksheet" if coded or link_title(link).startswith("ورقة عمل") else "prep"  # اسم الرابط يقول ورقة عمل ولو رُمّز غير ذلك
     return "other"
 
 

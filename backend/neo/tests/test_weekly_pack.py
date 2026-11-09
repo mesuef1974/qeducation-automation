@@ -102,6 +102,10 @@ def test_file_names():
     pres = link("rd_tqdymy", "pptx", "العرض التقديمي -الدوال المتزايدة والمتناقصة 3.pptx")
     assert [wp.note_role(x) for x in (prep, ws, pres)] == ["prep", "worksheet", "presentation"]
     assert wp.note_role(link("mrj_1", "docx", "x")) == "worksheet"
+    # اسم مرمّز آخر لكن عنوان الرابط «ورقة عمل…»: ورقة عمل لا تحضير (دروس 58 و59 في 12/2)
+    odd = link("mrj_mtwsT", "docx", "ورقة عمل التهيئة")
+    assert wp.note_role(link("lkht_x", "docx", "ورقة عمل التهيئة")) == "worksheet"
+    assert wp.note_role(odd) == "worksheet"
     assert wp.note_file_name(prep) == "التحضير - الخطة اليومية   الدوال المتزايدة والمتناقصة 3.docx"
     assert wp.note_file_name(ws) == "ورقة عمل - ورقة عمل التهيئة.docx"
     assert wp.note_file_name(pres) == "عرض الدرس - العرض التقديمي -الدوال المتزايدة والمتناقصة 3.pptx"

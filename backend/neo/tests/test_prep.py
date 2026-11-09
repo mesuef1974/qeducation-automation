@@ -108,7 +108,7 @@ def test_worksheet_date(tmp_path):
     make_docx(src, WORKSHEET, cover=None)
     res = docx_prep.prepare_docx(src, tmp_path / "out.docx", FIELDS, worksheet=True)
     assert res.worksheet_dates == 1 and not res.teacher
-    for raw in ("-----11-2024", "----11-2024", "__/__/2025", "../11/2024", "--/11/2024"):
+    for raw in ("-----11-2024", "----11-2024", "__/__/2025", "../11/2024", "--/11/2024", "0000/11/2024", "---/11/ 2024"):
         assert docx_prep.INCOMPLETE_DATE.fullmatch(raw), raw
     assert not docx_prep.INCOMPLETE_DATE.search("صفحة 151-2024") and not docx_prep.INCOMPLETE_DATE.search("2024-2025")
     text = zipfile.ZipFile(tmp_path / "out.docx").read("word/document.xml").decode()
