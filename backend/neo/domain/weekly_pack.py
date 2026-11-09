@@ -157,12 +157,13 @@ def select_week(entries: list[PlanEntry], lessons: list[LessonRef], week: WeekSp
     matched = [(e, p, pl) for e, p, pl in rows if pl is not None]
     if len({pl.lms_lesson_id for _, _, pl in matched}) != len(matched):
         raise PackError("درس واحد على المنصة طابق أكثر من جزء في الخطة؛ راجع المطابقة.", details)
-    if len(rows) != len(slots):
-        raise PackError(f"عدد دروس الأسبوع في الخطة ({len(rows)}) لا يساوي حصصه في الجدول ({len(slots)}). "
+    if len(rows) > len(slots):
+        raise PackError(f"دروس الأسبوع في الخطة ({len(rows)}) أكثر من حصصه في الجدول ({len(slots)}). "
                         "قرّر توزيعها ثم أعد التشغيل.", details)
+    # قرار المعلم 2026-11-09: الخطة تحدد دروس الأسبوع (5)، والحصة الزائدة في الجدول تبقى فارغة: الدروس على أولى الحصص
     return [PackLesson(pl.lms_lesson_id, pl.position, pl.title, e.title, e.code, part, s.date, s.period,
                        pl.date, pl.period)
-            for (e, part, pl), s in zip(rows, slots, strict=True) if pl is not None]
+            for (e, part, pl), s in zip(rows, slots, strict=False) if pl is not None]
 
 
 # ------------------------------------------------------------- أسماء الملفات

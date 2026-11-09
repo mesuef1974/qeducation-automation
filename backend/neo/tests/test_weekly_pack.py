@@ -169,7 +169,7 @@ def test_absent_non_lesson_is_waived_and_keeps_slot_alignment():
     base = wp.select_week(ENTRIES, lessons(), WEEK_11, TIMETABLE_12_2)
     pack = wp.select_week([*ENTRIES, review], lessons(), WEEK_11, timetable)
     assert [(p.lms_lesson_id, p.date, p.period) for p in pack] == [(p.lms_lesson_id, p.date, p.period) for p in base]
-    with pytest.raises(wp.PackError, match="عدد دروس الأسبوع"):  # عدّ الحصص يبقى إلزاميًا
+    with pytest.raises(wp.PackError, match="أكثر من حصصه"):  # الزيادة على الحصص تبقى خطأ
         wp.select_week([*ENTRIES, review], lessons(), WEEK_11, TIMETABLE_12_2)
 
 
@@ -177,3 +177,10 @@ def test_missing_real_lesson_still_stops_the_pack():
     gone = [pl for pl in lessons() if pl.position != 55]
     with pytest.raises(wp.PackError, match="بلا درس على المنصة"):
         wp.select_week(ENTRIES, gone, WeekSpan(12, date(2026, 11, 15), True), TIMETABLE_12_2)
+
+
+def test_fewer_lessons_than_slots_uses_first_slots():
+    """قرار المعلم 2026-11-09: دروس الخطة أقل من حصص الجدول: الدروس على أولى الحصص والزائدة فارغة."""
+    base = wp.select_week(ENTRIES, lessons(), WEEK_11, TIMETABLE_12_2)
+    pack = wp.select_week(ENTRIES, lessons(), WEEK_11, [*TIMETABLE_12_2, (3, 7)])
+    assert [(p.lms_lesson_id, p.date, p.period) for p in pack] == [(p.lms_lesson_id, p.date, p.period) for p in base]
