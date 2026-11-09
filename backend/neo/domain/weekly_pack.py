@@ -141,26 +141,28 @@ def select_week(entries: list[PlanEntry], lessons: list[LessonRef], week: WeekSp
         raise PackError(f"الأسبوع {week.week_no} إجازة في الخطة.")
     parts = week_parts(entries, week.week_no)
     slots = week_slots(week, timetable, days_off)
-    matched, missing = [], []
+    rows, missing, waived = [], [], []
     for entry, part in parts:
         pl = _find(lessons, entry, part)
-        if pl is None:
+        if pl is None and not entry.is_lesson:
+            waived.append(f"{entry.title} {part}")  # قرار المعلم 2026-11-09: نشاط غير درسي غائب عن المنصة يُسقَط
+        elif pl is None:
             missing.append(f"{entry.title} {part}")
-        else:
-            matched.append((entry, part, pl))
-    details = {"plan_periods": len(parts), "slots": len(slots), "missing": missing,
+        rows.append((entry, part, pl))
+    details = {"plan_periods": len(parts), "slots": len(slots), "missing": missing, "waived": waived,
                "parts": [f"{e.title} {p}" for e, p in parts]}
     if missing:
         raise PackError(f"أجزاء في الخطة بلا درس على المنصة: {'، '.join(missing)}. "
                         "أضف الدرس على المنصة أو عدّل مطابقته، ثم أعد التشغيل.", details)
+    matched = [(e, p, pl) for e, p, pl in rows if pl is not None]
     if len({pl.lms_lesson_id for _, _, pl in matched}) != len(matched):
         raise PackError("درس واحد على المنصة طابق أكثر من جزء في الخطة؛ راجع المطابقة.", details)
-    if len(matched) != len(slots):
-        raise PackError(f"عدد دروس الأسبوع في الخطة ({len(matched)}) لا يساوي حصصه في الجدول ({len(slots)}). "
+    if len(rows) != len(slots):
+        raise PackError(f"عدد دروس الأسبوع في الخطة ({len(rows)}) لا يساوي حصصه في الجدول ({len(slots)}). "
                         "قرّر توزيعها ثم أعد التشغيل.", details)
     return [PackLesson(pl.lms_lesson_id, pl.position, pl.title, e.title, e.code, part, s.date, s.period,
                        pl.date, pl.period)
-            for (e, part, pl), s in zip(matched, slots)]
+            for (e, part, pl), s in zip(rows, slots, strict=True) if pl is not None]
 
 
 # ------------------------------------------------------------- أسماء الملفات

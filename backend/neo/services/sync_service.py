@@ -208,7 +208,8 @@ class SyncService:
             "flags": dict(Counter(f for d in drafts for f in d.flags)),
             "overflow": len(overflow),
             "unmatched": [f"{pl.position}. {pl.title}" for pl in lessons if not code_of(pl)],
-            "missing_in_platform": [f"{t.code} {t.title}" for t in targets if t.code not in counts],
+            "missing_in_platform": [f"{t.code} {t.title}" for t in targets if t.is_lesson and t.code not in counts],
+            "waived_non_lessons": [f"{t.code} {t.title}" for t in targets if not t.is_lesson and t.code not in counts],
             "count_mismatch": [
                 f"{t.code} {t.title}: المنصة {counts[t.code]} / الخطة {t.plan_periods}"
                 for t in targets if t.is_lesson and t.code in counts and counts[t.code] != t.plan_periods
