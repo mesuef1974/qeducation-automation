@@ -226,8 +226,12 @@ def parse_file_links(html: str) -> list[FileLink]:
 def parse_tags(html: str) -> list[str]:
     """الكلمات الدلالية للدرس (show_tags): قائمة كلماتها، أو فارغة حين تقول الصفحة «لا يوجد»."""
     soup = BeautifulSoup(html, "lxml")
+    if "لا يوجد" in soup.get_text(" ", strip=True):  # العنوان «الكلمات الدلالية» حاضر دائمًا؛ الفارغ = «لا يوجد»
+        return []
+    for e in soup.select(".mr5"):  # عنوان الحقل لا كلمة
+        e.decompose()
     found = [e.get_text(" ", strip=True) for e in soup.select(".tm-tag, .tag, .label")]
-    found = found or [e.get_text(" ", strip=True) for e in soup.select("li, a") if not e.select("li, a")]
+    found = found or [e.get_text(" ", strip=True) for e in soup.select("li, a, span") if not e.select("li, a, span")]
     if not found:
         found = re.split(r"[,،\n]", soup.get_text("\n", strip=True))
     out = []

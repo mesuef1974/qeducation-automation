@@ -25,6 +25,8 @@ def test_build_keywords_from_title_unit_and_codes():
 
 
 def test_parse_tags():
+    assert parse_tags('<span class="mr5">الكلمات الدلالية</span>  <span>  لا يوجد  </span>') == []
+    assert parse_tags('<span class="mr5">الكلمات الدلالية</span><span>جذور</span>') == ["جذور"]
     assert parse_tags("<div>لا يوجد</div>") == []
     assert parse_tags('<span class="tm-tag"><span>جذور</span><a>×</a></span><span class="tm-tag"><span>10.2.4</span></span>') \
         == ["جذور", "10.2.4"]

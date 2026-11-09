@@ -258,7 +258,11 @@ class NeoClient:
             raise PlatformError("رفضت المنصة حفظ الوصف")
 
     def lesson_tags(self, lms_id: int, lesson_id: int) -> list[str]:
-        return parse_tags(self.get_html(f"/teacher_lesson/show_tags/{lms_id}?lesson_id={lesson_id}"))
+        html = self.get_html(f"/teacher_lesson/show_tags/{lms_id}?lesson_id={lesson_id}")
+        tags = parse_tags(html)
+        if not tags and "لا يوجد" not in html:  # شكل غير مألوف: لا نعدّه فارغًا فنكتب فوق كلمات المعلم
+            raise PlatformError("شكل صفحة الكلمات الدلالية غير مألوف")
+        return tags
 
     def set_lesson_tags(self, lms_id: int, lesson_id: int, tags: list[str]) -> list[str]:
         """يحفظ الكلمات عبر مسار الحفظ نفسه الذي يستدعيه زر «إضافة» (POST بالفاصلة اللاتينية)، ثم يعيد قراءتها.
