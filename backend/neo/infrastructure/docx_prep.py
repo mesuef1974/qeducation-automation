@@ -123,6 +123,8 @@ def _year_repl(year_from: int):
         a, b = int(m.group(1)), int(m.group(3))
         if b == a + 1 and 2015 <= a < year_from:
             return f"{year_from}{m.group(2)}{year_from + 1}"
+        if a == b + 1 and 2015 <= b < year_from:  # مكتوب معكوسًا «2025-2024» كما في تذييل بعض القوالب
+            return f"{year_from + 1}{m.group(2)}{year_from}"
         return m.group(0)
     return repl
 
@@ -180,10 +182,21 @@ def set_cell_text(cell, text: str, label_cell) -> None:
     _set_text(etree.SubElement(run, w("t")), text)
 
 
+def _cells(row) -> list:
+    """خلايا الصف بترتيبها، ومنها ما غلّفه عنصر تحكم بالمحتوى (sdt) كخلية التاريخ في بعض قوالب المعلم."""
+    out = []
+    for ch in row:
+        if ch.tag == w("tc"):
+            out.append(ch)
+        elif ch.tag == w("sdt"):
+            out.extend(ch.findall(f"{w('sdtContent')}/{w('tc')}"))
+    return out
+
+
 def _grid(row) -> list[tuple[int, object]]:
     """(بداية العمود في الشبكة، الخلية) مع مراعاة gridSpan."""
     out, col = [], 0
-    for tc in row.findall(w("tc")):
+    for tc in _cells(row):
         out.append((col, tc))
         span = tc.find(f"{w('tcPr')}/{w('gridSpan')}")
         col += int(span.get(w("val"))) if span is not None else 1
@@ -195,7 +208,7 @@ def fill_header_table(body, fields: PrepFields, res: DocxResult) -> None:
     if not tables:
         return
     for tr in tables[0].iter(w("tr")):
-        cells = tr.findall(w("tc"))
+        cells = _cells(tr)
         for i, tc in enumerate(cells[:-1]):
             label = _label(tc)
             if label == TEACHER_LABEL and fields.teacher:
@@ -249,7 +262,7 @@ def template_of(root) -> str:
     tables = [t for t in body if t.tag == w("tbl")] if body is not None else []
     if not tables:
         return "بلا جدول رأس"
-    labels = [_label(tr.findall(w("tc"))[0]) for tr in tables[0].findall(w("tr")) if tr.findall(w("tc"))]
+    labels = [_label(_cells(tr)[0]) for tr in tables[0].findall(w("tr")) if _cells(tr)]
     unit = next((x for x in labels if x.startswith("الوحدة")), "")
     return TEMPLATES.get(unit, f"قالب آخر ({unit or labels[:1]})")
 

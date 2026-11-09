@@ -270,3 +270,16 @@ def test_prep_pack_stops_without_guessing(klass, blobs, tmp_path):
     run = SyncRun.objects.get(kind=SyncRun.Kind.PREP)
     assert not run.ok and "المشتقات" in run.summary["error"]
     assert not list(tmp_path.glob("W0*"))  # لم يُكتب شيء
+
+
+def test_reversed_year_pair_and_sdt_wrapped_cells():
+    """تذييل «2025-2024» معكوسًا يُحدَّث بانعكاسه، وخلية غلّفها sdt داخل الصف تدخل شبكة الجدول (خلية تاريخ المتابعة)."""
+    from lxml import etree
+
+    repl = docx_prep._year_repl(2026)
+    assert docx_prep.YEAR_PAIR.sub(repl, "العام 2025-2024") == "العام 2027-2026"
+    assert docx_prep.YEAR_PAIR.sub(repl, "2024 / 2025") == "2026 / 2027"
+    assert docx_prep.YEAR_PAIR.sub(repl, "2027-2026") == "2027-2026"
+    ns = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+    row = etree.fromstring(f'<w:tr xmlns:w="{ns}"><w:tc><w:tcPr><w:gridSpan w:val="2"/></w:tcPr></w:tc><w:sdt><w:sdtContent><w:tc/></w:sdtContent></w:sdt><w:tc/></w:tr>')
+    assert [c for c, _ in docx_prep._grid(row)] == [0, 2, 3]
