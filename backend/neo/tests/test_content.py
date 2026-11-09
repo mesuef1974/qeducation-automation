@@ -36,6 +36,10 @@ def test_generator_is_deterministic_and_rtl_safe():
 
 
 class Client:
+    locked = False
+
+    def lesson_is_open(self, lms_id, lesson_id):
+        return not self.locked
     def __init__(self, fail=None, description="", default_tile=True, names=()):
         self.fail, self.description, self.default_tile, self.names = fail, description, default_tile, list(names)
         self.calls = []

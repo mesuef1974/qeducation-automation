@@ -175,6 +175,10 @@ def test_targets_cover_plan(loaded):
 # ---------------------------------------------------------------- تطبيق (عميل وهمي)
 
 class FakeClient:
+    locked = False
+
+    def lesson_is_open(self, lms_id, lesson_id):
+        return not self.locked
     def __init__(self, dated=(), saved=None):
         self.dated, self.writes, self.values = set(dated), [], {}
         self.saved = saved  # ما تعيده القراءة البعدية؛ None = ما كُتب فعلًا

@@ -25,6 +25,7 @@ from neo.infrastructure.parsers import (
     parse_available_outcomes,
     parse_default_visibility,
     parse_file_links,
+    parse_lesson_open,
     parse_outcomes,
     parse_points_actions,
     parse_points_games,
@@ -256,6 +257,13 @@ class NeoClient:
             self.page.click("form[action*='/teacher_lesson/save/'] [name=commit]")
         if "/teacher_lesson/edit/" in self.page.url:
             raise PlatformError("رفضت المنصة حفظ الوصف")
+
+    def lesson_is_open(self, lms_id: int, lesson_id: int) -> bool:
+        """شرط المعلم قبل أي كتابة: الدرس «مفتوح» (تبويب الإغلاق). شكل غير مألوف يوقف ولا يُعدّ مفتوحًا."""
+        state = parse_lesson_open(self.get_html(f"/teacher_lesson/locked/{lms_id}?lesson_id={lesson_id}"))
+        if state is None:
+            raise PlatformError("شكل تبويب الإغلاق غير مألوف")
+        return state
 
     def lesson_tags(self, lms_id: int, lesson_id: int) -> list[str]:
         html = self.get_html(f"/teacher_lesson/show_tags/{lms_id}?lesson_id={lesson_id}")

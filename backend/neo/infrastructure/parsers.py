@@ -240,3 +240,15 @@ def parse_tags(html: str) -> list[str]:
         if t and t != "لا يوجد" and t not in out:
             out.append(t)
     return out
+
+
+def parse_lesson_open(html: str) -> bool | None:
+    """تبويب الإغلاق (locked): True = مفتوح للجميع (Unlock محدَّد وعبارة «غير مغلق لأي من المستخدمين»)،
+    False = مغلق (Lock محدَّد أو مستخدمون مغلق عليهم)، None = شكل غير مألوف فلا نخمّن."""
+    soup = BeautifulSoup(html, "lxml")
+    radios = {r.get("value"): r.has_attr("checked") for r in soup.select("input[name=default_locking]")}
+    if set(radios) != {"Lock", "Unlock"} or radios["Lock"] == radios["Unlock"]:
+        return None
+    if radios["Lock"]:
+        return False
+    return "غير مغلق لأي من المستخدمين" in soup.get_text(" ", strip=True)

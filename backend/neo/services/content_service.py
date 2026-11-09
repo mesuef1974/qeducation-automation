@@ -141,6 +141,9 @@ class ContentService:
                 live.step(f"{p.get_kind_display()} · الدرس {p.lesson.position}", i, len(items))
                 lid, pay = p.lesson.lms_lesson_id, p.payload
                 try:
+                    if not client.lesson_is_open(lms_id, lid):
+                        results[p.pk] = (ContentProposal.Status.SKIPPED, safety.LOCKED_SKIP)
+                        continue
                     if p.kind == Kind.DESCRIPTION:
                         if client.lesson_description(lms_id, lid).strip():
                             results[p.pk] = (ContentProposal.Status.SKIPPED, "له وصف بالفعل")

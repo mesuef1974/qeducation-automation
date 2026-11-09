@@ -63,6 +63,10 @@ def test_plan(setup):
 
 
 class FakeClient:
+    locked = False
+
+    def lesson_is_open(self, lms_id, lesson_id):
+        return not self.locked
     """يحاكي المنصة: {lesson_id: [ظاهر، عدد إجراءات النقاط]}."""
 
     def __init__(self, state, broken=(), expire_at=None, games=("نجوم الرياضيات",)):

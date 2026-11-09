@@ -138,6 +138,9 @@ class PublishService:
                 live.step(f"الدرس {prop.lesson.position}. {prop.lesson.title}", i, len(items))
                 lid = prop.lesson.lms_lesson_id
                 try:
+                    if not client.lesson_is_open(lms_id, lid):
+                        results[prop.pk] = (PublishProposal.Status.SKIPPED, safety.LOCKED_SKIP)
+                        continue
                     results[prop.pk], state[prop.lesson_id] = self._apply_one(client, lms_id, lid, prop, p,
                                                                               points_error)
                 except NotLoggedIn as exc:

@@ -242,6 +242,9 @@ class SyncService:
                 lid = p.lesson.lms_lesson_id
                 live.step(f"الدرس {p.lesson.position}: {p.proposed_date} ح{p.proposed_period}", i, len(items))
                 try:
+                    if not client.lesson_is_open(lms_id, lid):
+                        results[p.pk] = (DateProposal.Status.SKIPPED, safety.LOCKED_SKIP)
+                        continue
                     if client.lesson_has_date(lms_id, lid):
                         results[p.pk] = (DateProposal.Status.SKIPPED, "للدرس تاريخ على المنصة")
                         continue

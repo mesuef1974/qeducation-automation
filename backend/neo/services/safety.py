@@ -57,6 +57,9 @@ def resume() -> SafetyState:
     return s
 
 
+LOCKED_SKIP = "الدرس مغلق على المنصة: لا كتابة عليه (شرط المعلم: مغلق = مفتوح قبل أي كتابة)"
+
+
 def require_writes_allowed() -> None:
     s = state()
     if s.halted:
