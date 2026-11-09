@@ -130,6 +130,7 @@ const missing = (k: PlatformClass) => (k.overview.last_verify?.summary.missing_p
 
 <style scoped>
 .prep-card { gap: 18px; }
+.table-wrap td a { display: inline-flex; align-items: center; min-block-size: 24px; }  /* WCAG 2.5.8: هدف لا يقل عن 24px */
 .prep-card h2 { font-size: var(--fs-xl); margin: 0; }
 .klass { gap: 16px; }
 .k-head { display: flex; justify-content: space-between; align-items: start; gap: 12px; }
