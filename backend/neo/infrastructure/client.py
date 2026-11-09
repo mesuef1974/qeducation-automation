@@ -270,17 +270,21 @@ class NeoClient:
         if not tags or any("," in t or "،" in t for t in tags):
             raise PlatformError("كلمات دلالية غير صالحة")
         self._throttle()
-        self.page.goto(f"{BASE_URL}/teacher_lesson/edit_tags/{lms_id}?lesson_id={lesson_id}")
+        self.page.goto(f"{BASE_URL}/teacher_lesson/tags/{lms_id}?lesson_id={lesson_id}")
         if is_login_url(self.page.url):
             raise NotLoggedIn("انتهت الجلسة - شغّل: python manage.py neo_login")
-        status = self.page.evaluate("""async ([path, tags]) => {
-            const token = document.querySelector('meta[name=csrf-token]')?.content || '';
-            const body = new URLSearchParams({tags: tags.join(','), can_edit: 'true', hide_label: 'true', tag_group_id: '0'});
-            const r = await fetch(path, {method: 'POST', credentials: 'same-origin', body,
-                headers: {'X-CSRF-Token': token, 'X-Requested-With': 'XMLHttpRequest'}});
-            return r.status; }""", [f"/teacher_lesson/save_tags/{lms_id}?lesson_id={lesson_id}", tags])
-        if status != 200:
-            raise PlatformError(f"رفضت المنصة حفظ الكلمات الدلالية ({status})")
+        self.page.wait_for_load_state("networkidle")
+        # كما يفعل المعلم: «إضافة» تفتح الحقل، ثم كل كلمة + Enter ليثبّتها tagsManager، ثم دالة الحفظ في الصفحة نفسها
+        self.page.click(".tag-group-0 button[onclick*='edit_tags']")
+        box = self.page.wait_for_selector("input.tm-input-0", timeout=15_000)
+        for t in tags:
+            box.fill(t)
+            box.press("Enter")
+        held = self.page.input_value(".tag-group-0 input[name=hidden-tags]")
+        if set(held.split(",")) != set(tags):
+            raise PlatformError(f"لم يثبّت الحقل الكلمات: {len(held.split(','))} من {len(tags)}")
+        self.page.evaluate(
+            "(u) => window.save_tags(u, true, true, '0', false)", f"/teacher_lesson/save_tags/{lms_id}?lesson_id={lesson_id}")
         saved = self.lesson_tags(lms_id, lesson_id)
         if set(saved) != set(tags):
             raise PlatformError(f"بعد الحفظ ظهرت {len(saved)} من {len(tags)} كلمة")
