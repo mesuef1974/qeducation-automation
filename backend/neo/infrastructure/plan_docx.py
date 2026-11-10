@@ -69,6 +69,8 @@ def set_cell(cell, lines) -> None:
     """يملأ الخلية سطرًا لكل فقرة بتنسيق أول مقطع من الفقرة المقابلة (أو آخر فقرة)."""
     lines = [lines] if isinstance(lines, str) else list(lines)
     paras = cell.paragraphs
+    if not paras:  # خلية مدموجة رأسيًا بلا فقرات: لا شيء يُكتب فيها
+        return
     while len(paras) < len(lines):
         clone = deepcopy(paras[-1]._p)
         paras[-1]._p.addnext(clone)
@@ -164,7 +166,8 @@ def fill(template: Path, out: Path, c: PlanContent) -> None:
         set_cell(cells[0], ["في نهاية الحصة على الطالب أن يكون قادراً على أن:", block.objective]
                  if row is rows[0] else [block.objective])
         _fill_activity(cells[1], block)
-        set_cell(cells[-1], str(block.minutes))
+        if cells[-1].paragraphs and "".join(cells[-1].text.split()).isdigit():
+            set_cell(cells[-1], str(block.minutes))  # عمود «الزمن»: يُستبدل رقم القالب
         if len(cells) > 2 and block.assessment:
             set_cell(cells[2], list(block.assessment))
     for row in rows[len(c.blocks):]:  # صفوف فائضة في القالب تُفرَّغ
