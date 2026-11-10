@@ -41,3 +41,6 @@ backend/media/
 # إعدادات خاصة بالجهاز (أسماء المعلمين): backend/config/local.json
 backend/config/local.json
 
+
+# أدلة المعلم والخطط الفصلية (مراجع محلية، لا تدخل المستودع)
+/الادلة/
