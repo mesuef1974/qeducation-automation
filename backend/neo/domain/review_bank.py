@@ -2,9 +2,18 @@
 بنك مراجعة الوحدة الثانية (المعادلات والمتباينات التربيعية): بنود محسوبة ومُدقَّقة يدويًا، لكل مهارة (درس من الوحدة).
 مصدر واحد للتقييم الذاتي التصحيح وورقة العمل وعرض المراجعة، فلا تختلف إجاباتها.
 """
+import re
 from dataclasses import dataclass
 
 from neo.domain.assessment import MCQ, TF, Question
+
+_MATH = re.compile(r"[A-Za-z0-9²³√(][A-Za-z0-9²³√+−=×÷()/.,<>≤≥^ -]*[A-Za-z0-9²³√)]|[A-Za-z0-9²³√]")
+LRI, PDI = "⁦", "⁩"
+
+
+def ltr(text: str) -> str:
+    """يعزل المقادير الرياضية (أرقام ولاتينية ورموز) داخل النص العربي، فلا ينقلب ترتيبها في العرض."""
+    return _MATH.sub(lambda m: f"{LRI}{m.group(0)}{PDI}", text)
 
 
 @dataclass(frozen=True)
@@ -22,9 +31,9 @@ class Item:
 
     def question(self, shift: int = 0) -> Question:
         if not self.choices:
-            return Question(TF, self.text, answer=self.truth)
+            return Question(TF, ltr(self.text), answer=self.truth)
         choices, k = self.rotated(shift)
-        return Question(MCQ, self.text, choices, k)
+        return Question(MCQ, ltr(self.text), tuple(ltr(c) for c in choices), k)
 
 
 S1 = "حل المعادلات التربيعية بيانيًا"

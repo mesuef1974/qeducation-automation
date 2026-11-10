@@ -12,8 +12,16 @@ from neo.services import safety
 QUIZ = "س: كم 2+2؟\n* 4\n- 5\n\nس: الأرض مسطحة\n= خطأ"
 
 
+def fake_plan(path):
+    from docx import Document
+    d = Document()
+    t = d.add_table(rows=1, cols=2)
+    t.rows[0].cells[0].text, t.rows[0].cells[1].text = "نتاجات التعلم", "قديم"
+    d.save(str(path))
+
+
 def spec_dict(tmp_path, **over):
-    (tmp_path / "plan.docx").write_bytes(b"x")
+    fake_plan(tmp_path / "plan.docx")
     (tmp_path / "deck.pptx").write_bytes(b"x")
     d = {"class": 602598, "academic_year": "2026-2027", "title": "مراجعة واختبار الوحدة الثانية",
          "description": "مراجعة شاملة.", "date": "2026-11-18", "period": 5, "grade": "الصف العاشر", "term": "الفصل الأول",
@@ -55,6 +63,7 @@ class Fake:
         self.lessons = dict(existing or {})  # عنوان ← معرّف
         self.tags, self.outcomes, self.sections, self.quizzes, self.notes = {}, {}, {}, {}, {}
         self.shown, self.locked, self.fail_on, self.calls = {}, locked, fail_on, []
+        self.points = {}
 
     def __enter__(self):
         return self
@@ -92,11 +101,11 @@ class Fake:
         return "".join(f'<span class="proficiencyItem"><a href="/x">{c}. نص</a></span>' for c in self.outcomes.get(lid, []))
 
     def available_outcomes(self, lms, lid):
-        return [{"id": 5, "code": "2.1", "text": "ن"}]
+        return [{"id": 5, "code": "2.1", "text": "ن"}, {"id": 6, "code": "2.2", "text": "م"}]
 
     def link_outcomes(self, lms, lid, ids):
         self._do("outcomes")
-        self.outcomes[lid] = ["2.1"]
+        self.outcomes[lid] = [{5: "2.1", 6: "2.2"}[i] for i in ids]
 
     def section_names(self, lms, lid):
         return self.sections.get(lid, [])
@@ -122,6 +131,20 @@ class Fake:
 
     def lesson_shown(self, lms, lid):
         return self.shown.get(lid, True)
+
+    def show_lesson(self, lms, lid):
+        self._do("show")
+        self.shown[lid] = True
+
+    def points_games(self, lms, lid):
+        return ["نجوم الرياضيات"]
+
+    def lesson_points_actions(self, lms, lid):
+        return self.points.get(lid, 0)
+
+    def add_points_action(self, lms, lid, points, game, notification):
+        self._do("points")
+        self.points[lid] = 1
 
 
 def run(tmp_path, client, classes, **over):
@@ -200,3 +223,24 @@ def test_job_runs_spec_only_from_lessons_dir(tmp_path, classes, monkeypatch):
     assert created and job.kind == "lesson_build"
     with pytest.raises(pipeline.PipelineError, match="معطيات غير مقبولة"):
         JobService().enqueue("lesson_build", {"path": "x"})
+
+
+def test_prefixes_points_show_and_plan_outcomes(tmp_path, classes):
+    from docx import Document
+
+    c = Fake()
+    over = {"outcome_codes": [], "outcome_prefixes": ["2."], "show": True,
+            "points": {"points": 5, "game": "نجوم الرياضيات", "notification": "Popup"}}
+    r = run(tmp_path, c, classes, **over)
+    assert r.ok, r.summary["stopped"]
+    assert c.outcomes[900] == ["2.1", "2.2"]
+    assert c.calls[-2:] == ["points", "show"] and c.shown[900] is True and c.points[900] == 1
+    cell = Document(str(tmp_path / "plan.docx")).tables[0].rows[0].cells[1]
+    assert [p.text for p in cell.paragraphs] == ["2.1 نص", "2.2 نص"]
+    c.calls.clear()
+    assert run(tmp_path, c, classes, **over).ok and "points" not in c.calls and "show" not in c.calls
+
+
+def test_missing_points_game_stops_before_show(tmp_path, classes):
+    r = run(tmp_path, Fake(), classes, show=True, points={"points": 5, "game": "لعبة أخرى", "notification": "Popup"})
+    assert not r.ok and "لعبة أخرى" in r.summary["stopped"]

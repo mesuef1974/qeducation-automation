@@ -49,6 +49,8 @@ class LessonSpec:
     before_title: str = ""            # يُرتَّب قبل هذا الدرس؛ فارغ = في النهاية
     tags: tuple[str, ...] = ()
     outcome_codes: tuple[str, ...] = ()
+    outcome_prefixes: tuple[str, ...] = ()  # كل نتاجات الصف التي يبدأ رمزها بأحدها (مثل «10.2.» لوحدة)
+    show: bool = False                      # يُظهر الدرس بعد اكتمال بنائه
     pages: tuple[PageSection, ...] = ()
     decks: tuple[FileSection, ...] = ()
     quiz_name: str = ""
@@ -109,6 +111,9 @@ def parse(d: dict, base: Path) -> LessonSpec:
             quiz = tuple(assessment.parse_text(str(d["quiz"])))
         except ValueError as exc:
             raise SpecError(f"التقييم: {exc}") from exc
+    pts = d.get("points") or {}
+    if pts and not (isinstance(pts.get("points"), int) and pts["points"] > 0 and pts.get("game") and pts.get("notification")):
+        raise SpecError("النقاط: points (عدد موجب) وgame وnotification مطلوبة")
     names = [p.name for p in pages] + [s.title for s in decks]
     if len(set(names)) != len(names):
         raise SpecError("أسماء الأقسام مكررة")
@@ -117,7 +122,8 @@ def parse(d: dict, base: Path) -> LessonSpec:
         title=title, description=str(_need(d, "description", "وصف")).strip(), day=day, period=period,
         grade=str(_need(d, "grade", "مستوى دراسي")), term=str(_need(d, "term", "فصل دراسي")),
         before_title=" ".join(str(d.get("before_title", "")).split()), tags=tags,
-        outcome_codes=tuple(str(c) for c in d.get("outcome_codes", [])), pages=pages, decks=decks,
+        outcome_codes=tuple(str(c) for c in d.get("outcome_codes", [])),
+        outcome_prefixes=tuple(str(c) for c in d.get("outcome_prefixes", [])), show=bool(d.get("show", False)), pages=pages, decks=decks,
         quiz_name=str(d.get("quiz_name") or assessment.QUIZ_NAME), quiz=quiz, notes=notes,
         points=dict(d.get("points", {})),
     )
