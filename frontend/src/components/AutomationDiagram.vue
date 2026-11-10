@@ -205,8 +205,8 @@ const weeklySub = computed(() => (props.autoApprove
 /* الرسم لا يصغر عن 880px فيبقى نصه مقروءًا (لا 6.7px)، ويُمرَّر أفقيًا في الشاشات الضيقة.
    direction: rtl يبقي «%» والأرقام في مكانها من النص العربي؛ ولذلك المرساة معكوسة: start = يمين x، end = يساره. */
 .diagram-wrap { display: grid; gap: 10px; }
-.scroll { overflow-x: auto; }
-svg { inline-size: 100%; min-inline-size: 880px; block-size: auto; display: block; font-family: inherit; direction: rtl; unicode-bidi: isolate; }
+.scroll { overflow: hidden; }  /* الرسم يتقلّص مع العرض: بلا تمرير أفقي */
+svg { inline-size: 100%; min-inline-size: 0; block-size: auto; display: block; font-family: inherit; direction: rtl; unicode-bidi: isolate; }
 .lane { font-size: 15px; font-weight: 700; fill: var(--muted); text-anchor: start; }
 .hint { font-size: 12px; fill: var(--muted); text-anchor: end; }
 .flow { fill: none; stroke: var(--line); stroke-width: 2.5; transition: stroke .4s, opacity .4s; }
