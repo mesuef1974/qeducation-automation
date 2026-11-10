@@ -4,6 +4,7 @@
 المعايير المستنتجة من عروض الدروس: شريحة عنوان بالبسملة والشريط، الأهداف، أمثلة، نشاط فردي/ثنائي،
 «الدقيقة الواحدة» للغلق، ثم «الواجب: على منصة تعليم قطر».
 """
+import re
 from copy import deepcopy
 from dataclasses import dataclass
 from io import BytesIO
@@ -64,7 +65,8 @@ def _find(shapes, name: str):
 
 
 def set_text(shape, text: str, size: float | None = None) -> None:
-    """يضع النص في أول مقطع بتنسيقه ويحذف الباقي، فيبقى تنسيق القالب."""
+    """يضع النص في أول مقطع بتنسيقه ويحذف الباقي، فيبقى تنسيق القالب.
+    المقاطع بين U+202A وU+202C (مقادير رياضية) تُكتب مقاطع مستقلة بلغة en-US: لغة القالب العربية تقلب ترتيبها."""
     tf = shape.text_frame
     paras = tf.paragraphs
     for extra in paras[1:]:
@@ -74,11 +76,30 @@ def set_text(shape, text: str, size: float | None = None) -> None:
     if not runs:
         p.add_run()
         runs = p.runs
-    runs[0].text = text
+    proto = runs[0]._r
     for r in runs[1:]:
         r._r.getparent().remove(r._r)
+    parts = []
+    for i, chunk in enumerate(re.split("[‪‬]", text)):
+        if chunk:
+            parts.append((chunk, i % 2 == 1))  # الفرد = داخل التضمين
+    anchor = proto
+    first = True
+    for chunk, math in parts or [("", False)]:
+        r = proto if first else deepcopy(proto)
+        if not first:
+            anchor.addnext(r)
+        first = False
+        anchor = r
+        r.find(qn("a:t")).text = chunk
+        pr = r.find(qn("a:rPr"))
+        if pr is not None:
+            pr.set("lang", "en-US" if math else pr.get("lang", "ar-QA"))
+            if math:
+                pr.set("altLang", "ar-QA")
     if size:
-        runs[0].font.size = Pt(size)
+        for r in p.runs:
+            r.font.size = Pt(size)
 
 
 def _clone(prs: Presentation, src):
