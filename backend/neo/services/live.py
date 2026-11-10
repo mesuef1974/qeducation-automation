@@ -19,7 +19,7 @@ from pathlib import Path
 from django.conf import settings
 
 KEEP = 300  # ملفات آخر المهام المحفوظة
-NODES = ("platform", "fetch", "audit", "plan", "approve", "apply", "verify", "scorecard", "prep")
+NODES = ("platform", "fetch", "audit", "plan", "approve", "apply", "verify", "scorecard", "prep", "build")
 _lock = threading.Lock()
 _state: dict = {"path": None, "seq": 0, "t0": 0.0, "stage": "", "node": ""}
 

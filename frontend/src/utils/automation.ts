@@ -4,7 +4,7 @@ import type { JobKind } from "@/api/types";
  * نموذج رسم الأتمتة المشترك بين صفحتي «الأتمتة» و«مباشر»: العقد ومواضعها، وأنواع العمليات (SyncRun) لكل عقدة،
  * والعقدة الافتراضية لكل نوع مهمة. مفاتيح العقد هي نفسها حقل node في البث الحي (neo/services/live.py: NODES).
  */
-export type NodeKey = "platform" | "fetch" | "audit" | "plan" | "approve" | "apply" | "verify" | "scorecard" | "prep";
+export type NodeKey = "platform" | "fetch" | "audit" | "plan" | "approve" | "apply" | "verify" | "scorecard" | "prep" | "build";
 
 export interface NodeSpec {
   key: NodeKey;
@@ -27,6 +27,7 @@ export const NODES: NodeSpec[] = [
   { key: "verify", title: "تحقق", sub: "منظور الطالب وتدقيق بعدي", kinds: ["verify", "audit"], x: 612, y: 250 },
   { key: "scorecard", title: "بطاقة الأداء", sub: "8 معايير · لقطة يومية", kinds: [], x: 816, y: 250 },
   { key: "prep", title: "حزمة التحضير", sub: "سطح المكتب · قراءة فقط", kinds: ["prep"], x: 16, y: 60 },
+  { key: "build", title: "بناء الدرس", sub: "من مواصفة معتمدة · مخفي حتى النشر", kinds: [], x: 16, y: 250 },
 ];
 
 /** عقدة المهمة قبل أن تعلن مرحلتها (وللمهام القديمة التي سبق بثُّها حقلَ node) */

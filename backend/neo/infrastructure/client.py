@@ -14,6 +14,7 @@ from pathlib import Path
 
 from django.conf import settings
 from playwright.sync_api import Error as PlaywrightError
+from playwright.sync_api import TimeoutError as PlaywrightTimeout
 from playwright.sync_api import sync_playwright
 
 from neo.domain.assessment import POINTS, TF, Question
@@ -26,6 +27,7 @@ from neo.infrastructure.parsers import (
     parse_default_visibility,
     parse_file_links,
     parse_lesson_open,
+    parse_lessons,
     parse_outcomes,
     parse_points_actions,
     parse_points_games,
@@ -298,8 +300,101 @@ class NeoClient:
             raise PlatformError(f"بعد الحفظ ظهرت {len(saved)} من {len(tags)} كلمة")
         return saved
 
+    # ------------------------------------------------------------- إنشاء درس جديد
+
+    def find_lesson_id(self, lms_id: int, title: str, academic_year: str) -> int | None:
+        """معرّف الدرس بعنوانه المطابق تمامًا في قائمة دروس الصف (لا ترقيم تلقائي)، أو None."""
+        want = " ".join(title.split())
+        lessons = parse_lessons(self.lesson_list_html(lms_id), academic_year)
+        found = [x for x in lessons if " ".join(x.title.split()) == want]
+        if len(found) > 1:
+            raise PlatformError(f"أكثر من درس بعنوان «{title}» على المنصة؛ لا أعرف أيها المقصود")
+        return found[0].lms_lesson_id if found else None
+
+    def create_lesson(self, lms_id: int, title: str, description: str, academic_year: str, when: tuple[date, int],
+                      before_lesson_id: int | None = None) -> tuple[int, bool]:
+        """
+        درس جديد بعنوانه ووصفه وتاريخه وحصته (النموذج يرفض بلا تاريخ وحصة)، في النهاية أو قبل درس.
+        يعيد (معرّف الدرس، أُنشئ الآن؟). مكرر العنوان لا يُنشأ ثانيةً: الموجود يُعاد (الاستعادة بعد انقطاع).
+        """
+        if (existing := self.find_lesson_id(lms_id, title, academic_year)) is not None:
+            return existing, False
+        self._throttle()
+        self.page.goto(f"{BASE_URL}/teacher_lesson/new/{lms_id}", wait_until="load")
+        if is_login_url(self.page.url):
+            raise NotLoggedIn("انتهت الجلسة - شغّل: python manage.py neo_login")
+        form = "form[action*='/teacher_lesson/create/']"
+        if self.page.locator(form).count() != 1:
+            raise PlatformError("شكل نموذج إضافة الدرس غير مألوف")
+        self.page.fill("#lesson_name", title)
+        self.page.fill("#lesson_description", description)
+        self.page.fill("#lesson_location", "الصف")
+        d, period = when
+        self.page.evaluate(  # الحقول المخفية التي يقرؤها الخادم؛ منتقي التاريخ لا يعمل في صفحة النموذج الجزئية
+            """([y, m, d, period]) => {
+                 const set = (id, v) => { document.getElementById(id).value = v; };
+                 set('lesson_period_date_alt', `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`);
+                 set('lesson_period_date_year', y); set('lesson_period_date_month', m); set('lesson_period_date_day', d);
+                 const sel = document.getElementById('lesson_period_number');
+                 const opt = [...sel.options].find(o => o.value === String(period));
+                 if (!opt) throw new Error('حصة غير موجودة في النموذج');
+                 opt.disabled = false; sel.value = String(period);
+               }""", [d.year, d.month, d.day, period])
+        if before_lesson_id is not None:
+            order = [x.lms_lesson_id for x in parse_lessons(self.lesson_list_html(lms_id), academic_year)]
+            if before_lesson_id not in order:
+                raise PlatformError("الدرس المرجعي للترتيب غير موجود على المنصة")
+            self.page.select_option("#position", str(order.index(before_lesson_id) + 1))
+        with self.page.expect_navigation():
+            self.page.click(f"{form} button[type=submit]")
+        body = " ".join(self.page.inner_text("body").split())
+        # النجاح: الخادم يرد JSON فيه رابط الدرس الجديد؛ وما سواه رفض بسببه (تاريخ وحصة، مكان…)
+        m = re.search(r'"url":"[^"]*/teacher_lesson/show/\d+\?lesson_id=(\d+)"', body)
+        if not m:
+            raise PlatformError(f"رفضت المنصة إضافة الدرس: {body[:160]}")
+        created = self.find_lesson_id(lms_id, title, academic_year)
+        if created is None or created != int(m.group(1)):
+            raise PlatformError("الدرس المُنشأ لا يطابق ما في قائمة الدروس")
+        self.hide_lesson(lms_id, created)  # يظهر الجديد للطلاب افتراضيًا
+        return created, True
+
     def section_names(self, lms_id: int, lesson_id: int) -> list[str]:
         return [s.title for s in parse_sections(self.lesson_page_html(lms_id, lesson_id))]
+
+    def add_file_section(self, lms_id: int, lesson_id: int, path: Path, title: str, grade: str, term: str) -> None:
+        """
+        قسم «ملف» (عرض تقديمي) كما يضيفه المعلم: إضافة قسم ← ملف ← رفع ← عنوان القسم ← حفظ.
+        إضافة فقط: قسم بالعنوان نفسه موجود لا يُضاف ثانيةً. الملف يبقى خاصًا بالمعلم (لا يُشارَك في المكتبة).
+        """
+        if title in self.section_names(lms_id, lesson_id):
+            return
+        self._throttle()
+        page = self.page
+        page.goto(f"{BASE_URL}/teacher_lesson/show/{lms_id}?lesson_id={lesson_id}", wait_until="load")
+        if is_login_url(page.url):
+            raise NotLoggedIn("انتهت الجلسة - شغّل: python manage.py neo_login")
+        page.locator("a[title='إضافة قسم']").first.click()
+        page.wait_for_selector("a[onclick*='uploader/index']", state="attached", timeout=20_000)
+        page.evaluate("""() => document.querySelector("a[onclick*='uploader/index']").click()""")
+        page.wait_for_selector("input[type=file]", state="attached", timeout=30_000)
+        page.set_input_files("input[type=file]", str(path))
+        page.wait_for_selector("#resource_form", timeout=180_000)
+        page.fill("#resource_form [name='resource[name]']", title)
+        page.fill("#resource_form [name='resource[description]']", title)
+        page.select_option("#resource_form [name=topic]", label="الرياضيات")  # المادة والوسوم إلزامية في نموذج الملف
+        page.select_option("#resource_form [name='tag_groups[7]']", label=grade)
+        page.select_option("#resource_form [name='tag_groups[9]']", label=term)
+        scope = page.locator("#resource_form input[name=scope]:checked")
+        if scope.count() and scope.first.get_attribute("value") != "User":
+            page.check("#resource_form input[name=scope][value=User]")
+        page.click("#resource_form button[type=submit]")
+        try:
+            page.wait_for_selector("#resource_form", state="detached", timeout=60_000)
+        except PlaywrightTimeout as exc:
+            alerts = " | ".join(page.evaluate("() => [...document.querySelectorAll('#alerts')].map(e => e.innerText.trim())"))
+            raise PlatformError(f"رفضت المنصة حفظ قسم الملف: {alerts or 'بلا رسالة'}") from exc
+        if title not in self.section_names(lms_id, lesson_id):
+            raise PlatformError(f"لم يظهر قسم «{title}» في الدرس بعد الحفظ")
 
     def add_page_section(self, lms_id: int, lesson_id: int, name: str, html: str) -> None:
         """قسم «صفحة» جديد باسمه، ثم محتواه في محرر القسم (TinyMCE) ويُحفظ."""
@@ -554,6 +649,15 @@ class NeoClient:
         if is_login_url(self.page.url):
             raise NotLoggedIn("انتهت الجلسة - شغّل: python manage.py neo_login")
 
+    def hide_lesson(self, lms_id: int, lesson_id: int) -> None:
+        """الرؤية الافتراضية «مخفي»: الدرس المُنشأ يظهر للطلاب فور إنشائه، فيُخفى حتى يعتمد المعلم نشره."""
+        self._throttle()
+        self.page.goto(f"{BASE_URL}/teacher_lesson/set_shown_default/{lms_id}?lesson_id={lesson_id}&value=Hide")
+        if is_login_url(self.page.url):
+            raise NotLoggedIn("انتهت الجلسة - شغّل: python manage.py neo_login")
+        if self.lesson_shown(lms_id, lesson_id) is not False:
+            raise PlatformError("لم يُخفَ الدرس الجديد؛ تحقّق منه على المنصة")
+
     def lesson_points_actions(self, lms_id: int, lesson_id: int) -> int:
         return parse_points_actions(self.get_html(f"/teacher_lesson/completion/{lms_id}?lesson_id={lesson_id}"))
 
@@ -633,6 +737,52 @@ class NeoClient:
         if not resp.ok:
             raise PlatformError(f"GET {path} -> {resp.status}")
         return html
+
+    def _upload_in_editor(self, path: Path, label: str) -> None:
+        """«Upload File» في محرر TinyMCE: يرفع الملف إلى «ملفاتي» ثم يدرج رابطه في آخر المحتوى بعنوانه الظاهر."""
+        page = self.page
+        page.evaluate("""() => { const e = tinymce.activeEditor; e.selection.select(e.getBody(), true);
+                                 e.selection.collapse(false); }""")
+        before = page.evaluate("tinymce.activeEditor.dom.select('a').length")
+        page.locator("[aria-label='Upload File']").first.click()
+        deadline = time.monotonic() + 30
+        frame = None
+        while frame is None and time.monotonic() < deadline:
+            frame = next((f for f in page.frames if "uploader/file" in f.url), None)
+            page.wait_for_timeout(300)
+        if frame is None:
+            raise PlatformError("لم تفتح نافذة رفع الملف في المحرر")
+        frame.set_input_files("input[type=file]", str(path))
+        frame.wait_for_function("document.body.innerText.includes('100%')", timeout=180_000)
+        page.wait_for_timeout(4000)  # بعد 100% يسجّل الخادم الملف في «ملفاتي» قبل أن يقبل الإدراج
+        page.locator(".tox-dialog button:has-text('حفظ'):visible").first.click()
+        page.wait_for_function(f"tinymce.activeEditor.dom.select('a').length > {before}", timeout=30_000)
+        page.evaluate(
+            """(label) => { const a = tinymce.activeEditor.dom.select('a'); const last = a[a.length - 1];
+                            last.textContent = label; }""", label)
+
+    def add_notes_files(self, lms_id: int, lesson_id: int, files: list[tuple[Path, str]]) -> None:
+        """
+        ملفات «ملاحظات المعلم» (التحضير، العرض، ورقة العمل) برفعها وإدراج روابطها بعناوينها في المحرر وحفظ الملاحظات.
+        إضافة فقط: ملف عنوانه موجود في الملاحظات لا يُرفع ثانيةً، وما كتبه المعلم يبقى.
+        """
+        self._throttle()
+        self.page.goto(f"{BASE_URL}/teacher_lesson/edit_notes/{lms_id}?lesson_id={lesson_id}", wait_until="load")
+        if is_login_url(self.page.url):
+            raise NotLoggedIn("انتهت الجلسة - شغّل: python manage.py neo_login")
+        self.page.wait_for_function("window.tinymce && tinymce.activeEditor && tinymce.activeEditor.initialized",
+                                    timeout=30_000)
+        have = set(self.page.evaluate("tinymce.activeEditor.dom.select('a').map(a => a.textContent.trim())"))
+        todo = [(path, label) for path, label in files if label not in have]
+        for path, label in todo:
+            self._upload_in_editor(path, label)
+        if todo:
+            self.page.evaluate("tinymce.activeEditor.save()")
+            with self.page.expect_navigation():
+                self.page.click("form[action*='/teacher_lesson/save_notes/'] button[type=submit]")
+        names = {f.name.strip() for f in self.lesson_notes_files(lms_id, lesson_id)[0]}
+        if missing := [label for _, label in files if label not in names]:
+            raise PlatformError(f"لم تظهر الملفات في ملاحظات الدرس بعد الحفظ: {'، '.join(missing)}")
 
     def lesson_notes_files(self, lms_id: int, lesson_id: int) -> tuple[list[FileLink], str]:
         """ملفات «ملاحظات المعلم»: التحضير والعرض وورقة العمل (والصفحة نفسها للتشخيص)."""

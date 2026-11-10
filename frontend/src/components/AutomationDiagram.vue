@@ -46,7 +46,7 @@ function arrow(a: NodeKey, b: NodeKey): string {
   return `M${x},${A.y + BH} L${x},${B.y}`;
 }
 const FLOW: [NodeKey, NodeKey][] = [["platform", "fetch"], ["fetch", "audit"], ["audit", "plan"], ["plan", "approve"],
-  ["approve", "apply"], ["apply", "verify"], ["verify", "scorecard"]];
+  ["approve", "apply"], ["apply", "verify"], ["verify", "scorecard"], ["approve", "build"]];
 
 const pf = byKey("platform"), ap = byKey("apply"), pr = byKey("prep"), vf = byKey("verify");
 const EDGES: Record<string, string> = {
@@ -70,13 +70,13 @@ const dur = (k: string) => Math.round(Math.min(1700, Math.max(280, ((k.startsWit
 const FLOWING: Record<NodeKey, string[]> = {
   platform: [], fetch: ["platform>fetch"], audit: ["platform>fetch", "fetch>audit"], plan: ["audit>plan"],
   approve: ["plan>approve"], apply: ["approve>apply", "back"], verify: ["apply>verify"],
-  scorecard: ["verify>scorecard"], prep: ["side"],
+  scorecard: ["verify>scorecard"], prep: ["side"], build: ["approve>build", "back"],
 };
 /** طريق صفحة تُقرأ من المنصة إلى العقدة (مسار الكتابة نفسه يحمل القراءة عائدةً، بلونها) */
 const READ: Record<NodeKey, string[]> = {
   platform: [], fetch: ["platform>fetch"], audit: ["platform>fetch", "fetch>audit"],
   plan: ["platform>fetch", "fetch>audit", "audit>plan"], approve: [], apply: ["backIn"], verify: ["backIn", "apply>verify"],
-  scorecard: [], prep: ["side"],
+  scorecard: [], prep: ["side"], build: ["backIn"],
 };
 
 const live = computed(() => props.trail !== null);
