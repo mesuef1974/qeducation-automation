@@ -30,7 +30,7 @@ def test_quiz_rotates_answers_and_roundtrips():
 
 def test_ltr_isolates_math_only():
     out = review_bank.ltr("حل x² + 1 = 0 الآن")
-    assert out == f"حل {review_bank.LRI}x² + 1 = 0{review_bank.PDI} الآن"
+    assert out == f"حل {review_bank.LRE}x² + 1 = 0{review_bank.PDF} الآن"
 
 
 def test_spec_prefixes_show_and_points(tmp_path):

@@ -25,6 +25,7 @@ class Block:
     strategy: str = "التعلم الثنائي"   # من قوائم القالب المنسدلة حرفيًا
     competency: str = "التفكير الابداعي والتفكير الناقد"
     value: str = "الايجابية والمثابرة"
+    minutes: int = 10                  # عمود «الزمن»
 
 
 @dataclass(frozen=True)
@@ -121,6 +122,8 @@ def _fill_activity(cell, block: "Block") -> None:
     for p in body[len(rest):]:
         p._p.getparent().remove(p._p)
     for p, text in zip(cell.paragraphs[1:], rest):
+        for extra in p._p.findall(qn("w:sdt")):  # قوائم القالب القديمة في بقية الأسطر
+            p._p.remove(extra)
         runs = p.runs or [p.add_run()]
         runs[0].text = text
         for r in runs[1:]:
@@ -161,6 +164,7 @@ def fill(template: Path, out: Path, c: PlanContent) -> None:
         set_cell(cells[0], ["في نهاية الحصة على الطالب أن يكون قادراً على أن:", block.objective]
                  if row is rows[0] else [block.objective])
         _fill_activity(cells[1], block)
+        set_cell(cells[-1], str(block.minutes))
         if len(cells) > 2 and block.assessment:
             set_cell(cells[2], list(block.assessment))
     for row in rows[len(c.blocks):]:  # صفوف فائضة في القالب تُفرَّغ
@@ -168,6 +172,10 @@ def fill(template: Path, out: Path, c: PlanContent) -> None:
             set_cell(cell, [""])
     set_cell(_cells(_row(t, "الغلق"))[1], list(c.closing))
     set_cell(_cells(_row(t, "الواجب"))[1], c.homework)
+    for row in list(doc.tables[2].rows)[1:4]:  # جدول التأمل يُملأ بعد التدريس: يُفرَّغ مما ورثه عن الدرس المجاور
+        for cell in _cells(row):
+            if cell.text.strip():
+                set_cell(cell, [""])
     out.parent.mkdir(parents=True, exist_ok=True)
     doc.save(str(out))
 

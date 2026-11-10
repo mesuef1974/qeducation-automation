@@ -130,15 +130,14 @@ GROUPS = ((0, 4, "2.1 إلى 2.4", "يحل معادلات تربيعية بيا�
 
 def build_plan(req: ReviewRequest, template: Path, path: Path, outcomes: tuple[str, ...] = ()) -> None:
     blocks = []
-    for lo, hi, lessons, objective, (strategy, competency, _minutes) in GROUPS:
+    for lo, hi, lessons, objective, (strategy, competency, minutes) in GROUPS:
         names = review_bank.SKILLS[lo:hi]
-        blocks.append(plan_docx.Block(
-            objective, f"مراجعة دروس الوحدة ({lessons})",
-            (f"- يعرض المعلم مثالًا محلولًا لكل مهارة: {'، '.join(names)}.",
+        blocks.append(plan_docx.Block(minutes=minutes, objective=objective, title=f"مراجعة دروس الوحدة ({lessons})", activity=(
+            f"- يعرض المعلم مثالًا محلولًا لكل مهارة: {'، '.join(names)}.",
              "- يطلب من الثنائيات حل بند صح/خطأ ثم مناقشة الإجابة مع الجميع.",
              "- يقدم المعلم التغذية الراجعة المناسبة.",
              "- يتوصل الطلاب إلى إتقان المهارات ومعالجة الأخطاء الشائعة."),
-            ("أسئلة صح/خطأ على الشرائح وملاحظة حلول الطلاب",), strategy, competency))
+            assessment=("أسئلة صح/خطأ على الشرائح وملاحظة حلول الطلاب",), strategy=strategy, competency=competency))
     plan_docx.fill(template, path, plan_docx.PlanContent(
         unit=req.unit_title, title=req.title, outcomes=outcomes,
         terms="المعادلة التربيعية / المميز / إكمال المربع / المتباينة التربيعية / معادلة الدائرة",

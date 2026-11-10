@@ -8,12 +8,12 @@ from dataclasses import dataclass
 from neo.domain.assessment import MCQ, TF, Question
 
 _MATH = re.compile(r"[A-Za-z0-9²³√(][A-Za-z0-9²³√+−=×÷()/.,<>≤≥^ -]*[A-Za-z0-9²³√)]|[A-Za-z0-9²³√]")
-LRI, PDI = "⁦", "⁩"
+LRE, PDF = "‪", "‬"  # تضمين لا عزل: أوفيس لا يرسم محارف العزل
 
 
 def ltr(text: str) -> str:
-    """يعزل المقادير الرياضية (أرقام ولاتينية ورموز) داخل النص العربي، فلا ينقلب ترتيبها في العرض."""
-    return _MATH.sub(lambda m: f"{LRI}{m.group(0)}{PDI}", text)
+    """يضمّن المقادير الرياضية (أرقام ولاتينية ورموز) داخل النص العربي، فلا ينقلب ترتيبها في العرض."""
+    return _MATH.sub(lambda m: f"{LRE}{m.group(0)}{PDF}", text)
 
 
 @dataclass(frozen=True)
