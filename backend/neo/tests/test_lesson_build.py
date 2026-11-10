@@ -180,3 +180,23 @@ def test_session_loss_raises_and_unknown_class(tmp_path, classes):
         run(tmp_path, Lost(), classes)
     with pytest.raises(build.BuildError, match="غير مسجّل"):
         run(tmp_path, Fake(), classes, **{"class": 111})
+
+
+def test_job_runs_spec_only_from_lessons_dir(tmp_path, classes, monkeypatch):
+    from neo.services import pipeline
+    from neo.services.job_service import JobService
+
+    lessons = tmp_path / "lessons"
+    lessons.mkdir()
+    monkeypatch.setattr(pipeline, "lesson_dir", lambda: lessons)
+    spec_dict(lessons)
+    (lessons / "r.json").write_text(json.dumps(spec_dict(lessons), ensure_ascii=False), encoding="utf-8")
+    c = Fake()
+    runs = pipeline.lesson_build("r.json", lambda: c)
+    assert runs[0].ok and c.calls[0] == "create"
+    with pytest.raises(pipeline.PipelineError, match="غير موجودة"):
+        pipeline.lesson_build("../خارج.json", lambda: c)
+    job, created = JobService().enqueue("lesson_build", {"spec": "r.json"})
+    assert created and job.kind == "lesson_build"
+    with pytest.raises(pipeline.PipelineError, match="معطيات غير مقبولة"):
+        JobService().enqueue("lesson_build", {"path": "x"})

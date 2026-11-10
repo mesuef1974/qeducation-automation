@@ -12,7 +12,8 @@ from django.core.management.base import BaseCommand, CommandError
 from neo.domain import lesson_spec
 from neo.infrastructure.client import NeoClient, NotLoggedIn, PlatformError
 from neo.services import lesson_build_service as build
-from neo.services import safety
+from neo.services import pipeline, safety
+from neo.services.job_service import JobService
 
 
 class Command(BaseCommand):
@@ -21,9 +22,11 @@ class Command(BaseCommand):
     def add_arguments(self, parser):
         parser.add_argument("--spec", required=True, type=Path)
         parser.add_argument("--apply", action="store_true", help="الكتابة على المنصة (بعد اعتماد المعاينة)")
+        parser.add_argument("--queue", action="store_true",
+                            help="بدل التنفيذ هنا: يُطابور مهمة للعامل فتظهر في «مباشر» والرسم (المواصفة في .local/lessons)")
         parser.add_argument("--show-browser", action="store_true")
 
-    def handle(self, *args, spec, apply, show_browser, **opts):
+    def handle(self, *args, spec, apply, queue, show_browser, **opts):
         try:
             parsed = lesson_spec.load(spec)
         except lesson_spec.SpecError as exc:
@@ -32,6 +35,13 @@ class Command(BaseCommand):
             self.stdout.write(line)
         if not apply:
             self.stdout.write(self.style.WARNING("معاينة فقط: أعد التشغيل مع --apply بعد الاعتماد."))
+            return
+        if queue:
+            lessons = pipeline.lesson_dir().resolve()
+            if lessons not in spec.resolve().parents:
+                raise CommandError(f"للطابور تُوضع المواصفة وملفاتها في {lessons}")
+            job, created = JobService().enqueue("lesson_build", {"spec": spec.resolve().relative_to(lessons).as_posix()})
+            self.stdout.write(f"مهمة #{job.pk} {'أُنشئت' if created else 'قائمة بالفعل'}: يتابعها العامل وتظهر في «مباشر».")
             return
         try:
             run = build.LessonBuildService().build(parsed, lambda: NeoClient(headless=not show_browser))

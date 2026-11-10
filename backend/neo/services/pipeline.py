@@ -4,9 +4,12 @@
 """
 from collections.abc import Callable
 from datetime import date
+from pathlib import Path
 
+from django.conf import settings
 from django.utils import timezone
 
+from neo.domain import lesson_spec
 from neo.infrastructure.client import NeoClient, NotLoggedIn
 from neo.models import (
     AssignProposal,
@@ -20,6 +23,7 @@ from neo.services import live, safety
 from neo.services.assign_service import AssignService
 from neo.services.audit_service import AuditService
 from neo.services.content_service import ContentService
+from neo.services.lesson_build_service import BuildError, LessonBuildService
 from neo.services.prep_service import PackStopped, PrepService
 from neo.services.publish_service import PublishService
 from neo.services.sync_service import SyncService, active_classes
@@ -162,6 +166,27 @@ def prep_pack(lms_id: int, week: int, factory: Factory, policy: dict | None = No
     try:
         return fetched + [PrepService(policy).run(classes[0], week, factory)]
     except PackStopped as exc:
+        raise PipelineError(str(exc)) from exc
+
+
+# ------------------------------------------------------------- المرحلة 10: بناء درس جديد (كتابة بمواصفة معتمدة)
+
+def lesson_dir() -> Path:
+    return Path(settings.BASE_DIR).parent / ".local" / "lessons"
+
+
+def lesson_build(spec: str, factory: Factory) -> list[SyncRun]:
+    """المواصفة من مجلد `.local/lessons` وحده (لا مسار اعتباطي عبر الواجهة)، ثم البناء مخفيًا بصمّامات الكتابة."""
+    path = (lesson_dir() / spec).resolve()
+    if lesson_dir().resolve() not in path.parents or not path.is_file():
+        raise PipelineError(f"المواصفة {spec} غير موجودة في {lesson_dir()}")
+    try:
+        parsed = lesson_spec.load(path)
+    except lesson_spec.SpecError as exc:
+        raise PipelineError(str(exc)) from exc
+    try:
+        return [LessonBuildService().build(parsed, factory)]
+    except BuildError as exc:
         raise PipelineError(str(exc)) from exc
 
 

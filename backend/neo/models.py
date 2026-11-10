@@ -295,6 +295,7 @@ class Job(models.Model):
         CONTENT_PLAN = "content_plan", "اقتراح المحتوى"
         CONTENT_APPLY = "content_apply", "إضافة المحتوى المعتمد"
         PREP_PACK = "prep_pack", "حزمة التحضير الأسبوعية"
+        LESSON_BUILD = "lesson_build", "بناء درس جديد"
         SESSION = "session", "فحص الجلسة"
 
     class Status(models.TextChoices):

@@ -34,7 +34,7 @@ export const NODES: NodeSpec[] = [
 export const KIND_NODE: Record<JobKind, NodeKey> = {
   login: "platform", sync_plan: "fetch", sync_apply: "apply", assign_plan: "fetch", assign_apply: "apply",
   publish_plan: "fetch", publish_apply: "apply", verify: "verify", weekly: "fetch", audit: "audit",
-  content_plan: "plan", content_apply: "apply", prep_pack: "prep", session: "platform",
+  content_plan: "plan", content_apply: "apply", prep_pack: "prep", lesson_build: "build", session: "platform",
 };
 
 export const isNode = (k: unknown): k is NodeKey => typeof k === "string" && NODES.some((n) => n.key === k);

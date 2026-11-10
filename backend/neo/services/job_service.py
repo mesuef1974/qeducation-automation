@@ -11,10 +11,12 @@ from django.db import IntegrityError, transaction
 from django.db.models import Q
 from django.utils import timezone
 
+from neo.domain import lesson_spec
 from neo.domain.redact import scrub
 from neo.infrastructure.client import BrowserBusy, NeoClient, NotLoggedIn, PlatformError
 from neo.models import Job, SyncRun, WorkerHeartbeat
 from neo.services import alerts, live, pipeline, safety, weekly_service
+from neo.services.lesson_build_service import BuildError
 from neo.services.sync_service import NoActiveClasses, active_classes
 
 log = logging.getLogger(__name__)
@@ -40,6 +42,7 @@ PARAMS = {
     Job.Kind.ASSIGN_APPLY: {"run", "approve", "limit"},
     Job.Kind.PUBLISH_APPLY: {"run", "approve", "limit"},
     Job.Kind.PREP_PACK: {"class", "week"},
+    Job.Kind.LESSON_BUILD: {"spec"},
     Job.Kind.SESSION: set(),
 }
 
@@ -66,6 +69,8 @@ def _execute(job: Job, make: FactoryMaker, today: date) -> list[SyncRun]:
         return weekly_service.run(active_classes(p.get("classes")), factory, today, job.report)
     if job.kind == k.PREP_PACK:
         return pipeline.prep_pack(p["class"], p["week"], factory)
+    if job.kind == k.LESSON_BUILD:
+        return pipeline.lesson_build(p["spec"], factory)
     if job.kind == k.CONTENT_APPLY:
         return pipeline.content_apply(p["run"], factory, p.get("approve"), p.get("lesson"))
     if job.kind in (k.SYNC_PLAN, k.ASSIGN_PLAN, k.PUBLISH_PLAN, k.VERIFY, k.AUDIT, k.CONTENT_PLAN):
@@ -91,7 +96,7 @@ def _classify(exc: Exception) -> str:
         return Job.Error.SESSION
     if isinstance(exc, BrowserBusy):
         return Job.Error.BUSY
-    if isinstance(exc, (pipeline.PipelineError, NoActiveClasses)):
+    if isinstance(exc, (pipeline.PipelineError, NoActiveClasses, lesson_spec.SpecError, BuildError)):
         return Job.Error.INPUT
     if isinstance(exc, PlatformError):
         return Job.Error.PLATFORM
