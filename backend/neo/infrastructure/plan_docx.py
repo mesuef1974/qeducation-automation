@@ -150,8 +150,12 @@ def fill(template: Path, out: Path, c: PlanContent) -> None:
     idx = next(i for i, r in enumerate(warm) if " ".join(r.cells[0].text.split()) == "التهيئة")
     set_cell(_cells(warm[idx + 1])[0], list(c.warmup))
     rows = _activity_rows(t)
-    if len(c.blocks) > len(rows):
-        raise PlanTemplateError(f"القالب يتسع لـ {len(rows)} صفوف أنشطة وللدرس {len(c.blocks)}")
+    if not rows:
+        raise PlanTemplateError("القالب بلا صفوف أنشطة")
+    while len(rows) < len(c.blocks):  # خطط الدروس الأقصر: يُستنسخ آخر صف نشاط بتنسيقه
+        clone = deepcopy(rows[-1]._tr)
+        rows[-1]._tr.addnext(clone)
+        rows = _activity_rows(t)
     for row, block in zip(rows, c.blocks):
         cells = _cells(row)
         set_cell(cells[0], ["في نهاية الحصة على الطالب أن يكون قادراً على أن:", block.objective]
