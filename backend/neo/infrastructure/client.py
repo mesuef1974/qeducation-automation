@@ -743,7 +743,8 @@ class NeoClient:
         page = self.page
         page.evaluate("""() => { const e = tinymce.activeEditor; e.selection.select(e.getBody(), true);
                                  e.selection.collapse(false); }""")
-        before = page.evaluate("tinymce.activeEditor.dom.select('a').length")
+        before = page.evaluate("""() => { window.__known = new Set(tinymce.activeEditor.dom.select('a').map(a => a.getAttribute('href')));
+                                         return window.__known.size; }""")
         page.locator("[aria-label='Upload File']").first.click()
         deadline = time.monotonic() + 30
         frame = None
@@ -757,9 +758,10 @@ class NeoClient:
         page.wait_for_timeout(4000)  # بعد 100% يسجّل الخادم الملف في «ملفاتي» قبل أن يقبل الإدراج
         page.locator(".tox-dialog button:has-text('حفظ'):visible").first.click()
         page.wait_for_function(f"tinymce.activeEditor.dom.select('a').length > {before}", timeout=30_000)
-        page.evaluate(
-            """(label) => { const a = tinymce.activeEditor.dom.select('a'); const last = a[a.length - 1];
-                            last.textContent = label; }""", label)
+        page.evaluate(  # الرابط الجديد وحده (المدرَج قد لا يكون الأخير)؛ ما كتبه المعلم من روابط لا يُمس
+            """(label) => { const fresh = tinymce.activeEditor.dom.select('a').filter(a => !window.__known.has(a.getAttribute('href')));
+                            if (fresh.length !== 1) throw new Error('روابط جديدة غير متوقعة: ' + fresh.length);
+                            fresh[0].textContent = label; }""", label)
 
     def add_notes_files(self, lms_id: int, lesson_id: int, files: list[tuple[Path, str]]) -> None:
         """
