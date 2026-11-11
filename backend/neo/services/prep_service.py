@@ -20,7 +20,7 @@ from neo.domain import weekly_pack as wp
 from neo.domain.bidi import fix_ranges
 from neo.domain.redact import scrub
 from neo.domain.types import FileLink
-from neo.infrastructure import docx_prep, office
+from neo.infrastructure import docx_message, docx_prep, office
 from neo.infrastructure.client import NotLoggedIn, PlatformError
 from neo.models import PlatformAssessment, PlatformClass, SyncRun
 from neo.services import live
@@ -28,7 +28,7 @@ from neo.services.matching import normalize
 from neo.services.scheduling import WeekSpan
 from neo.services.sync_service import NO_MATCH
 
-MESSAGE_FILE = "الرسالة الأسبوعية.txt"
+MESSAGE_FILE = "الرسالة الأسبوعية.docx"  # جدول وورد بأعمدة نموذج المدرسة (قرار المعلم 2026-11-11)
 HOLIDAY, TESTS = "إجازة", "اختبارات"
 
 
@@ -277,7 +277,7 @@ class PrepService:
         pages, unknown_pages = wp.week_pages(book, pack)
         row = wp.message_row(section, pack, pages, wp.homework_text(wp.book_exercises(texts), len(finals)),
                              wp.tests_text(tests))
-        (week_dir / MESSAGE_FILE).write_text(wp.message_tsv(row), encoding="utf-8-sig")
+        docx_message.write_message(week_dir / MESSAGE_FILE, wp.MESSAGE_HEADER, row)
 
         produced = [week_dir / x["folder"] / f["name"] for x in lessons for f in x["files"]]
         stale = {str(p.relative_to(week_dir)): s for p in produced if p.suffix == ".docx"

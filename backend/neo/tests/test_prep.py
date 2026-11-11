@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pytest
 
+from neo.domain import weekly_pack as wp
 from neo.domain.bidi import LRM
 from neo.domain.types import FileLink, ParsedLesson, ParsedSection, ParsedSlot
 from neo.infrastructure import docx_prep
@@ -249,9 +250,16 @@ def test_prep_pack_week_11(klass, blobs, tmp_path):
     assert cells(first / "التحضير - الخطة اليومية   درس 49.docx")[-1] == ["12/2", "الأحد", "8/11/2026", "5"]
     ws = week_dir / "52 - القيم القصوى للدوال 1" / "ورقة عمل - ورقة عمل التهيئة.docx"
     assert "10/11/2026" in zipfile.ZipFile(ws).read("word/document.xml").decode()
-    msg = (week_dir / MESSAGE_FILE).read_text(encoding="utf-8-sig").splitlines()
-    assert msg[1].split("\t")[:3] == ["12/2", f"الدوال المتزايدة والمتناقصة ({LRM}2–4)، القيم القصوى للدوال ({LRM}1–3)",
-                                      f"{LRM}144–163"]
+    # الرسالة جدول وورد لا نص (قرار المعلم 2026-11-11): ترويسة النموذج وصف واحد، وكل موضوع سطر في خليته
+    assert MESSAGE_FILE.endswith(".docx") and not (week_dir / "الرسالة الأسبوعية.txt").exists()
+    from lxml import etree
+    root = etree.fromstring(zipfile.ZipFile(week_dir / MESSAGE_FILE).read("word/document.xml"))
+    rows = [[[docx_prep.text_of(p) for p in tc.iter(docx_prep.w("p"))] for tc in tr.iter(docx_prep.w("tc"))]
+            for tr in root.iter(docx_prep.w("tr"))]
+    assert [c[0] for c in rows[0]] == list(wp.MESSAGE_HEADER) and len(rows) == 2
+    assert rows[1][:3] == [["12/2"], [f"الدوال المتزايدة والمتناقصة ({LRM}2–4)", f"القيم القصوى للدوال ({LRM}1–3)"],
+                           [f"{LRM}144–163"]]
+    assert root.find(f".//{docx_prep.w('bidiVisual')}") is not None
     assert "ص151: 7" in s["message"]["row"][3] and "(6)" in s["message"]["row"][3]
     assert s["message"]["row"][4] == "لا يوجد"
     assert s["stale_years"] == {}
@@ -283,3 +291,20 @@ def test_reversed_year_pair_and_sdt_wrapped_cells():
     ns = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
     row = etree.fromstring(f'<w:tr xmlns:w="{ns}"><w:tc><w:tcPr><w:gridSpan w:val="2"/></w:tcPr></w:tc><w:sdt><w:sdtContent><w:tc/></w:sdtContent></w:sdt><w:tc/></w:tr>')
     assert [c for c, _ in docx_prep._grid(row)] == [0, 2, 3]
+
+
+def test_message_docx_is_a_deterministic_rtl_table(tmp_path):
+    """جدول الرسالة: حتمي بايتًا ببايت، ومن اليمين لليسار، والواجبات سطر لكل صفحة."""
+    from neo.infrastructure import docx_message
+    row = ["12/2", "أ (1)، ب (2)", "154–168", "تدريبات كتاب الطالب ص67: 3؛ ص166: 31، 35", "لا يوجد", ""]
+    a, b = tmp_path / "a.docx", tmp_path / "b.docx"
+    docx_message.write_message(a, wp.MESSAGE_HEADER, row)
+    docx_message.write_message(b, wp.MESSAGE_HEADER, row)
+    assert a.read_bytes() == b.read_bytes()
+    assert docx_message.cell_lines(3, row[3]) == ["تدريبات كتاب الطالب ص67: 3", "ص166: 31، 35"]
+    assert cells(a) == [list(wp.MESSAGE_HEADER), ["12/2", "أ (1)ب (2)", "154–168", row[3].replace("؛ ", ""), "لا يوجد", ""]]
+    with pytest.raises(ValueError):
+        docx_message.write_message(a, wp.MESSAGE_HEADER, row[:5])
+    # الأرقام والمدى والشعبة بلا w:rtl، وإلا قلبها وورد إلى «2/12» و«4–1»
+    assert docx_message.segments(f"التقعر ({LRM}1–4)") == [("التقعر (", True), (f"{LRM}1–4", False), (")", True)]
+    assert docx_message.segments("12/2") == [("12/2", False)]
