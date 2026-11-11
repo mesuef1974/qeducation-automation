@@ -246,6 +246,13 @@ class PrepService:
         tests = [(e.title, e.start_date, e.end_date) for e in CalendarEvent.objects.filter(
             plan=plan, event_type=TESTS, start_date__lte=week.end_date, end_date__gte=week.start_date)]
         book = wp.book_for(plan.grade_level, plan.term_no, plan.tracks)
+        # صفحات الكتاب من مصدرها (student_books) لكل درس ومراجعة في الأسبوع، وإلا توقف قبل أي طلب على المنصة:
+        # عمود ناقص أو نطاق مبتور في رسالة ولي الأمر أسوأ من رسالة متأخرة
+        ranges, unknown_pages = wp.week_ranges(book, pack)
+        if unknown_pages:
+            raise PackStopped(f"لا صفحات في كتاب الطالب لـ {'، '.join(unknown_pages)} "
+                              f"(المستوى {plan.grade_level}، الفصل {plan.term_no}، {plan.tracks or 'بلا مسار'}). "
+                              "أضفها من فهرس دليل المعلم إلى neo/domain/student_books.py ثم أعد التشغيل.")
         root = self._dest_root()  # قبل المتصفح: خطأ هنا لا يكلّف طلبات على المنصة
 
         with factory() as client:
@@ -274,8 +281,8 @@ class PrepService:
             })
 
         live.stage("صف الرسالة الأسبوعية والتحقق", "prep")
-        pages, unknown_pages = wp.week_pages(book, pack)
-        row = wp.message_row(section, pack, pages, wp.homework_text(wp.book_exercises(texts), len(finals)),
+        exercises, outside = wp.within(wp.book_exercises(texts), ranges)
+        row = wp.message_row(section, pack, wp.pages_text(ranges), wp.homework_text(exercises, len(finals)),
                              wp.tests_text(tests))
         docx_message.write_message(week_dir / MESSAGE_FILE, wp.MESSAGE_HEADER, row)
 
@@ -298,7 +305,9 @@ class PrepService:
             "week": week_no, "week_range": [week.start_date.isoformat(), week.end_date.isoformat()],
             "folder": str(week_dir), "section": section, "lessons": lessons,
             "message": {"header": list(wp.MESSAGE_HEADER), "row": row, "file": MESSAGE_FILE},
-            "pages_unknown": unknown_pages, "final_assessments": finals,
+            "pages_unknown": unknown_pages, "pages_ranges": ranges, "book": book.title if book else "",
+            "exercises_outside_week": {str(p): n for p, n in outside.items()},
+            "title_mismatch": wp.title_mismatches(book, pack), "final_assessments": finals,
             "downloads": sum(x["downloaded"] for x in lessons), "files": len(produced),
             "stale_years": stale, "word_check": checks, "hashes": hashes, "same_as_previous": same,
             "platform_differs": [x["position"] for x in lessons if x["platform_differs"]],

@@ -262,6 +262,7 @@ def test_prep_pack_week_11(klass, blobs, tmp_path):
     assert root.find(f".//{docx_prep.w('bidiVisual')}") is not None
     assert "ص151: 7" in s["message"]["row"][3] and "(6)" in s["message"]["row"][3]
     assert s["message"]["row"][4] == "لا يوجد"
+    assert s["pages_ranges"] == [(144, 163)] and s["pages_unknown"] == [] and s["title_mismatch"] == []
     assert s["stale_years"] == {}
     assert client.downloads == 6 * 4 - 1 and s["same_as_previous"] is None
 
@@ -278,6 +279,17 @@ def test_prep_pack_stops_without_guessing(klass, blobs, tmp_path):
     run = SyncRun.objects.get(kind=SyncRun.Kind.PREP)
     assert not run.ok and "المشتقات" in run.summary["error"]
     assert not list(tmp_path.glob("W0*"))  # لم يُكتب شيء
+
+
+def test_prep_pack_stops_when_book_pages_are_unknown(klass, blobs, tmp_path, monkeypatch):
+    """لا رسالة بعمود صفحات فارغ أو مبتور: درس بلا صفحات في كتاب الطالب يوقف الحزمة قبل أي طلب على المنصة."""
+    from neo.domain import student_books
+    monkeypatch.setattr(student_books, "BOOKS", {})
+    client = FakeClient(blobs)
+    with pytest.raises(PackStopped, match="لا صفحات في كتاب الطالب لـ 3.1، 3.2"):
+        PrepService({"dest_dir": tmp_path, "cache_dir": tmp_path / "cache", "word_check": False}).run(
+            klass, 11, lambda: client)
+    assert client.downloads == 0 and not list(tmp_path.glob("W0*"))
 
 
 def test_reversed_year_pair_and_sdt_wrapped_cells():

@@ -125,7 +125,8 @@ def test_message_row():
     book = wp.book_for(12, 1, "العلمي والتكنولوجي")
     assert wp.week_pages(book, pack) == (f"{LRM}144–163", [])
     assert wp.week_pages(None, pack) == ("", ["3.1", "3.2"])
-    assert wp.book_for(10, 1, "") is None
+    assert wp.book_for(10, 1, "").title.endswith("المستوى العاشر - الفصل الأول")
+    assert wp.title_mismatches(book, pack) == []
     texts = [
         "يوجه المعلم الطلاب لحل تدريب 20a صفحة 151 كتاب الطالب مستخدمين استراتيجية الحل الفردي",
         "يعرض المعلم لتدريب رقم  4 صفحة 66 دليل التقويم  العرض التقديمي",

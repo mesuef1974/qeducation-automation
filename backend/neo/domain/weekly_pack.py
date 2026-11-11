@@ -9,11 +9,12 @@ from __future__ import annotations
 
 import re
 from collections import defaultdict
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import date
 
 from neo.domain.bidi import LRM, latin_item
 from neo.domain.question_bank import part_of, topic_of
+from neo.domain.student_books import Book, book_for, book_key  # noqa: F401 (book_for يُستورد من هنا)
 from neo.domain.types import FileLink, Slot
 from neo.services.matching import normalize, strip_part
 from neo.services.scheduling import WeekSpan, build_slots
@@ -220,39 +221,49 @@ def class_section(class_name: str) -> str:
 
 # ------------------------------------------------------------- صف الرسالة الأسبوعية
 
-@dataclass(frozen=True)
-class Book:
-    """كتاب الطالب: صفحات كل درس كما في فهرسه (صفحة الكتاب = صفحة PDF − pdf_offset)، تُدخل بعد التحقق مرة واحدة.
-    part_end: آخر صفحة يبلغها جزء بعينه حين لا يغطي الأسبوع الدرس كله."""
-    title: str
-    pdf_offset: int
-    lessons: dict[str, tuple[int, int]]
-    part_end: dict[tuple[str, int], int] = field(default_factory=dict)
+def week_ranges(book: Book | None, lessons: list[PackLesson]) -> tuple[list[tuple[int, int]], list[str]]:
+    """نطاقات صفحات الأسبوع من كتاب الطالب (متصلها مدموج)، ورموز ما لا صفحات له في الكتاب وكان يجب أن تكون.
+    الدرس يغطي صفحاته كلها، إلا جزءًا سجّل له الكتاب نهاية (part_end) فيبدأ ما بعده من الصفحة التالية."""
+    parts: dict[str, list[int]] = {}
+    for pl in lessons:
+        if book_key(pl.code) is not None:
+            parts.setdefault(pl.code, []).append(pl.part)
+    spans, unknown = [], []
+    for code, ps in parts.items():
+        entry = book.entry(book_key(code)) if book else None
+        if entry is None:
+            unknown.append(code)
+            continue
+        before = book.part_end.get((code, min(ps) - 1))
+        spans.append((before + 1 if before else entry.first, book.part_end.get((code, max(ps)), entry.last)))
+    merged: list[tuple[int, int]] = []
+    for a, b in sorted(spans):
+        if merged and a <= merged[-1][1] + 1:
+            merged[-1] = (merged[-1][0], max(b, merged[-1][1]))
+        else:
+            merged.append((a, b))
+    return merged, sorted(unknown)
 
 
-# (المستوى، الفصل، المسار) ← الكتاب
-BOOKS: dict[tuple[int, int, str], Book] = {
-    (12, 1, "علمي"): Book("كتاب الطالب - الرياضيات 12 علمي وتكنولوجي - الفصل الأول", 8,
-                          {"3.1": (144, 153), "3.2": (154, 168)}, {("3.2", 3): 163}),
-}
-
-
-def book_for(grade: int, term: int, tracks: str) -> Book | None:
-    return next((b for (g, t, track), b in BOOKS.items() if g == grade and t == term and track in tracks), None)
+def pages_text(ranges: list[tuple[int, int]]) -> str:
+    """«‎154–191» أو «‎105–121، ‎142–149»؛ علامة LRM حتى لا يُقلب النطاق في السطر العربي."""
+    return "، ".join(f"{LRM}{a}–{b}" if a != b else f"{LRM}{a}" for a, b in ranges)
 
 
 def week_pages(book: Book | None, lessons: list[PackLesson]) -> tuple[str, list[str]]:
-    """(«144–163»، الدروس التي لا صفحات لها في الجدول). النطاق بعلامة LRM حتى لا يظهر «163–144» في السطر العربي."""
-    if book is None:
-        return "", sorted({pl.code for pl in lessons})
-    known = [pl for pl in lessons if pl.code in book.lessons]
-    unknown = sorted({pl.code for pl in lessons if pl.code not in book.lessons})
-    if not known:
-        return "", unknown
-    first = min(book.lessons[pl.code][0] for pl in known)
-    last_lesson = known[-1]
-    last = book.part_end.get((last_lesson.code, last_lesson.part), book.lessons[last_lesson.code][1])
-    return f"{LRM}{first}–{last}", unknown
+    ranges, unknown = week_ranges(book, lessons)
+    return pages_text(ranges), unknown
+
+
+def title_mismatches(book: Book | None, lessons: list[PackLesson]) -> list[dict]:
+    """دروس يختلف اسمها في الخطة عن فهرس الكتاب (للتنبيه؛ الموضوع يبقى اسم الدرس في الخطة لا هدفه)."""
+    out, seen = [], set()
+    for pl in lessons:
+        entry = book.entry(pl.code) if book and pl.code not in seen else None
+        seen.add(pl.code)
+        if entry and topic_key(entry.title) != topic_key(pl.plan_title):
+            out.append({"code": pl.code, "plan": pl.plan_title, "book": entry.title})
+    return out
 
 
 def topics_text(lessons: list[PackLesson]) -> str:
@@ -288,6 +299,12 @@ def book_exercises(texts: list[str]) -> dict[int, list[str]]:
         for m in _HOMEWORK.finditer(text):
             found.setdefault(int(m.group(1)), []).extend(_numbers(m.group(2)))
     return {page: list(dict.fromkeys(nums)) for page, nums in sorted(found.items())}
+
+
+def within(exercises: dict[int, list[str]], ranges: list[tuple[int, int]]) -> tuple[dict, dict]:
+    """(تدريبات في صفحات الأسبوع، وما خارجها): ذكرُ صفحة من درس آخر في التحضير ليس واجب هذا الأسبوع."""
+    inside = {p: n for p, n in exercises.items() if any(a <= p <= b for a, b in ranges)}
+    return inside, {p: n for p, n in exercises.items() if p not in inside}
 
 
 def _ex_key(n: str) -> tuple[int, str]:
