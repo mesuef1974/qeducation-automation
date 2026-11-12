@@ -29,6 +29,7 @@ from neo.models import (
     SyncRun,
 )
 from neo.services import alerts, live, pipeline, safety, scorecard_service
+from neo.services.assign_service import AssignService
 from neo.services.scheduling import WeekSpan, build_slots
 
 APPLY_KINDS = (SyncRun.Kind.APPLY, SyncRun.Kind.ASSIGN_APPLY, SyncRun.Kind.PUBLISH_APPLY)
@@ -93,6 +94,20 @@ def session_check_due(now: datetime, on_start: bool = False) -> bool:
         return not jobs.filter(created_at__gte=now - timedelta(minutes=30)).exists()
     since = now.replace(hour=SESSION_HOUR, minute=0, second=0, microsecond=0)
     return now >= since and not jobs.filter(created_at__gte=since).exists()
+
+
+GIVE_HOURS = (7, 21)  # إسناد تقييم اليوم بين 7:00 و21:00
+
+
+def give_due_now(now: datetime) -> bool:
+    """هل يُطابور إسناد تقييم اليوم؟ شيء مستحق، ولا مهمة إسناد قائمة، وآخر محاولة قبل ساعة على الأقل."""
+    if not GIVE_HOURS[0] <= now.hour < GIVE_HOURS[1] or safety.state().halted:
+        return False
+    jobs = Job.objects.filter(kind=Job.Kind.ASSIGN_GIVE)
+    if jobs.filter(status__in=Job.ACTIVE).exists() or jobs.filter(finished_at__gte=now - timedelta(hours=1)).exists():
+        return False
+    svc = AssignService()
+    return any(svc.due_to_give(k, now.date()) for k in PlatformClass.objects.filter(active=True))
 
 
 def periods_in_window(klass: PlatformClass, start: date, end: date) -> int:

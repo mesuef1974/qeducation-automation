@@ -27,6 +27,9 @@ from neo.services import live, safety
 
 FLAG_PAST_LESSON = "درس ماضٍ - المهلة من اليوم"
 AUTO_GIVE_NOTE = "المواعيد مضبوطة؛ تُسنده المنصة تلقائيًا حين يصير درسه الحالي"
+GIVE_NOTE = "المواعيد مضبوطة؛ تُسنده الأتمتة يوم درسه"
+WAITING = (AUTO_GIVE_NOTE, GIVE_NOTE)  # مواعيد ضُبطت وإسناد لم يتم بعد
+GIVE_BACK_DAYS = 2  # لا يُستدرك إسناد فات أكثر من مهلة الاستحقاق
 KEPT_NOTE = "على المنصة مواعيد تخالف المعتمد فلم تُمس؛ راجعها على المنصة"
 
 
@@ -207,9 +210,12 @@ class AssignService:
                     results[p.pk] = (AssignProposal.Status.FAILED, f"ضبط المواعيد: {scrub(str(exc))[:400]}")
                     stop = results[p.pk][1]
                     break
-            for p in [p for p in to_give if p.lesson_date >= today]:
-                results[p.pk] = (AssignProposal.Status.APPLIED, AUTO_GIVE_NOTE)
-            to_give = [p for p in to_give if p.lesson_date < today]
+            # مع قاعدة الأيام يُطفأ إسناد المنصة التلقائي: الأتمتة تُسند تقييم اليوم هنا والقادم في يومه (give_due)
+            manual = bool(policy().weekdays)
+            waits = [p for p in to_give if (p.lesson_date > today if manual else p.lesson_date >= today)]
+            for p in waits:
+                results[p.pk] = (AssignProposal.Status.APPLIED, GIVE_NOTE if manual else AUTO_GIVE_NOTE)
+            to_give = [p for p in to_give if p not in waits]
             if to_give and not session_error and not stop:
                 try:
                     client.give_assessments(lms_id, [p.assessment.lms_assignment_id for p in to_give])
@@ -231,6 +237,67 @@ class AssignService:
             raise session_error
         return log
 
+    # ------------------------------------------------------------- إسناد اليوم
+
+    def due_to_give(self, klass: PlatformClass, today: date) -> list[AssignProposal]:
+        """اقتراحات ضُبطت مواعيدها وحان يوم درسها ولم تُسند: واجب الثلاثاء وتقييم الخميس وحدهما (القاعدة الحالية)."""
+        lessons = {pl.lms_lesson_id: pl for pl in PlatformLesson.objects.filter(klass=klass)}
+        picked = weekly_pick(list(lessons.values()), tuple(policy().weekdays))
+        latest: dict[int, AssignProposal] = {}
+        qs = AssignProposal.objects.filter(
+            run__klass=klass, status=AssignProposal.Status.APPLIED, error__in=WAITING, assessment__given=False,
+            lesson_date__range=(today - timedelta(days=GIVE_BACK_DAYS), today),
+        ).select_related("assessment").order_by("applied_at", "pk")
+        for prop in qs:
+            lesson = lessons.get(prop.assessment.lms_lesson_id)
+            if lesson and lesson.date == prop.lesson_date and lesson.match_sure and lesson.lms_lesson_id in picked:
+                latest[prop.assessment_id] = prop
+        return list(latest.values())
+
+    def give_due(self, klass: PlatformClass, today: date, client_factory: Callable[[], NeoClient]) -> SyncRun | None:
+        """يُسند ما حان يومه كما يفعل المعلم من قائمة التقييمات، ويتحقق بقراءة بعدية. لا شيء مستحق = لا متصفح."""
+        items = self.due_to_give(klass, today)
+        if not items:
+            return None
+        lms_id = klass.lms_id
+        ids = [p.assessment.lms_assignment_id for p in items]
+        session_error, error, after = None, "", {}
+        with client_factory() as client:  # لا ORM هنا
+            try:
+                before = {a.lms_assignment_id: a.given for a in parse_assessments(client.assessments_html(lms_id))}
+                todo = [i for i in ids if not before.get(i)]
+                if todo:
+                    live.step(f"إسناد {len(todo)} تقييمًا · {klass.name}", 1, 2)
+                    try:
+                        client.give_assessments(lms_id, todo)
+                    except NotLoggedIn:
+                        raise
+                    except Exception as exc:  # noqa: BLE001 - الحالة الفعلية تُقرأ أدناه
+                        error = scrub(str(exc))[:400]
+                after = {a.lms_assignment_id: a.given for a in parse_assessments(client.assessments_html(lms_id))}
+            except NotLoggedIn as exc:
+                session_error = exc
+        given, failed = [], []
+        with transaction.atomic():
+            for p in items:
+                if after.get(p.assessment.lms_assignment_id):
+                    p.error = ""
+                    p.save(update_fields=["error"])
+                    PlatformAssessment.objects.filter(pk=p.assessment_id).update(given=True)
+                    given.append(p.assessment.title)
+                else:
+                    failed.append(p.assessment.title)
+            summary = {"give_due": today.isoformat(), "given": given, "failed": failed}
+            if session_error:
+                summary["error"] = "انتهت الجلسة"
+            elif failed:
+                summary["stopped"] = error or "لم يظهر مُسندًا بعد الإسناد (قد لا يكون درسه الحالي بعد)؛ يُعاد لاحقًا"
+            run = SyncRun.objects.create(klass=klass, kind=SyncRun.Kind.ASSIGN_APPLY, summary=summary,
+                                         finished_at=timezone.now(), ok=not failed and not session_error)
+        if session_error:
+            raise session_error
+        return run
+
     @transaction.atomic
     def _record(self, run, items, results, session_error, stop: str = "", kept: list[str] | None = None) -> SyncRun:
         now = timezone.now()
@@ -241,7 +308,7 @@ class AssignService:
             p.status, p.error = results[p.pk]
             if p.status == AssignProposal.Status.APPLIED:
                 p.applied_at = now
-                if p.error != AUTO_GIVE_NOTE:
+                if p.error not in WAITING:
                     PlatformAssessment.objects.filter(pk=p.assessment_id).update(given=True)
             p.save(update_fields=["status", "error", "applied_at"])
             stats[p.status] = stats.get(p.status, 0) + 1

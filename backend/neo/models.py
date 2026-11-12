@@ -289,6 +289,7 @@ class Job(models.Model):
         SYNC_APPLY = "sync_apply", "تطبيق التواريخ"
         ASSIGN_PLAN = "assign_plan", "جلب واقتراح الإسناد"
         ASSIGN_APPLY = "assign_apply", "تطبيق الإسناد"
+        ASSIGN_GIVE = "assign_give", "إسناد تقييم اليوم"
         PUBLISH_PLAN = "publish_plan", "جلب واقتراح النشر"
         PUBLISH_APPLY = "publish_apply", "تطبيق النشر ثم التحقق"
         VERIFY = "verify", "التحقق من منظور الطالب"

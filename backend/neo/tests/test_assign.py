@@ -212,3 +212,94 @@ def test_weekly_plan_only_proposes_picked_days(classes, settings):
     got = {p.assessment.lms_assignment_id: timezone.localtime(p.begin_at).date() for p in run.assign_proposals.all()}
     assert got == {102: date(2026, 11, 17), 103: date(2026, 11, 19)}
     assert run.summary["not_weekly"] == 1 and run.summary["policy"]["weekdays"] == [1, 3]
+
+
+# ------------------------------------------------------------- إسناد اليوم (واجب الثلاثاء وتقييم الخميس)
+
+class GiveFake:
+    def __init__(self, refuse=False):
+        self.given, self.refuse, self.calls = set(), refuse, []
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *a):
+        return False
+
+    def assessments_html(self, lms):
+        return "x"
+
+    def give_assessments(self, lms, ids):
+        self.calls.append(list(ids))
+        if not self.refuse:
+            self.given |= set(ids)
+
+
+@pytest.fixture
+def weekly_setup(classes, settings, monkeypatch):
+    settings.NEO_ASSIGN_POLICY = {"due_days": 2, "allow_late": True, "weekdays": (1, 3)}
+    k = classes[602598]
+    SyncService().ingest(k, [
+        ParsedLesson(1, 1, "أ", "", date(2026, 11, 16), 3),   # الاثنين
+        ParsedLesson(2, 2, "ب", "", date(2026, 11, 17), 1),   # الثلاثاء
+        ParsedLesson(3, 3, "ج", "", date(2026, 11, 19), 1),   # الخميس
+    ], [])
+    confirm_matches(k)
+    svc = AssignService()
+    items = [ParsedAssessment(101, "ت1", 1, False), ParsedAssessment(102, "ت2", 2, False),
+             ParsedAssessment(103, "ت3", 3, False)]
+    svc.ingest(k, items)
+    fake = GiveFake()
+    from neo.services import assign_service
+    monkeypatch.setattr(assign_service, "parse_assessments", lambda html: [
+        ParsedAssessment(a.lms_assignment_id, a.title, a.lms_lesson_id, a.lms_assignment_id in fake.given)
+        for a in items])
+    # مواعيد مضبوطة بانتظار يومها، ومنها اقتراح قديم لدرس الاثنين كتبته دورة سابقة قبل القاعدة
+    run = svc.plan(k, date(2026, 11, 12))
+    run.assign_proposals.update(status=AssignProposal.Status.APPLIED, error=assign_service.GIVE_NOTE)
+    old = PlatformAssessment.objects.get(lms_assignment_id=101)
+    AssignProposal.objects.create(run=run, assessment=old, lesson_date=date(2026, 11, 16),
+                                  begin_at=timezone.now(), end_at=timezone.now(), allow_late=True,
+                                  status=AssignProposal.Status.APPLIED, error=assign_service.AUTO_GIVE_NOTE)
+    return svc, k, fake
+
+
+def test_weekly_give_due_only_on_its_day(weekly_setup):
+    svc, k, fake = weekly_setup
+    assert svc.give_due(k, date(2026, 11, 16), lambda: fake) is None and not fake.calls  # الاثنين: القديم خارج القاعدة
+    run = svc.give_due(k, date(2026, 11, 17), lambda: fake)
+    assert run.ok and fake.calls == [[102]] and run.summary["given"] == ["ت2"]
+    assert PlatformAssessment.objects.get(lms_assignment_id=102).given
+    assert svc.give_due(k, date(2026, 11, 17), lambda: fake) is None  # لا يتكرر
+    run = svc.give_due(k, date(2026, 11, 19), lambda: fake)
+    assert run.ok and fake.calls[-1] == [103]
+
+
+def test_weekly_give_due_refused_is_retried_then_expires(weekly_setup):
+    svc, k, fake = weekly_setup
+    fake.refuse = True
+    run = svc.give_due(k, date(2026, 11, 17), lambda: fake)
+    assert not run.ok and run.summary["failed"] == ["ت2"] and "يُعاد" in run.summary["stopped"]
+    fake.refuse = False
+    assert svc.give_due(k, date(2026, 11, 18), lambda: fake).ok  # استدراك داخل المهلة
+    assert not svc.due_to_give(k, date(2026, 11, 25))  # تقييم الخميس بعد فوات مهلته لا يُستدرك
+
+
+def test_weekly_give_job_and_schedule(weekly_setup):
+    from neo.models import Job
+    from neo.services import weekly_service
+    from neo.services.job_service import JobService
+
+    assert weekly_setup
+    tz = timezone.get_default_timezone()
+    assert not weekly_service.give_due_now(datetime(2026, 11, 16, 9, 0, tzinfo=tz))
+    assert not weekly_service.give_due_now(datetime(2026, 11, 17, 6, 0, tzinfo=tz))
+    assert weekly_service.give_due_now(datetime(2026, 11, 17, 7, 5, tzinfo=tz))
+    job, created = JobService().enqueue("assign_give")
+    assert created and job.kind == Job.Kind.ASSIGN_GIVE
+    assert not weekly_service.give_due_now(datetime(2026, 11, 17, 7, 6, tzinfo=tz))  # مهمة قائمة
+    s = safety.state()
+    s.halted, s.reason = True, "اختبار"
+    s.save()
+    job.delete()
+    assert not weekly_service.give_due_now(datetime(2026, 11, 17, 7, 5, tzinfo=tz))

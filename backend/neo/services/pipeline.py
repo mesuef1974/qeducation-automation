@@ -102,6 +102,17 @@ def assign_apply(run_id: int, factory: Factory, today: date, approve: str | None
     return [svc.apply(run, factory, today, limit)]
 
 
+def assign_give(classes: list[PlatformClass], factory: Factory, today: date) -> list[SyncRun]:
+    """إسناد ما حان يومه من المعتمد المضبوط المواعيد (واجب الثلاثاء وتقييم الخميس)؛ إسناد المنصة التلقائي مطفأ."""
+    safety.require_writes_allowed()
+    svc, runs = AssignService(), []
+    for k in classes:
+        live.stage(f"إسناد تقييم اليوم · {k}", "apply")
+        if run := svc.give_due(k, today, factory):
+            runs.append(run)
+    return runs
+
+
 # ------------------------------------------------------------- المرحلة 3: النشر
 
 def publish_plan(classes: list[PlatformClass], factory: Factory) -> list[SyncRun]:

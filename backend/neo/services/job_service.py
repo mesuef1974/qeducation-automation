@@ -34,6 +34,7 @@ PARAMS = {
     Job.Kind.ASSIGN_PLAN: {"classes"},
     Job.Kind.PUBLISH_PLAN: {"classes"},
     Job.Kind.VERIFY: {"classes"},
+    Job.Kind.ASSIGN_GIVE: {"classes"},
     Job.Kind.WEEKLY: {"classes", "cycle"},
     Job.Kind.AUDIT: {"classes"},
     Job.Kind.CONTENT_PLAN: {"classes"},
@@ -67,6 +68,8 @@ def _execute(job: Job, make: FactoryMaker, today: date) -> list[SyncRun]:
         return []
     if job.kind == k.WEEKLY:
         return weekly_service.run(active_classes(p.get("classes")), factory, today, job.report)
+    if job.kind == k.ASSIGN_GIVE:
+        return pipeline.assign_give(active_classes(p.get("classes")), factory, today)
     if job.kind == k.PREP_PACK:
         return pipeline.prep_pack(p["class"], p["week"], factory)
     if job.kind == k.LESSON_BUILD:

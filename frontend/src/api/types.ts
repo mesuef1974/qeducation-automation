@@ -217,7 +217,7 @@ export type Proposal = DateProposal | PublishProposal | AssignProposal | Content
 
 export type JobKind =
   | "login" | "sync_plan" | "sync_apply" | "assign_plan" | "assign_apply" | "publish_plan" | "publish_apply" | "verify"
-  | "weekly" | "audit" | "content_plan" | "content_apply" | "prep_pack" | "lesson_build" | "session";
+  | "weekly" | "audit" | "content_plan" | "content_apply" | "prep_pack" | "lesson_build" | "session" | "assign_give";
 export type JobStatus = "queued" | "running" | "done" | "failed";
 
 export interface JobParams {

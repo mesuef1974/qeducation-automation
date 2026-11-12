@@ -126,6 +126,8 @@ class Command(BaseCommand):
                     backup_service.run_if_due(now.date())  # نسخة اليوم مرة واحدة، والعامل خامل الآن
                     if weekly_service.session_check_due(now):  # الخطوة 0: كل صباح قبل أي مهمة مجدولة
                         svc.enqueue(Job.Kind.SESSION)
+                    if weekly_service.give_due_now(now):  # واجب الثلاثاء وتقييم الخميس في يومهما
+                        svc.enqueue(Job.Kind.ASSIGN_GIVE)
                     if due := weekly_service.enqueue_due(now, svc.enqueue):
                         self.stdout.write(f"[#{due.pk}] حان موعد الدورة الأسبوعية {due.params['cycle']}")
                 job = svc.claim()
