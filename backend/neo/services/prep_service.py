@@ -239,7 +239,8 @@ class PrepService:
         live.step(fix_ranges(f"الدروس {pack[0].position}–{pack[-1].position}: {wp.topics_text(pack)}"), len(pack), len(pack))
         section = wp.class_section(klass.name)
         year_from = int(plan.academic_year.split("-")[0])
-        base = docx_prep.PrepFields(year_from, self.policy.get("teacher", ""), "", week.start_date, section, 0)
+        base = docx_prep.PrepFields(year_from, klass.teacher_name or self.policy.get("teacher", ""), "",
+                                    week.start_date, section, 0)
         ids = [pl.lms_lesson_id for pl in pack]
         finals = [a.title for a in PlatformAssessment.objects.filter(klass=klass, lms_lesson_id__in=ids)
                   if "ختامي" in normalize(a.title)]

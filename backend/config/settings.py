@@ -85,7 +85,8 @@ PLANS_DIR = Path(os.environ.get("PLANS_DIR", PROJECT_ROOT / "plans"))
 NEO_PROFILE_DIR = BASE_DIR / ".neo_profile"
 NEO_BROWSER_CHANNEL = "msedge"
 # سياسة الإسناد (المهمة 2) - اختيار المعلم: يظهر صباح يوم الدرس، يستحق بعد يومين، يُقبل المتأخر
-NEO_ASSIGN_POLICY = {"due_days": 2, "allow_late": True}
+# واجب الثلاثاء (1) وتقييم الخميس (3) فقط: تقييم واحد لكل منهما في الأسبوع (قرار المعلم 2026-11-12)
+NEO_ASSIGN_POLICY = {"due_days": 2, "allow_late": True, "weekdays": (1, 3)}
 # سياسة النشر (المهمة 3) - اختيار المعلم: يظهر كل درس مؤرخ، وكل درس يمنح عند إنجازه ما تمنحه الدروس الأولى
 NEO_PUBLISH_POLICY = {"show_dated": True, "points": 5, "game": "نجوم الرياضيات", "notification": "Popup"}
 # الدورة الأسبوعية (الخطوة 9، قرار المعلم 2026-11-04): الاثنين 7:00 مع تشغيل الجهاز في المدرسة، وكل شيء جاهز قبل 8:00

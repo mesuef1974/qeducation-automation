@@ -22,6 +22,8 @@ class PlatformClass(models.Model):
     points_game = models.CharField("لعبة النقاط", max_length=120, blank=True,
                                    help_text="اسم اللعبة كما في المنصة، مثل «نجوم الرياضيات»")
     points = models.PositiveSmallIntegerField("نقاط الإنجاز", null=True, blank=True, help_text="0 = بلا نقاط")
+    # اسم المعلم في ترويسة خطط هذا الصف؛ الفارغ يأخذ الاسم العام (config/local.json)
+    teacher_name = models.CharField("اسم المعلم في الخطط", max_length=120, blank=True)
     last_fetched_at = models.DateTimeField("آخر جلب", null=True, blank=True)
     # الخطوة 1: أي نقص في عدد الدروس عن المحفوظ يوقف المزامنة ولا يحفظ شيئًا؛ الحذف المقصود يؤكده المعلم مرة واحدة
     shrink_pending = models.JSONField("نقص بانتظار التأكيد", default=dict, blank=True,

@@ -42,10 +42,24 @@ class AssignPolicy:
     due_days: int = 2
     due_time: time = time(23, 59)
     allow_late: bool = True
+    # قرار المعلم 2026-11-12: واجب الثلاثاء وتقييم الخميس فقط. أيام الأسبوع (الاثنين=0) التي يُسند تقييم درسها؛
+    # تقييم واحد لكل يوم منها في الأسبوع (آخر دروس اليوم). الفارغ = كل الدروس.
+    weekdays: tuple[int, ...] = ()
 
 
 def policy() -> AssignPolicy:
     return AssignPolicy(**getattr(settings, "NEO_ASSIGN_POLICY", {}))
+
+
+def weekly_pick(lessons: list[PlatformLesson], weekdays: tuple[int, ...]) -> set[int]:
+    """منطق نقي: معرّفات الدروس التي يُسند تقييمها: لكل أسبوع ولكل يوم معتمد آخر درس في ذلك اليوم."""
+    if not weekdays:
+        return {pl.lms_lesson_id for pl in lessons}
+    last: dict[date, PlatformLesson] = {}
+    for pl in lessons:
+        if pl.date and pl.date.weekday() in weekdays and (pl.date not in last or pl.position > last[pl.date].position):
+            last[pl.date] = pl
+    return {pl.lms_lesson_id for pl in last.values()}
 
 
 def plan_window(lesson_date: date, today: date, p: AssignPolicy) -> tuple[datetime, datetime, list[str]]:
@@ -89,13 +103,16 @@ class AssignService:
         run = SyncRun.objects.create(klass=klass, kind=SyncRun.Kind.ASSIGN_PLAN)
 
         lessons = {pl.lms_lesson_id: pl for pl in PlatformLesson.objects.filter(klass=klass)}
-        given, undated, unconfirmed, drafts = [], [], [], []
+        picked = weekly_pick(list(lessons.values()), tuple(p.weekdays))
+        given, undated, unconfirmed, drafts, off_day = [], [], [], [], []
         for a in PlatformAssessment.objects.filter(klass=klass):
             lesson = lessons.get(a.lms_lesson_id)
             if a.given:
                 given.append(a.title)
             elif not lesson or not lesson.date:
                 undated.append(a.title)
+            elif a.lms_lesson_id not in picked:  # ليس واجب الثلاثاء ولا تقييم الخميس: لا يُسند
+                off_day.append(a.title)
             elif not lesson.match_sure:  # الخطوة 1: مطابقة درسه غير مؤكدة، فيُستبعد وينبَّه عليه
                 unconfirmed.append(f"{a.title} ← {safety.unconfirmed_label(lesson)}")
             else:
@@ -109,8 +126,10 @@ class AssignService:
             "already_given": given,
             "no_lesson_date": undated,
             "unconfirmed_match": unconfirmed,
+            "not_weekly": len(off_day),
             "policy": {"begin": p.begin_time.isoformat("minutes"), "due_days": p.due_days,
-                       "due": p.due_time.isoformat("minutes"), "allow_late": p.allow_late},
+                       "due": p.due_time.isoformat("minutes"), "allow_late": p.allow_late,
+                       "weekdays": list(p.weekdays)},
         }
         run.ok, run.finished_at = True, timezone.now()
         run.save()

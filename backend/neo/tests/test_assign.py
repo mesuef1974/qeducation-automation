@@ -8,12 +8,24 @@ from neo.domain.types import ParsedAssessment, ParsedLesson
 from neo.infrastructure.parsers import parse_assessments
 from neo.models import AssignProposal, PlatformAssessment
 from neo.services import safety
-from neo.services.assign_service import AssignPolicy, AssignService, plan_window
+from neo.services.assign_service import (
+    AssignPolicy,
+    AssignService,
+    plan_window,
+    weekly_pick,
+)
 from neo.services.sync_service import SyncService
 from neo.tests.helpers import confirm_matches
 
 FIX = Path(__file__).parent / "fixtures"
 TODAY = date(2026, 11, 2)
+
+
+@pytest.fixture(autouse=True)
+def every_lesson(settings, request):
+    """اختبارات المواعيد الأصلية تفترض إسناد كل درس؛ قاعدة الثلاثاء والخميس تُختبر صراحةً."""
+    if "weekly" not in request.node.name:
+        settings.NEO_ASSIGN_POLICY = {"due_days": 2, "allow_late": True}
 
 
 def test_parse_assessments():
@@ -165,3 +177,38 @@ def test_apply_keeps_existing_windows(setup, settings):
     svc.apply(again, lambda: done, TODAY)
     p = again.assign_proposals.get(assessment__lms_assignment_id=102)
     assert p.status == "skipped" and "الأتمتة" in p.error and 102 not in [w[0] for w in done.windows]
+
+
+def test_weekly_pick_tuesday_and_thursday_one_each(classes):
+    k = classes[602598]
+    SyncService().ingest(k, [
+        ParsedLesson(1, 1, "أ", "", date(2026, 11, 15), 3),   # الأحد
+        ParsedLesson(2, 2, "ب", "", date(2026, 11, 17), 1),   # الثلاثاء
+        ParsedLesson(3, 3, "ج", "", date(2026, 11, 17), 6),   # الثلاثاء (الأخير يُختار)
+        ParsedLesson(4, 4, "د", "", date(2026, 11, 18), 2),   # الأربعاء
+        ParsedLesson(5, 5, "هـ", "", date(2026, 11, 19), 1),  # الخميس
+        ParsedLesson(6, 6, "و", "", date(2026, 11, 24), 1),   # ثلاثاء الأسبوع التالي
+        ParsedLesson(7, 7, "ز", "", None, None),
+    ], [])
+    from neo.models import PlatformLesson
+    lessons = list(PlatformLesson.objects.filter(klass=k))
+    assert weekly_pick(lessons, (1, 3)) == {3, 5, 6}
+    assert weekly_pick(lessons, ()) == {1, 2, 3, 4, 5, 6, 7}
+
+
+def test_weekly_plan_only_proposes_picked_days(classes, settings):
+    settings.NEO_ASSIGN_POLICY = {"due_days": 2, "allow_late": True, "weekdays": (1, 3)}
+    k = classes[602598]
+    SyncService().ingest(k, [
+        ParsedLesson(1, 1, "أ", "", date(2026, 11, 16), 3),   # الاثنين
+        ParsedLesson(2, 2, "ب", "", date(2026, 11, 17), 1),   # الثلاثاء
+        ParsedLesson(3, 3, "ج", "", date(2026, 11, 19), 1),   # الخميس
+    ], [])
+    confirm_matches(k)
+    svc = AssignService()
+    svc.ingest(k, [ParsedAssessment(101, "ت1", 1, False), ParsedAssessment(102, "ت2", 2, False),
+                   ParsedAssessment(103, "ت3", 3, False)])
+    run = svc.plan(k, date(2026, 11, 12))
+    got = {p.assessment.lms_assignment_id: timezone.localtime(p.begin_at).date() for p in run.assign_proposals.all()}
+    assert got == {102: date(2026, 11, 17), 103: date(2026, 11, 19)}
+    assert run.summary["not_weekly"] == 1 and run.summary["policy"]["weekdays"] == [1, 3]
