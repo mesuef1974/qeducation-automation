@@ -645,19 +645,22 @@ class NeoClient:
         """حالة خيار صف من صفحة إعداداته (قراءة فقط)."""
         if name not in self.CLASS_OPTIONS:
             raise PlatformError(f"خيار صف غير مسموح: {name}")
-        self.get_html(f"/class_configure/{self.CLASS_OPTIONS[name]}/{lms_id}")
-        box = self.page.query_selector(f"input#{name}[type=checkbox]")
-        if box is None:
+        html = self.get_html(f"/class_configure/{self.CLASS_OPTIONS[name]}/{lms_id}")
+        tag = re.search(rf'<input[^>]*\bid="{name}"[^>]*>', html)
+        if tag is None:
             raise PlatformError(f"خيار الصف «{name}» غير موجود في صفحة الإعدادات")
-        return box.is_checked()
+        return "checked" in tag.group(0)
 
     def set_class_option(self, lms_id: int, name: str, value: bool) -> bool:
         """ينقر مربع الخيار كما يفعل المعلم إن خالف المطلوب، ثم يتحقق بقراءة جديدة. يعيد True إن غيّر شيئًا."""
         if self.class_option(lms_id, name) == value:
             return False
         self._throttle()
-        with self.page.expect_response(lambda r: "class_configure" in r.url or "configure" in r.url, timeout=15000):
-            self.page.click(f"input#{name}")
+        self.page.goto(f"{BASE_URL}/class_configure/{self.CLASS_OPTIONS[name]}/{lms_id}", wait_until="load")
+        if is_login_url(self.page.url):
+            raise NotLoggedIn("انتهت الجلسة - شغّل: python manage.py neo_login")
+        self.page.click(f"input#{name}")
+        self.page.wait_for_load_state("networkidle")
         if self.class_option(lms_id, name) != value:
             raise PlatformError(f"لم يثبت خيار الصف «{name}» بعد النقر")
         return True
