@@ -659,7 +659,8 @@ class NeoClient:
         self.page.goto(f"{BASE_URL}/class_configure/{self.CLASS_OPTIONS[name]}/{lms_id}", wait_until="load")
         if is_login_url(self.page.url):
             raise NotLoggedIn("انتهت الجلسة - شغّل: python manage.py neo_login")
-        self.page.click(f"input#{name}")
+        # المربع مخفي خلف تسمية مخصّصة: نقر DOM يشغّل معالج المنصة (configure_class) كما يفعل نقر التسمية
+        self.page.evaluate("(id) => document.getElementById(id).click()", name)
         self.page.wait_for_load_state("networkidle")
         if self.class_option(lms_id, name) != value:
             raise PlatformError(f"لم يثبت خيار الصف «{name}» بعد النقر")
