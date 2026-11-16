@@ -27,8 +27,13 @@ def test_parse_sections():
     assert kinds == [("powerpoint", "العرض "), ("movieStrip", "فيديو "), ("sparkle", "قسم من"), ("quiz", "التقيي")]
 
 
+def test_short_description_flagged():
+    q = LessonQuality(False, "وصف قصير", ("عرض", "فيديو", "تقييم"), True)
+    assert q.issues() == ["short_description"]
+
+
 def test_quality_rules():
-    good = LessonQuality(False, "ستتعلم...", ("عرض", "فيديو", "تقييم"), True)
+    good = LessonQuality(False, "ستتعلم أن تحل معادلات خطية بمجهول واحد باستخدام خصائص المساواة، وتتحقق من صحة الحل بالتعويض، وتفسر الناتج في سياق مسألة حياتية.", ("عرض", "فيديو", "تقييم"), True)
     assert good.issues() == [] and good.has_assessment
     bad = LessonQuality(True, "  ", ("عرض",), False)
     assert bad.issues() == ["generic_image", "no_description", "few_sections", "no_assessment", "no_outcomes"]
@@ -58,7 +63,7 @@ def test_audit_records_and_feeds_scorecard(classes):
     k = classes[LMS]
     SyncService().ingest(k, [
         ParsedLesson(16646488, 1, "تهيئة", "", date(2026, 8, 30), 3),
-        ParsedLesson(17844979, 28, "حل المعادلات", "ستتعلم أن...", date(2026, 11, 2), 1),
+        ParsedLesson(17844979, 28, "حل المعادلات", "ستتعلم أن تحل معادلات خطية بمجهول واحد باستخدام خصائص المساواة، وتتحقق من صحة الحل بالتعويض، وتفسر الناتج في سياق مسألة حياتية.", date(2026, 11, 2), 1),
         ParsedLesson(99, 47, "ليس في القائمة", "", None, None),
     ], [])
     run = AuditService().run([k], lambda: Client({17844979: SECTIONS}))[0]

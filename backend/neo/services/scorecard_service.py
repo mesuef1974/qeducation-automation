@@ -83,7 +83,7 @@ def build(today: date) -> dict:
                    detail=(f"{complete} من {audited} درسًا مستوفٍ (صورة من المحتوى، ووصف، و3 أقسام فأكثر، وتقييم، ونتاج)"
                            if audited else f"{lessons['described']} من {lessons['total']} درسًا له وصف؛ لم يُدقَّق بعد"),
                    next_step="إضافة الناقص باعتمادك: البطاقة والوصف أولًا، ثم الأقسام والتقييم"),
-        _criterion("reliability", "الموثوقية", _pct(applies["ok"], applies["total"]), 98,
+        _criterion("reliability", "الموثوقية", _pct(applies["ok"], applies["total"]), 99,
                    detail=f"{applies['ok']} من {applies['total']} عملية تطبيق سليمة؛ "
                           f"آخر تحقق سليم في {verify_ok} من {len(last_verify)} صف",
                    next_step="فحص شكل المنصة قبل كل تشغيل، وتوقف عند عدد تغييرات غير مألوف"),

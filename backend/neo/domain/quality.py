@@ -11,10 +11,12 @@ SECTION_KINDS = {
 }
 ASSESSMENT_KINDS = {SECTION_KINDS["quiz"], SECTION_KINDS["assignment"]}  # بالتسمية بعد التحويل
 MIN_SECTIONS = 3  # تهيئة، وشرح، وتقييم على الأقل
+MIN_DESCRIPTION = 120  # معيار الخطوة ٢: الوصف 120 حرفًا على الأقل
 
 ISSUES = {
     "generic_image": "صورة عامة",
     "no_description": "بلا وصف",
+    "short_description": f"وصف أقصر من {MIN_DESCRIPTION} حرفًا",
     "few_sections": f"أقل من {MIN_SECTIONS} أقسام",
     "no_assessment": "بلا تقييم",
     "no_outcomes": "بلا نتاج",
@@ -40,6 +42,8 @@ class LessonQuality:
             found.append("generic_image")
         if not self.description.strip():
             found.append("no_description")
+        elif len(self.description.strip()) < MIN_DESCRIPTION:
+            found.append("short_description")
         if len(self.section_kinds) < MIN_SECTIONS:
             found.append("few_sections")
         if not self.has_assessment:

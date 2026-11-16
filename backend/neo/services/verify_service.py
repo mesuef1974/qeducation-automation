@@ -30,7 +30,7 @@ class VisibilityReport:
 
     @property
     def ok(self) -> bool:
-        return not (self.missing or self.today_missing)
+        return not (self.missing or self.today_missing or self.unexpected)  # المخفي الظاهر يُفشل التحقق
 
 
 def compare(lessons: list[PlatformLesson], tiles: set[int], today_ids: set[int], today: date) -> VisibilityReport:

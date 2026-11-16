@@ -36,6 +36,11 @@ def test_compare(classes):
     assert r.today_missing == [3] and r.hidden == [5] and not r.ok
 
 
+def test_hidden_but_seen_alone_fails(classes):
+    r = compare(lessons(classes[602598]), tiles={1, 2, 5}, today_ids={3}, today=TODAY)
+    assert r.unexpected == [5] and not r.missing and not r.today_missing and not r.ok
+
+
 def test_record(classes):
     k = classes[602598]
     lessons(k)

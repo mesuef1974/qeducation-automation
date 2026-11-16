@@ -34,8 +34,8 @@ def test_parse_tags():
 
 
 def test_quality_flags_missing_tags_only_when_known():
-    assert "no_tags" in LessonQuality(False, "و", ("عرض", "صفحة", "تقييم"), True, False).issues()
-    assert LessonQuality(False, "و", ("عرض", "صفحة", "تقييم"), True).issues() == []
+    assert "no_tags" in LessonQuality(False, "ستتعلم أن تحل معادلات خطية بمجهول واحد باستخدام خصائص المساواة، وتتحقق من صحة الحل بالتعويض، وتفسر الناتج في سياق مسألة حياتية.", ("عرض", "صفحة", "تقييم"), True, False).issues()
+    assert LessonQuality(False, "ستتعلم أن تحل معادلات خطية بمجهول واحد باستخدام خصائص المساواة، وتتحقق من صحة الحل بالتعويض، وتفسر الناتج في سياق مسألة حياتية.", ("عرض", "صفحة", "تقييم"), True).issues() == []
 
 
 class TagClient(Client):
