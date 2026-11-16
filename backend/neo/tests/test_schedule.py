@@ -116,3 +116,33 @@ def test_weekly_read_marks_report(client, db):
     r = client.post("/api/neo/weekly/read/")
     job.refresh_from_db()
     assert r.status_code == 200 and job.report["read_at"] == r.json()["read_at"] and job.report["attention"] == 0
+
+
+def test_verify_due_now(db):
+    from datetime import datetime, timedelta
+
+    from neo.services import weekly_service as w
+    tz = timezone.get_current_timezone()
+
+    def at(d, h, m):
+        return datetime(2026, 11, d, h, m, tzinfo=tz)
+    assert not w.verify_due_now(at(15, 6, 29))      # الأحد قبل 6:30
+    assert w.verify_due_now(at(15, 6, 30))          # الأحد 6:30
+    assert not w.verify_due_now(at(13, 8, 0))       # الجمعة
+    job = Job.objects.create(kind=Job.Kind.VERIFY, key="verify:{}")
+    Job.objects.filter(pk=job.pk).update(created_at=at(15, 6, 31))
+    assert not w.verify_due_now(at(15, 9, 0))       # طُابِر اليوم
+    assert w.verify_due_now(at(15, 6, 31) + timedelta(days=1))  # الإثنين التالي
+
+
+def test_declining_two_days(db):
+    from datetime import date, timedelta
+
+    from neo.models import ScorecardSnapshot
+    from neo.services import scorecard_service as sc
+    today = date(2026, 11, 16)
+    assert sc.declining(today) == []                # لا لقطة أمس
+    snap = sc.build(today - timedelta(days=1))
+    ScorecardSnapshot.objects.create(day=today - timedelta(days=1), data=snap)
+    low = {c["key"] for c in sc.build(today)["criteria"] if c["measured"] and c["value"] < c["target"]}
+    assert {i["key"] for i in sc.declining(today)} == low and "engagement" not in low

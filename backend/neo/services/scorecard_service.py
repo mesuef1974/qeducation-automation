@@ -2,11 +2,12 @@
 بطاقة الأداء: المعايير الثمانية بقيمها الحالية ومستهدفاتها، مما في قاعدة البيانات ومخزون domain/scorecard.
 لا يلمس المنصة. اللقطة اليومية (snapshot) تحفظ القيم ليُقاس التحسن على خط الأساس (أول لقطة).
 """
-from datetime import date
+from datetime import date, timedelta
 
 from django.db.models import Count, Q
 
 from neo.domain.scorecard import CAPABILITIES, COMPLIANCE, LEVELS, TASKS
+from neo.services import alerts
 from neo.models import (
     LessonAudit,
     PlatformAssessment,
@@ -105,6 +106,33 @@ def build(today: date) -> dict:
 def snapshot(today: date) -> tuple[ScorecardSnapshot, bool]:
     """لقطة اليوم؛ إعادة الطلب في اليوم نفسه تحدّثها ولا تكررها."""
     return ScorecardSnapshot.objects.update_or_create(day=today, defaults={"data": build(today)})
+
+
+def declining(today: date) -> list[dict]:
+    """
+    معايير مقاسة بقيت تحت هدفها في آخر لقطتين متتاليتين (أمس واليوم): الاسم والقيمة والهدف والخطوة التالية.
+    اللقطة الناقصة (يوم بلا لقطة) لا تُعدّ تتابعًا.
+    """
+    yesterday = today - timedelta(days=1)
+    prev = ScorecardSnapshot.objects.filter(day=yesterday).first()
+    if prev is None:
+        return []
+    before = {c["key"]: c for c in prev.data["criteria"]}
+    out = []
+    for c in build(today)["criteria"]:
+        old = before.get(c["key"])
+        if not (c["measured"] and old and old.get("measured")):
+            continue
+        if c["value"] < c["target"] and old["value"] < old["target"]:
+            out.append({"key": c["key"], "title": c["title"], "value": c["value"], "target": c["target"],
+                        "unit": c["unit"], "next": c["next"]})
+    return out
+
+
+def alert_declines(today: date) -> bool:
+    """تنبيه ويندوز مرة في اليوم بالمعايير الهابطة مع السبب والخطوة التالية؛ بلا هبوط لا تنبيه."""
+    items = declining(today)
+    return bool(items) and alerts.decline(items)
 
 
 def history() -> dict:

@@ -96,6 +96,18 @@ def session_check_due(now: datetime, on_start: bool = False) -> bool:
     return now >= since and not jobs.filter(created_at__gte=since).exists()
 
 
+VERIFY_TIME = (6, 30)           # التحقق من منظور الطالب كل يوم دراسي 6:30 (الخطوة ٦)
+SCHOOL_WEEKDAYS = (6, 0, 1, 2, 3)  # الأحد إلى الخميس
+
+
+def verify_due_now(now: datetime) -> bool:
+    """يوم دراسي من 6:30، ولم يُطابَر تحقق منذ ذلك الموعد (يشمل التشغيل المتأخر إن كان الجهاز مطفأً). قراءة فقط."""
+    if now.weekday() not in SCHOOL_WEEKDAYS:
+        return False
+    since = now.replace(hour=VERIFY_TIME[0], minute=VERIFY_TIME[1], second=0, microsecond=0)
+    return now >= since and not Job.objects.filter(kind=Job.Kind.VERIFY, created_at__gte=since).exists()
+
+
 GIVE_HOURS = (7, 21)  # إسناد تقييم اليوم بين 7:00 و21:00
 
 

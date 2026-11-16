@@ -18,7 +18,7 @@ from django.utils import autoreload, timezone
 
 from neo.infrastructure.client import kill_orphan_browsers
 from neo.models import Job
-from neo.services import backup_service, weekly_service
+from neo.services import backup_service, scorecard_service, weekly_service
 from neo.services.job_service import (
     HEARTBEAT_S,
     JobService,
@@ -126,6 +126,9 @@ class Command(BaseCommand):
                     backup_service.run_if_due(now.date())  # نسخة اليوم مرة واحدة، والعامل خامل الآن
                     if weekly_service.session_check_due(now):  # الخطوة 0: كل صباح قبل أي مهمة مجدولة
                         svc.enqueue(Job.Kind.SESSION)
+                    if weekly_service.verify_due_now(now):  # الخطوة ٦: 6:30 كل يوم دراسي
+                        svc.enqueue(Job.Kind.VERIFY)
+                    scorecard_service.alert_declines(now.date())  # الخطوة ٧: معيار تحت هدفه يومين متتاليين
                     if weekly_service.give_due_now(now):  # واجب الثلاثاء وتقييم الخميس في يومهما
                         svc.enqueue(Job.Kind.ASSIGN_GIVE)
                     if due := weekly_service.enqueue_due(now, svc.enqueue):

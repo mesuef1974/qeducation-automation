@@ -100,6 +100,8 @@ def quiet_worker(monkeypatch):
     monkeypatch.setattr(neo_worker, "kill_orphan_browsers", lambda: 0)
     monkeypatch.setattr(neo_worker.backup_service, "run_if_due", lambda day: None)
     monkeypatch.setattr(neo_worker.weekly_service, "session_check_due", lambda *a, **k: False)  # لا تعتمد على يوم الأسبوع
+    monkeypatch.setattr(neo_worker.weekly_service, "verify_due_now", lambda *a, **k: False)
+    monkeypatch.setattr(neo_worker.scorecard_service, "alert_declines", lambda *a, **k: False)
     monkeypatch.setattr(neo_worker.weekly_service, "enqueue_due", lambda *a, **k: None)
     monkeypatch.delenv("NEO_WORKER_RESTART", raising=False)
 

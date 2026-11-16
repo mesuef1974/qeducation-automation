@@ -41,5 +41,14 @@ def session_expired() -> bool:
                         ("سجّل الدخول", notify.app_url("?login=1")), key="session", every_s=3600)
 
 
+def decline(items: list[dict]) -> bool:
+    """الخطوة ٧: معيار بقي تحت هدفه يومين متتاليين، مع الخطوة التالية للأول."""
+    names = "، ".join(f"{i['title']} ({i['value']}{'%' if i['unit'] == '%' else ' ' + i['unit']} من {i['target']})"
+                      for i in items[:3])
+    nxt = next((i["next"] for i in items if i["next"]), "")
+    return notify.toast("معايير تحت هدفها يومين متتاليين", names + (f". التالي: {nxt}" if nxt else ""),
+                        ("افتح بطاقة الأداء", notify.app_url()), key="decline", every_s=20 * 3600)
+
+
 def halted(reason: str) -> bool:
     return notify.toast("أُوقفت الكتابة على المنصة", reason[:200], ("راجع السبب", notify.app_url()))
