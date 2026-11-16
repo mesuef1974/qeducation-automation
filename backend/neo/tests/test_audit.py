@@ -58,6 +58,11 @@ class Client:
     def lesson_tags(self, lms_id, lesson_id):
         return ["كلمة"]
 
+    quiz_counts = [5]
+
+    def quiz_question_counts(self, lms_id, lesson_id):
+        return self.quiz_counts
+
 
 def test_audit_records_and_feeds_scorecard(classes):
     k = classes[LMS]
@@ -79,3 +84,14 @@ def test_audit_records_and_feeds_scorecard(classes):
     # إعادة التدقيق تحدّث ولا تكرر
     AuditService().run([k], lambda: Client({17844979: SECTIONS}))
     assert LessonAudit.objects.count() == 2
+
+
+def test_few_questions_flagged():
+    from neo.infrastructure.parsers import parse_question_count
+    good = ("عرض", "فيديو", "تقييم")
+    long = "ستتعلم أن تحل معادلات خطية بمجهول واحد باستخدام خصائص المساواة، وتتحقق من صحة الحل بالتعويض، وتفسر الناتج في سياق مسألة حياتية."
+    assert LessonQuality(False, long, good, True, True, (4,)).issues() == ["few_questions"]
+    assert LessonQuality(False, long, good, True, True, (5, 6)).issues() == []
+    assert LessonQuality(False, long, good, True, True, ()).issues() == []  # لم يُقرأ: لا نقص مُختلق
+    html = "".join(f'<a href="/quiz_question_bank/show_question/9?container_id=1&amp;position={i}">' for i in (1, 2, 2, 3))
+    assert parse_question_count(html) == 3

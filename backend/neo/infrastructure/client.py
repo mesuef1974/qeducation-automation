@@ -31,6 +31,7 @@ from neo.infrastructure.parsers import (
     parse_outcomes,
     parse_points_actions,
     parse_points_games,
+    parse_question_count,
     parse_question_text,
     parse_sections,
     parse_tags,
@@ -443,6 +444,18 @@ class NeoClient:
         if n < len(questions):
             raise PlatformError(f"في التقييم {assignment_id} {n} من {len(questions)} سؤالًا")
         return assignment_id
+
+    def quiz_question_counts(self, lms_id: int, lesson_id: int) -> list[int]:
+        """أسئلة كل تقييم ذاتي التصحيح في الدرس (قراءة فقط)؛ تقييم لم يُحدَّد معرّفه يُتجاوز ولا يُختلق نقصه."""
+        counts = []
+        for s in parse_sections(self.lesson_page_html(lms_id, lesson_id)):
+            if s.kind != "quiz":
+                continue
+            html = self.get_html(f"/teacher_lesson/show/{lms_id}?lesson_id={lesson_id}&section_id={s.section_id}")
+            ids = set(re.findall(r"teacher_quiz_assignment/\w+/(\d+)", html))
+            if len(ids) == 1:
+                counts.append(parse_question_count(self.get_html(f"/teacher_quiz_assignment/questions/{ids.pop()}")))
+        return counts
 
     def _find_quiz(self, lms_id: int, lesson_id: int, name: str) -> int | None:
         section = next((s for s in parse_sections(self.lesson_page_html(lms_id, lesson_id)) if s.title == name), None)

@@ -23,17 +23,20 @@ class AuditService:
         with client_factory() as client:  # لا ORM هنا
             for k in classes:
                 tiles = parse_tiles(client.lesson_list_html(k.lms_id))
-                sections, tags = {}, {}
+                sections, tags, quizzes = {}, {}, {}
                 for i, pl in enumerate(lessons[k.pk], 1):
                     live.step(f"أقسام الدروس · {k.name}", i, len(lessons[k.pk]))
                     sections[pl.lms_lesson_id] = parse_sections(client.lesson_page_html(k.lms_id, pl.lms_lesson_id))
                     tags[pl.lms_lesson_id] = client.lesson_tags(k.lms_id, pl.lms_lesson_id)
-                pages[k.pk] = (tiles, sections, tags)
+                    if any(s.kind == "quiz" for s in sections[pl.lms_lesson_id]):
+                        quizzes[pl.lms_lesson_id] = tuple(client.quiz_question_counts(k.lms_id, pl.lms_lesson_id))
+                pages[k.pk] = (tiles, sections, tags, quizzes)
         return [self.record(k, lessons[k.pk], *pages[k.pk]) for k in classes]
 
     @transaction.atomic
     def record(self, klass: PlatformClass, lessons: list[PlatformLesson], tiles: list[ParsedTile],
-               sections: dict[int, list[ParsedSection]], tags: dict[int, list[str]] | None = None) -> SyncRun:
+               sections: dict[int, list[ParsedSection]], tags: dict[int, list[str]] | None = None,
+               quizzes: dict[int, tuple[int, ...]] | None = None) -> SyncRun:
         now = timezone.now()
         by_id = {t.lms_lesson_id: t for t in tiles}
         issues, missing, complete = Counter(), [], 0
@@ -44,7 +47,8 @@ class AuditService:
                 continue
             kinds = tuple(SECTION_KINDS.get(s.kind, s.kind) for s in sections.get(pl.lms_lesson_id, []))
             has_tags = bool(tags[pl.lms_lesson_id]) if tags and pl.lms_lesson_id in tags else True  # لم يُقرأ: لا نقص مُختلق
-            q = LessonQuality(tile.image_default, pl.description, kinds, tile.has_outcomes, has_tags)
+            q = LessonQuality(tile.image_default, pl.description, kinds, tile.has_outcomes, has_tags,
+                              (quizzes or {}).get(pl.lms_lesson_id, ()))
             found = q.issues()
             issues.update(found)
             complete += not found

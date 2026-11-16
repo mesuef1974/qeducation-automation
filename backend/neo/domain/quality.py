@@ -11,6 +11,7 @@ SECTION_KINDS = {
 }
 ASSESSMENT_KINDS = {SECTION_KINDS["quiz"], SECTION_KINDS["assignment"]}  # بالتسمية بعد التحويل
 MIN_SECTIONS = 3  # تهيئة، وشرح، وتقييم على الأقل
+MIN_QUESTIONS = 5  # معيار الخطوة ٢: تقييم ذاتي التصحيح بـ 5 أسئلة فأكثر
 MIN_DESCRIPTION = 120  # معيار الخطوة ٢: الوصف 120 حرفًا على الأقل
 
 ISSUES = {
@@ -19,6 +20,7 @@ ISSUES = {
     "short_description": f"وصف أقصر من {MIN_DESCRIPTION} حرفًا",
     "few_sections": f"أقل من {MIN_SECTIONS} أقسام",
     "no_assessment": "بلا تقييم",
+    "few_questions": f"تقييم بأقل من {MIN_QUESTIONS} أسئلة",
     "no_outcomes": "بلا نتاج",
     "no_tags": "بلا كلمات دلالية",
 }
@@ -31,6 +33,7 @@ class LessonQuality:
     section_kinds: tuple[str, ...]  # أنواع الأقسام بترتيبها (تسميات SECTION_KINDS)
     has_outcomes: bool
     has_tags: bool = True
+    quiz_questions: tuple[int, ...] = ()  # أسئلة كل تقييم ذاتي التصحيح؛ فارغ = لم يُقرأ
 
     @property
     def has_assessment(self) -> bool:
@@ -48,6 +51,8 @@ class LessonQuality:
             found.append("few_sections")
         if not self.has_assessment:
             found.append("no_assessment")
+        if any(n < MIN_QUESTIONS for n in self.quiz_questions):
+            found.append("few_questions")
         if not self.has_outcomes:
             found.append("no_outcomes")
         if not self.has_tags:

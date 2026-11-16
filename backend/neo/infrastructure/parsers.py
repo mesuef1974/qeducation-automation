@@ -196,6 +196,11 @@ def is_login_page(html: str) -> bool:
     return 'action="/log_in' in html or "id=\"login_form\"" in html
 
 
+def parse_question_count(html: str) -> int:
+    """عدد أسئلة تقييم من صفحة أسئلته (مواضع show_question المتميزة)."""
+    return len(set(re.findall(r"show_question/\d+\?container_id=\d+&(?:amp;)?position=(\d+)", html)))
+
+
 def parse_question_text(html: str) -> str:
     """نص السؤال من صفحة عرضه في بنك الأسئلة: أول div.materialStyle بعد عنوان النوع، بلا وسوم ولا فراغات زائدة."""
     node = BeautifulSoup(html, "html.parser").select_one("div.materialStyle")
